@@ -671,6 +671,26 @@
         color: var(--accent-strong);
       }
 
+      /* ── Migration log ─────────────────────────────────────────────── */
+      #migration-log {
+        background: var(--console-bg);
+        color: var(--console-ink);
+        border-radius: 18px;
+        padding: 14px 16px;
+        font-family: "SFMono-Regular", "Menlo", monospace;
+        font-size: 0.82rem;
+        line-height: 1.6;
+        max-height: 280px;
+        overflow-y: auto;
+        margin-bottom: 10px;
+        scroll-behavior: smooth;
+      }
+      #migration-log .log-item { display: flex; gap: 8px; }
+      #migration-log .log-ok   { color: #4ade80; }
+      #migration-log .log-warn { color: #fbbf24; }
+      #migration-log .log-info { color: #94a3b8; }
+      #migration-log .log-item-row { color: #64748b; }
+
       /* ── Result view container ─────────────────────────────────────── */
       #result-view .rv-body {
         padding: 2px 0 8px;
@@ -1069,6 +1089,7 @@
           <section class="panel">
             <h2 class="side-title" data-i18n="output_title"></h2>
             <p class="hint" data-i18n="output_hint"></p>
+            <div id="migration-log" hidden></div>
             <div id="result-view" hidden></div>
             <details id="result-raw-details">
               <summary data-i18n="result_raw_json"></summary>
@@ -1246,6 +1267,7 @@
       const statusNode = document.getElementById("status");
       const resultNode = document.getElementById("result");
       const resultViewNode = document.getElementById("result-view");
+      const migrationLogNode = document.getElementById("migration-log");
       const outputRootField = form.elements.namedItem("outputRoot");
       const configPathField = form.elements.namedItem("configPath");
       const planPreview = document.getElementById("plan-preview");
@@ -2646,16 +2668,50 @@
         resultViewNode.hidden = false;
       }
 
+      let logSeenCount = 0;
+
+      function appendLogItems(items) {
+        if (!items?.length) return;
+        const levelClass = { ok: "log-ok", warn: "log-warn", info: "log-info", item: "log-item-row" };
+        const levelPrefix = { ok: "✓", warn: "⚠", info: "→", item: "·" };
+        for (const entry of items) {
+          const row = document.createElement("div");
+          row.className = `log-item ${levelClass[entry.level] ?? "log-info"}`;
+          row.textContent = `${levelPrefix[entry.level] ?? " "} ${entry.msg}`;
+          migrationLogNode.appendChild(row);
+        }
+        migrationLogNode.scrollTop = migrationLogNode.scrollHeight;
+      }
+
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         setBusy(true);
+        logSeenCount = 0;
+        migrationLogNode.innerHTML = "";
+        migrationLogNode.hidden = false;
+        resultViewNode.hidden = true;
         setStatus(t("status_running"));
         try {
-          const data = await callApi("/api/run", getPayload());
-          resultNode.textContent = JSON.stringify({ ...data, deploymentPlan: getPlanState() }, null, 2);
-          renderMigrationResult(data.report, getPayload().dryRun);
-          configPathField.value = data.configPath;
-          lastSuggestedConfigPath = data.configPath;
+          const startData = await callApi("/api/run", getPayload());
+          configPathField.value = startData.configPath;
+          lastSuggestedConfigPath = startData.configPath;
+
+          let result;
+          while (true) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            const statusData = await fetch(`/api/run/${startData.jobId}`).then((r) => r.json());
+
+            // Append any new log entries
+            const newItems = (statusData.log ?? []).slice(logSeenCount);
+            appendLogItems(newItems);
+            logSeenCount += newItems.length;
+
+            if (statusData.status === "done") { result = statusData; break; }
+            if (statusData.status === "error") { throw new Error(statusData.error); }
+          }
+
+          resultNode.textContent = JSON.stringify({ ...result, deploymentPlan: getPlanState() }, null, 2);
+          renderMigrationResult(result.report, getPayload().dryRun);
           setStatus(t("status_done"));
         } catch (error) {
           setStatus(error.message, true);

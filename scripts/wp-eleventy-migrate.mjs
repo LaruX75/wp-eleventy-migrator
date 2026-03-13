@@ -1724,7 +1724,7 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   };
 }
 
-async function runMigration(configPath, explicitConfig) {
+async function runMigration(configPath, explicitConfig, progress = () => {}) {
   const config = explicitConfig || JSON.parse(await fs.readFile(configPath, "utf8"));
   const report = {
     startedAt: new Date().toISOString(),
@@ -1740,6 +1740,9 @@ async function runMigration(configPath, explicitConfig) {
     return report;
   }
 
+  progress("info", `Migraatio käynnistetty → ${config.wpBaseUrl}`);
+  progress("info", `Tulostehakemisto: ${config.outputRoot}${config.dryRun ? " (dry run)" : ""}`);
+
   const root = path.resolve(process.cwd(), config.outputRoot);
   const contentRoot = path.join(root, config.contentDir);
   const mediaRoot = path.join(root, config.mediaDir);
@@ -1748,6 +1751,7 @@ async function runMigration(configPath, explicitConfig) {
   await fs.mkdir(contentRoot, { recursive: true });
   if (config.downloadMedia) await fs.mkdir(mediaRoot, { recursive: true });
   if (config.importMenus) await fs.mkdir(dataRoot, { recursive: true });
+
   if (config.convertKadenceBlocks) {
     const allKadenceBlocks = config.preset === "kadence-pro"
       ? [...SUPPORTED_KADENCE_BLOCKS, ...SUPPORTED_KADENCE_PRO_BLOCKS]
@@ -1757,7 +1761,10 @@ async function runMigration(configPath, explicitConfig) {
       supportedBlocks: allKadenceBlocks,
       proBlocks: config.preset === "kadence-pro"
     };
-    if (!config.dryRun) await writeKadencePartials(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR, config.preset);
+    if (!config.dryRun) {
+      await writeKadencePartials(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR, config.preset);
+      progress("ok", `Kirjoitettu ${allKadenceBlocks.length} Kadence-blokkipartiaalia`);
+    }
   }
 
   if (config.convertKadenceBlocks && config.htmlMode === "basic-markdown") {
@@ -1767,10 +1774,13 @@ async function runMigration(configPath, explicitConfig) {
   if (config.useNunjucksLayouts) {
     if (!config.dryRun) {
       try {
+        progress("info", "Generoidaan Nunjucks-layoutit…");
         const generatedLayouts = await generateLayouts(config, root);
         report.layouts = { generated: generatedLayouts };
+        progress("ok", `Layoutit: ${generatedLayouts.map((p) => path.basename(p)).join(", ")}`);
       } catch (err) {
         report.warnings.push(`Layout generation failed: ${String(err.message || err)}`);
+        progress("warn", `Layouttien generointi epäonnistui: ${err.message}`);
       }
     } else {
       report.layouts = { generated: [], note: "Layout files will be generated on non-dry-run" };
@@ -1781,11 +1791,15 @@ async function runMigration(configPath, explicitConfig) {
   if (config.authMode === "app-password" && config.wpUser && config.wpAppPassword) {
     const token = Buffer.from(`${config.wpUser}:${config.wpAppPassword}`).toString("base64");
     headers.Authorization = `Basic ${token}`;
+    progress("ok", "Autentikointi: app-password");
   } else if (config.authMode === "bearer" && config.wpBearerToken) {
     headers.Authorization = `Bearer ${config.wpBearerToken}`;
+    progress("ok", "Autentikointi: bearer token");
   }
 
   const baseApi = joinUrl(config.wpBaseUrl, config.restNamespace || DEFAULT_NAMESPACE);
+
+  progress("info", "Haetaan taksonomiat (kategoriat, tagit)…");
   printStep("fetch", `Taxonomies from ${baseApi}`);
   const [cats, tags] = await Promise.all([
     fetchAllPages(`${baseApi}/categories`, headers).catch(() => []),
@@ -1793,17 +1807,22 @@ async function runMigration(configPath, explicitConfig) {
   ]);
   const categoryMap = new Map(cats.map((c) => [c.id, c.name]));
   const tagMap = new Map(tags.map((t) => [t.id, t.name]));
+  progress("ok", `Taksonomiat: ${cats.length} kategoriaa, ${tags.length} tagia`);
 
   if (config.migrateStyles) {
+    progress("info", "Haetaan tyylitiedostot ja design tokens…");
     printStep("fetch", "Stylesheets and design tokens");
     try {
       await migrateStyles(config, root, report, headers);
+      progress("ok", `Tyylit siirretty${report.styles?.downloaded ? ` (${report.styles.downloaded} tiedostoa)` : ""}`);
     } catch (err) {
       report.warnings.push(`Style migration failed: ${String(err.message || err)}`);
+      progress("warn", `Tyylien siirto epäonnistui: ${err.message}`);
     }
   }
 
   if (config.importMenus) {
+    progress("info", "Haetaan valikot…");
     printStep("fetch", "Menus (best effort)");
     const menuResult = await fetchMenus(config.wpBaseUrl, headers, report.warnings);
     report.menus = {
@@ -1814,8 +1833,10 @@ async function runMigration(configPath, explicitConfig) {
       const navigationPath = path.join(dataRoot, "navigation.json");
       report.menus.outputPath = navigationPath;
       if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(menuResult.menus, null, 2)}\n`, "utf8");
+      progress("ok", `Valikot: ${menuResult.menus.length} kpl (lähde: ${menuResult.source})`);
     } else {
       report.warnings.push("No menu structure was imported. WordPress menus often need a dedicated menu REST endpoint or plugin.");
+      progress("warn", "Valikkoja ei löydetty");
     }
   }
 
@@ -1826,6 +1847,7 @@ async function runMigration(configPath, explicitConfig) {
     const endpoint = config.authMode !== "none"
       ? `${endpointBase}?context=edit&_embed=1`
       : baseWithEmbed;
+    progress("info", `Haetaan ${type}…`);
     printStep("fetch", `${type} -> ${endpoint}`);
     let items;
     try {
@@ -1833,12 +1855,14 @@ async function runMigration(configPath, explicitConfig) {
     } catch (err) {
       if (endpoint !== baseWithEmbed) {
         report.warnings.push(`Falling back to rendered content for ${type}: ${String(err.message || err)}`);
+        progress("warn", `Fallback renderöityyn sisältöön (${type})`);
         items = await fetchAllPages(baseWithEmbed, headers);
       } else {
         throw err;
       }
     }
     if (!config.includeDrafts) items = items.filter((i) => i?.status === "publish");
+    progress("ok", `${type}: ${items.length} julkaistua kohdetta haettu`);
 
     const outTypeDir = path.join(contentRoot, typeSlug);
     await fs.mkdir(outTypeDir, { recursive: true });
@@ -1853,6 +1877,7 @@ async function runMigration(configPath, explicitConfig) {
       const content = `${frontMatter}\n${doc.body}\n`;
       if (!config.dryRun) await fs.writeFile(filePath, content, "utf8");
       written += 1;
+      progress("item", `${typeSlug}/${fileName}`);
 
       if (config.createRedirects && item?.link) report.redirects.push({ from: item.link, to: doc.permalink });
 
@@ -1864,7 +1889,10 @@ async function runMigration(configPath, explicitConfig) {
             const urlObj = new URL(mediaUrl);
             const relPath = urlObj.pathname.replace(/^\/+/, "");
             const outPath = path.join(mediaRoot, ...relPath.split("/").map(sanitizeFileSegment));
-            if (!(await fileExists(outPath))) await downloadFile(mediaUrl, outPath, headers);
+            if (!(await fileExists(outPath))) {
+              await downloadFile(mediaUrl, outPath, headers);
+              progress("item", `media: ${path.basename(outPath)}`);
+            }
           } catch (err) {
             report.warnings.push(`Media failed for ${item?.id || "?"}: ${String(err.message || err)}`);
           }
@@ -1872,6 +1900,7 @@ async function runMigration(configPath, explicitConfig) {
       }
     }
     report.totals[typeSlug] = written;
+    progress("ok", `${type} valmis: kirjoitettu ${written} tiedostoa`);
   }
 
   if (config.createRedirects) {
@@ -1879,12 +1908,15 @@ async function runMigration(configPath, explicitConfig) {
     const csv = ["source,destination,status", ...report.redirects.map((r) => `${JSON.stringify(r.from)},${JSON.stringify(r.to)},301`)].join("\n");
     if (!config.dryRun) await fs.writeFile(redirectsPath, `${csv}\n`, "utf8");
     report.redirectsPath = redirectsPath;
+    progress("ok", `Uudelleenohjaukset: ${report.redirects.length} kpl → redirects.csv`);
   }
 
   report.finishedAt = new Date().toISOString();
   report.outputRoot = root;
   report.reportPath = path.join(root, "migration-report.json");
   if (!config.dryRun) await fs.writeFile(report.reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  const totalItems = Object.values(report.totals).reduce((s, n) => s + n, 0);
+  progress("ok", `✓ Migraatio valmis — ${totalItems} kohdetta siirretty${config.dryRun ? " (dry run)" : ""}`);
   return report;
 }
 
@@ -2066,11 +2098,15 @@ async function serveUi(port = 4173) {
           await fs.writeFile(planPath, `${JSON.stringify(deploymentPlan, null, 2)}\n`, "utf8");
         }
         const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        jobs.set(jobId, { status: "running" });
-        runMigration(absolutePath, config).then((report) => {
-          jobs.set(jobId, { status: "done", configPath: absolutePath, report });
+        const log = [];
+        const progress = (level, msg) => {
+          log.push({ level, msg, t: new Date().toISOString() });
+        };
+        jobs.set(jobId, { status: "running", log });
+        runMigration(absolutePath, config, progress).then((report) => {
+          jobs.set(jobId, { status: "done", configPath: absolutePath, report, log });
         }).catch((err) => {
-          jobs.set(jobId, { status: "error", error: String(err?.message || err) });
+          jobs.set(jobId, { status: "error", error: String(err?.message || err), log });
         });
         sendJson(res, 202, { ok: true, jobId, configPath: absolutePath });
         return;
