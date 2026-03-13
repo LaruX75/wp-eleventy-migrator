@@ -7,6 +7,8 @@
     <style>
       :root {
         --bg: #efe6d8;
+        --bg-grad-top: rgba(15, 118, 110, 0.14);
+        --bg-grad-right: rgba(217, 119, 6, 0.12);
         --panel: rgba(255, 251, 244, 0.92);
         --panel-strong: #fffdf8;
         --ink: #1b1a18;
@@ -17,6 +19,30 @@
         --accent-soft: rgba(15, 118, 110, 0.1);
         --danger: #b91c1c;
         --shadow: 0 26px 80px rgba(83, 59, 22, 0.14);
+        --console-bg: #101411;
+        --console-ink: #d7fce7;
+        --control-bg: #fffdfa;
+        --secondary-bg: #ebe4d7;
+      }
+
+      body[data-theme="dark"] {
+        --bg: #111514;
+        --bg-grad-top: rgba(45, 212, 191, 0.12);
+        --bg-grad-right: rgba(245, 158, 11, 0.1);
+        --panel: rgba(21, 28, 26, 0.9);
+        --panel-strong: #19211f;
+        --ink: #edf2ef;
+        --muted: #9eb0aa;
+        --line: rgba(237, 242, 239, 0.11);
+        --accent: #2dd4bf;
+        --accent-strong: #7eead8;
+        --accent-soft: rgba(45, 212, 191, 0.12);
+        --danger: #f87171;
+        --shadow: 0 26px 80px rgba(0, 0, 0, 0.3);
+        --console-bg: #09100e;
+        --console-ink: #bbf7d0;
+        --control-bg: #111917;
+        --secondary-bg: #24302d;
       }
 
       * {
@@ -29,9 +55,10 @@
         font-family: "Avenir Next", "Segoe UI", sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 34%),
-          radial-gradient(circle at right center, rgba(217, 119, 6, 0.12), transparent 28%),
-          linear-gradient(180deg, #f7f2e9 0%, var(--bg) 100%);
+          radial-gradient(circle at top left, var(--bg-grad-top), transparent 34%),
+          radial-gradient(circle at right center, var(--bg-grad-right), transparent 28%),
+          linear-gradient(180deg, color-mix(in srgb, var(--bg) 88%, white 12%) 0%, var(--bg) 100%);
+        transition: background 150ms ease, color 150ms ease;
       }
 
       button,
@@ -42,7 +69,7 @@
       }
 
       .shell {
-        width: min(1260px, calc(100vw - 28px));
+        width: min(1280px, calc(100vw - 28px));
         margin: 24px auto 40px;
         display: grid;
         gap: 20px;
@@ -62,6 +89,37 @@
         display: grid;
         grid-template-columns: 1.7fr 1fr;
         gap: 22px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .topbar-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .control-pill {
+        display: grid;
+        gap: 6px;
+        min-width: 130px;
+      }
+
+      .control-pill span {
+        font-size: 0.78rem;
+        color: var(--muted);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .control-pill select {
+        background: var(--control-bg);
       }
 
       .eyebrow {
@@ -120,8 +178,8 @@
       }
 
       .chip {
-        border: 1px solid rgba(15, 118, 110, 0.2);
-        background: rgba(255, 255, 255, 0.58);
+        border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+        background: color-mix(in srgb, var(--panel-strong) 85%, transparent);
         border-radius: 999px;
         padding: 8px 12px;
         font-size: 0.92rem;
@@ -145,12 +203,8 @@
       .step {
         border: 1px solid var(--line);
         border-radius: 22px;
-        background: rgba(255, 253, 248, 0.92);
+        background: color-mix(in srgb, var(--panel-strong) 92%, transparent);
         overflow: hidden;
-      }
-
-      .step[open] {
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
       }
 
       .step summary {
@@ -239,10 +293,10 @@
       select,
       textarea {
         width: 100%;
-        border: 1px solid rgba(27, 26, 24, 0.14);
+        border: 1px solid var(--line);
         border-radius: 14px;
         padding: 12px 14px;
-        background: #fffdfa;
+        background: var(--control-bg);
         color: var(--ink);
       }
 
@@ -273,10 +327,10 @@
       }
 
       .subtle-box {
-        border: 1px dashed rgba(15, 118, 110, 0.28);
+        border: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent);
         border-radius: 16px;
         padding: 16px;
-        background: rgba(15, 118, 110, 0.05);
+        background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
       }
 
       .subtle-box p {
@@ -311,11 +365,11 @@
 
       .primary {
         background: var(--accent);
-        color: white;
+        color: #fff;
       }
 
       .secondary {
-        background: #ebe4d7;
+        background: var(--secondary-bg);
         color: var(--ink);
       }
 
@@ -325,15 +379,11 @@
         width: 28px;
         height: 28px;
         padding: 0;
-        border: 1px solid rgba(15, 118, 110, 0.22);
-        background: rgba(15, 118, 110, 0.08);
+        border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+        background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
         color: var(--accent-strong);
         font-weight: 800;
         line-height: 1;
-      }
-
-      .help-button:hover {
-        background: rgba(15, 118, 110, 0.14);
       }
 
       .status {
@@ -380,8 +430,8 @@
       }
 
       .result {
-        background: #101411;
-        color: #d7fce7;
+        background: var(--console-bg);
+        color: var(--console-ink);
         border-radius: 18px;
         padding: 18px;
         overflow: auto;
@@ -407,12 +457,13 @@
         border: 1px solid var(--line);
         border-radius: 24px;
         padding: 0;
-        background: #fffdf8;
+        background: var(--panel-strong);
+        color: var(--ink);
         box-shadow: var(--shadow);
       }
 
       dialog.help-dialog::backdrop {
-        background: rgba(27, 26, 24, 0.48);
+        background: rgba(0, 0, 0, 0.45);
         backdrop-filter: blur(4px);
       }
 
@@ -438,7 +489,7 @@
         min-width: 42px;
         height: 42px;
         padding: 0;
-        background: #efe7da;
+        background: var(--secondary-bg);
         color: var(--ink);
       }
 
@@ -459,39 +510,61 @@
       @media (max-width: 980px) {
         .hero,
         .layout,
-        .grid {
+        .grid,
+        .topbar {
           grid-template-columns: 1fr;
+        }
+
+        .topbar {
+          display: grid;
         }
       }
     </style>
   </head>
-  <body>
+  <body data-theme="light">
     <main class="shell">
       <section class="hero">
         <div>
-          <p class="eyebrow">Step-by-step migration flow</p>
-          <h1>WordPress -> Eleventy -> GitHub Pages</h1>
-          <p class="lede">
-            Kayttoliittyma ohjaa sisallon siirrosta julkaisuun asti: WordPress-lahde, sisaltomigraatio,
-            GitHub Pages, Actions-julkaisu ja halutessa oma domain. Migraation ajo kayttaa samaa backendia kuin CLI.
-          </p>
+          <div class="topbar">
+            <div>
+              <p class="eyebrow" data-i18n="hero_eyebrow"></p>
+              <h1 data-i18n="hero_title"></h1>
+            </div>
+            <div class="topbar-controls">
+              <label class="control-pill">
+                <span data-i18n="ui_language"></span>
+                <select id="language-select">
+                  <option value="fi">Suomi</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+              <label class="control-pill">
+                <span data-i18n="ui_theme"></span>
+                <select id="theme-select">
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <p class="lede" data-i18n="hero_lede"></p>
           <div class="chip-row">
-            <div class="chip">Vaihe 1. Migroi omalle koneelle</div>
-            <div class="chip">WordPress source</div>
-            <div class="chip">Migration output</div>
-            <div class="chip">Paikallinen ajo</div>
-            <div class="chip">Vaihe 2. Julkaise GitHubiin</div>
-            <div class="chip">GitHub Pages + domain</div>
+            <div class="chip" data-i18n="chip_1"></div>
+            <div class="chip" data-i18n="chip_2"></div>
+            <div class="chip" data-i18n="chip_3"></div>
+            <div class="chip" data-i18n="chip_4"></div>
+            <div class="chip" data-i18n="chip_5"></div>
+            <div class="chip" data-i18n="chip_6"></div>
           </div>
         </div>
         <div class="hero-side">
           <div class="card">
-            <strong>Suositeltu kulku</strong>
-            <p>Vaihe 1: migroi sisalto omalle koneelle ja tarkista se paikallisesti. Vaihe 2: julkaise GitHub Pagesiin ja kytke halutessa oma domain.</p>
+            <strong data-i18n="hero_card1_title"></strong>
+            <p data-i18n="hero_card1_body"></p>
           </div>
           <div class="card">
-            <strong>Julkaisumalli</strong>
-            <p>UI olettaa, etta Eleventy buildataan GitHub Actionsissa ja julkaistaan automaattisesti GitHub Pagesiin aina pushin yhteydessa.</p>
+            <strong data-i18n="hero_card2_title"></strong>
+            <p data-i18n="hero_card2_body"></p>
           </div>
         </div>
       </section>
@@ -504,151 +577,160 @@
                 <div class="step-head">
                   <div class="step-number">1</div>
                   <div>
-                    <h2 class="step-title">Vaihe 1: Migroi sivut omalle koneelle</h2>
-                    <p class="step-lede">WordPress-lahde, migraatioasetukset, output ja paikallinen ajo ennen julkaisua.</p>
+                    <h2 class="step-title" data-i18n="step1_title"></h2>
+                    <p class="step-lede" data-i18n="step1_lede"></p>
                   </div>
-                  <div class="step-toggle">Avaa / sulje</div>
+                  <div class="step-toggle" data-i18n="step_toggle"></div>
                 </div>
               </summary>
               <div class="step-body">
                 <div class="section-head">
-                  <h3 class="section-title">Lahdeasetukset</h3>
-                  <button type="button" class="help-button" data-help-topic="source-overview" aria-label="Ohje: lahde">?</button>
+                  <h3 class="section-title" data-i18n="source_section"></h3>
+                  <button type="button" class="help-button" data-help-topic="source-overview">?</button>
                 </div>
                 <div class="grid">
                   <label>
-                    <span class="field-head">Source type <button type="button" class="help-button" data-help-topic="sourceType" aria-label="Ohje: source type">?</button></span>
+                    <span class="field-head"><span data-i18n="field_sourceType"></span> <button type="button" class="help-button" data-help-topic="sourceType">?</button></span>
                     <select name="sourceType">
                       <option value="rest">rest</option>
                       <option value="xml">xml</option>
                       <option value="json">json</option>
                     </select>
-                    <span>Nykyinen toteutus tukee REST-lahdetta.</span>
+                    <span data-i18n="hint_sourceType"></span>
                   </label>
                   <label>
-                    <span class="field-head">REST namespace <button type="button" class="help-button" data-help-topic="restNamespace" aria-label="Ohje: REST namespace">?</button></span>
+                    <span class="field-head"><span data-i18n="field_restNamespace"></span> <button type="button" class="help-button" data-help-topic="restNamespace">?</button></span>
                     <input name="restNamespace" required>
-                    <span>Oletus on WordPressin vakiopolku.</span>
+                    <span data-i18n="hint_restNamespace"></span>
                   </label>
                 </div>
                 <div class="grid grid-1">
                   <label>
-                    <span class="field-head">WordPress base URL <button type="button" class="help-button" data-help-topic="wpBaseUrl" aria-label="Ohje: WordPress base URL">?</button></span>
-                    <input name="wpBaseUrl" type="url" placeholder="https://example.com" required>
-                    <span>Esimerkiksi sivuston juuri ilman paattyvaa kauttaviivaa.</span>
+                    <span class="field-head"><span data-i18n="field_wpBaseUrl"></span> <button type="button" class="help-button" data-help-topic="wpBaseUrl">?</button></span>
+                    <input name="wpBaseUrl" type="url" required data-i18n-placeholder="placeholder_wpBaseUrl">
+                    <span data-i18n="hint_wpBaseUrl"></span>
                   </label>
                 </div>
+
                 <div class="section-head">
-                  <h3 class="section-title">Sisalto ja muunnos</h3>
-                  <button type="button" class="help-button" data-help-topic="content-overview" aria-label="Ohje: sisalto ja muunnos">?</button>
+                  <h3 class="section-title" data-i18n="content_section"></h3>
+                  <button type="button" class="help-button" data-help-topic="content-overview">?</button>
                 </div>
                 <div class="grid">
                   <label>
-                    <span class="field-head">Content types <button type="button" class="help-button" data-help-topic="contentTypes" aria-label="Ohje: content types">?</button></span>
-                    <input name="contentTypes" placeholder="posts,pages">
-                    <span>Pilkulla eroteltu lista, esim. <code>posts,pages</code>.</span>
+                    <span class="field-head"><span data-i18n="field_contentTypes"></span> <button type="button" class="help-button" data-help-topic="contentTypes">?</button></span>
+                    <input name="contentTypes" data-i18n-placeholder="placeholder_contentTypes">
+                    <span data-i18n="hint_contentTypes"></span>
                   </label>
                   <label>
-                    <span class="field-head">HTML mode <button type="button" class="help-button" data-help-topic="htmlMode" aria-label="Ohje: HTML mode">?</button></span>
+                    <span class="field-head"><span data-i18n="field_htmlMode"></span> <button type="button" class="help-button" data-help-topic="htmlMode">?</button></span>
                     <select name="htmlMode">
-                      <option value="keep-html">keep-html</option>
-                      <option value="basic-markdown">basic-markdown</option>
+                      <option value="keep-html" data-i18n="option_keep_html"></option>
+                      <option value="basic-markdown" data-i18n="option_basic_markdown"></option>
                     </select>
-                    <span>Pidetaan HTML tai tehdaan kevyt Markdown-muunnos.</span>
+                    <span data-i18n="hint_htmlMode"></span>
                   </label>
                   <label>
-                    <span class="field-head">Permalink pattern <button type="button" class="help-button" data-help-topic="targetPermalinkPattern" aria-label="Ohje: permalink pattern">?</button></span>
-                    <input name="targetPermalinkPattern" placeholder="/{type}/{slug}/">
-                    <span>Koskee muita kuin sivuja.</span>
+                    <span class="field-head"><span data-i18n="field_permalink"></span> <button type="button" class="help-button" data-help-topic="targetPermalinkPattern">?</button></span>
+                    <input name="targetPermalinkPattern" data-i18n-placeholder="placeholder_permalink">
+                    <span data-i18n="hint_permalink"></span>
                   </label>
                 </div>
                 <div class="toggle-row">
                   <label class="toggle">
                     <input name="includeDrafts" type="checkbox">
-                    <span>Sisallyta draftit ja private-sisallot. <button type="button" class="help-button" data-help-topic="includeDrafts" aria-label="Ohje: include drafts">?</button></span>
+                    <span data-i18n="toggle_includeDrafts"></span> <button type="button" class="help-button" data-help-topic="includeDrafts">?</button>
                   </label>
                   <label class="toggle">
                     <input name="downloadMedia" type="checkbox">
-                    <span>Lataa mediaviittaukset paikallisesti. <button type="button" class="help-button" data-help-topic="downloadMedia" aria-label="Ohje: download media">?</button></span>
+                    <span data-i18n="toggle_downloadMedia"></span> <button type="button" class="help-button" data-help-topic="downloadMedia">?</button>
                   </label>
                   <label class="toggle">
                     <input name="createRedirects" type="checkbox">
-                    <span>Luo <code>redirects.csv</code> vanhoista URL:eista. <button type="button" class="help-button" data-help-topic="createRedirects" aria-label="Ohje: redirects">?</button></span>
+                    <span data-i18n="toggle_createRedirects"></span> <button type="button" class="help-button" data-help-topic="createRedirects">?</button>
                   </label>
                   <label class="toggle">
                     <input name="dryRun" type="checkbox">
-                    <span>Dry-run: raportti ilman tiedostojen kirjoitusta. <button type="button" class="help-button" data-help-topic="dryRun" aria-label="Ohje: dry-run">?</button></span>
+                    <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
                   </label>
                 </div>
+
                 <div class="section-head">
-                  <h3 class="section-title">Autentikointi</h3>
-                  <button type="button" class="help-button" data-help-topic="auth-overview" aria-label="Ohje: autentikointi">?</button>
+                  <h3 class="section-title" data-i18n="auth_section"></h3>
+                  <button type="button" class="help-button" data-help-topic="auth-overview">?</button>
                 </div>
                 <div class="grid">
                   <label>
-                    <span class="field-head">Auth mode <button type="button" class="help-button" data-help-topic="authMode" aria-label="Ohje: auth mode">?</button></span>
+                    <span class="field-head"><span data-i18n="field_authMode"></span> <button type="button" class="help-button" data-help-topic="authMode">?</button></span>
                     <select name="authMode" id="authMode">
-                      <option value="none">none</option>
-                      <option value="app-password">app-password</option>
-                      <option value="bearer">bearer</option>
+                      <option value="none" data-i18n="option_auth_none"></option>
+                      <option value="app-password" data-i18n="option_auth_app_password"></option>
+                      <option value="bearer" data-i18n="option_auth_bearer"></option>
                     </select>
-                    <span>Useimmiten julkiselle datalle riittaa <code>none</code>.</span>
+                    <span data-i18n="hint_authMode"></span>
                   </label>
                 </div>
                 <div id="app-password-fields" class="grid auth-fields" hidden>
                   <label>
-                    <span class="field-head">WP username <button type="button" class="help-button" data-help-topic="wpUser" aria-label="Ohje: WP username">?</button></span>
+                    <span class="field-head"><span data-i18n="field_wpUser"></span> <button type="button" class="help-button" data-help-topic="wpUser">?</button></span>
                     <input name="wpUser">
                   </label>
                   <label>
-                    <span class="field-head">WP application password <button type="button" class="help-button" data-help-topic="wpAppPassword" aria-label="Ohje: WP application password">?</button></span>
+                    <span class="field-head"><span data-i18n="field_wpAppPassword"></span> <button type="button" class="help-button" data-help-topic="wpAppPassword">?</button></span>
                     <input name="wpAppPassword" type="password">
                   </label>
                 </div>
                 <div id="bearer-fields" class="grid auth-fields" hidden>
                   <label>
-                    <span class="field-head">Bearer token <button type="button" class="help-button" data-help-topic="wpBearerToken" aria-label="Ohje: bearer token">?</button></span>
+                    <span class="field-head"><span data-i18n="field_wpBearerToken"></span> <button type="button" class="help-button" data-help-topic="wpBearerToken">?</button></span>
                     <input name="wpBearerToken" type="password">
                   </label>
                 </div>
+
                 <div class="section-head">
-                  <h3 class="section-title">Tulostus</h3>
-                  <button type="button" class="help-button" data-help-topic="output-overview" aria-label="Ohje: tulostus">?</button>
+                  <h3 class="section-title" data-i18n="output_section"></h3>
+                  <button type="button" class="help-button" data-help-topic="output-overview">?</button>
                 </div>
                 <div class="grid">
                   <label>
-                    <span class="field-head">Output root <button type="button" class="help-button" data-help-topic="outputRoot" aria-label="Ohje: output root">?</button></span>
+                    <span class="field-head"><span data-i18n="field_localProjectFolder"></span> <button type="button" class="help-button" data-help-topic="localProjectFolder">?</button></span>
+                    <input name="localProjectFolder" data-i18n-placeholder="placeholder_localProjectFolder">
+                    <span data-i18n="hint_localProjectFolder"></span>
+                  </label>
+                  <label>
+                    <span class="field-head"><span data-i18n="field_outputRoot"></span> <button type="button" class="help-button" data-help-topic="outputRoot">?</button></span>
                     <input name="outputRoot" required>
                   </label>
                   <label>
-                    <span class="field-head">Config path <button type="button" class="help-button" data-help-topic="configPath" aria-label="Ohje: config path">?</button></span>
+                    <span class="field-head"><span data-i18n="field_configPath"></span> <button type="button" class="help-button" data-help-topic="configPath">?</button></span>
                     <input name="configPath" required>
                   </label>
                   <label>
-                    <span class="field-head">Content directory <button type="button" class="help-button" data-help-topic="contentDir" aria-label="Ohje: content directory">?</button></span>
+                    <span class="field-head"><span data-i18n="field_contentDir"></span> <button type="button" class="help-button" data-help-topic="contentDir">?</button></span>
                     <input name="contentDir" required>
                   </label>
                   <label>
-                    <span class="field-head">Media directory <button type="button" class="help-button" data-help-topic="mediaDir" aria-label="Ohje: media directory">?</button></span>
+                    <span class="field-head"><span data-i18n="field_mediaDir"></span> <button type="button" class="help-button" data-help-topic="mediaDir">?</button></span>
                     <input name="mediaDir" required>
                   </label>
                 </div>
+
                 <div class="section-head">
-                  <h3 class="section-title">Paikallinen ajo</h3>
-                  <button type="button" class="help-button" data-help-topic="local-overview" aria-label="Ohje: paikallinen ajo">?</button>
+                  <h3 class="section-title" data-i18n="local_section"></h3>
+                  <button type="button" class="help-button" data-help-topic="local-overview">?</button>
                 </div>
                 <div class="grid">
                   <label>
-                    <span class="field-head">Local dev command <button type="button" class="help-button" data-help-topic="localDevCommand" aria-label="Ohje: local dev command">?</button></span>
-                    <input name="localDevCommand" value="npx @11ty/eleventy --serve">
+                    <span class="field-head"><span data-i18n="field_localDevCommand"></span> <button type="button" class="help-button" data-help-topic="localDevCommand">?</button></span>
+                    <input name="localDevCommand">
                   </label>
                   <label>
-                    <span class="field-head">Local site URL <button type="button" class="help-button" data-help-topic="localSiteUrl" aria-label="Ohje: local site URL">?</button></span>
-                    <input name="localSiteUrl" value="http://127.0.0.1:8080/">
+                    <span class="field-head"><span data-i18n="field_localSiteUrl"></span> <button type="button" class="help-button" data-help-topic="localSiteUrl">?</button></span>
+                    <input name="localSiteUrl">
                   </label>
                 </div>
                 <div class="subtle-box">
-                  <p>Vaiheen 1 tavoite on, etta migroitu sisalto on omalla koneella ja Eleventy-sivusto voidaan tarkistaa paikallisesti ennen GitHub-julkaisua.</p>
+                  <p data-i18n="local_box"></p>
                 </div>
               </div>
             </details>
@@ -658,88 +740,89 @@
                 <div class="step-head">
                   <div class="step-number">2</div>
                   <div>
-                    <h2 class="step-title">Vaihe 2: Julkaise GitHubiin ja kytke domain</h2>
-                    <p class="step-lede">GitHub Pages, Actions-julkaisu ja halutessa oma domain tai olemassa olevan domainin ohjaus.</p>
+                    <h2 class="step-title" data-i18n="step2_title"></h2>
+                    <p class="step-lede" data-i18n="step2_lede"></p>
                   </div>
-                  <div class="step-toggle">Avaa / sulje</div>
+                  <div class="step-toggle" data-i18n="step_toggle"></div>
                 </div>
               </summary>
               <div class="step-body">
                 <div class="section-head">
-                  <h3 class="section-title">GitHub Pages ja Actions</h3>
-                  <button type="button" class="help-button" data-help-topic="github-overview" aria-label="Ohje: GitHub Pages">?</button>
+                  <h3 class="section-title" data-i18n="github_section"></h3>
+                  <button type="button" class="help-button" data-help-topic="github-overview">?</button>
                 </div>
                 <div class="grid">
                   <label>
-                    <span class="field-head">GitHub owner <button type="button" class="help-button" data-help-topic="githubOwner" aria-label="Ohje: GitHub owner">?</button></span>
-                    <input name="githubOwner" placeholder="username or org">
+                    <span class="field-head"><span data-i18n="field_githubOwner"></span> <button type="button" class="help-button" data-help-topic="githubOwner">?</button></span>
+                    <input name="githubOwner" data-i18n-placeholder="placeholder_githubOwner">
                   </label>
                   <label>
-                    <span class="field-head">Repository name <button type="button" class="help-button" data-help-topic="githubRepo" aria-label="Ohje: repository name">?</button></span>
-                    <input name="githubRepo" placeholder="site-repo">
+                    <span class="field-head"><span data-i18n="field_githubRepo"></span> <button type="button" class="help-button" data-help-topic="githubRepo">?</button></span>
+                    <input name="githubRepo" data-i18n-placeholder="placeholder_githubRepo">
                   </label>
                   <label>
-                    <span class="field-head">Pages site URL <button type="button" class="help-button" data-help-topic="pagesUrl" aria-label="Ohje: Pages URL">?</button></span>
-                    <input name="pagesUrl" placeholder="https://username.github.io/site-repo/">
+                    <span class="field-head"><span data-i18n="field_pagesUrl"></span> <button type="button" class="help-button" data-help-topic="pagesUrl">?</button></span>
+                    <input name="pagesUrl" data-i18n-placeholder="placeholder_pagesUrl">
                   </label>
                   <label>
-                    <span class="field-head">Build command <button type="button" class="help-button" data-help-topic="buildCommand" aria-label="Ohje: build command">?</button></span>
-                    <input name="buildCommand" value="npx @11ty/eleventy">
+                    <span class="field-head"><span data-i18n="field_buildCommand"></span> <button type="button" class="help-button" data-help-topic="buildCommand">?</button></span>
+                    <input name="buildCommand">
                   </label>
                 </div>
                 <div class="toggle-row">
                   <label class="toggle">
                     <input name="useGitHubActions" type="checkbox" checked>
-                    <span>Kayta GitHub Actionsia buildiin ja julkaisuun automaattisesti. <button type="button" class="help-button" data-help-topic="useGitHubActions" aria-label="Ohje: GitHub Actions">?</button></span>
+                    <span data-i18n="toggle_useGitHubActions"></span> <button type="button" class="help-button" data-help-topic="useGitHubActions">?</button>
                   </label>
                   <label class="toggle">
                     <input name="publishOnPush" type="checkbox" checked>
-                    <span>Julkaise aina pushin jalkeen oletusbranchista. <button type="button" class="help-button" data-help-topic="publishOnPush" aria-label="Ohje: publish on push">?</button></span>
+                    <span data-i18n="toggle_publishOnPush"></span> <button type="button" class="help-button" data-help-topic="publishOnPush">?</button>
                   </label>
                 </div>
                 <div class="subtle-box">
-                  <p>Vaiheen 2 tavoite on, etta vaiheessa 1 tarkistettu Eleventy-sivusto commitoidaan GitHubiin, buildataan Actionsissa ja julkaistaan GitHub Pagesiin ilman manuaalista deployta.</p>
+                  <p data-i18n="github_box"></p>
                 </div>
+
                 <div class="section-head">
-                  <h3 class="section-title">Domain-optio</h3>
-                  <button type="button" class="help-button" data-help-topic="domain-overview" aria-label="Ohje: domain">?</button>
+                  <h3 class="section-title" data-i18n="domain_section"></h3>
+                  <button type="button" class="help-button" data-help-topic="domain-overview">?</button>
                 </div>
                 <div class="toggle-row">
                   <label class="toggle">
                     <input name="useCustomDomain" type="checkbox" id="useCustomDomain">
-                    <span>Ota mukaan oman domainin hankinta ja kytkenta. <button type="button" class="help-button" data-help-topic="useCustomDomain" aria-label="Ohje: custom domain">?</button></span>
+                    <span data-i18n="toggle_useCustomDomain"></span> <button type="button" class="help-button" data-help-topic="useCustomDomain">?</button>
                   </label>
                 </div>
                 <div id="domain-fields" class="grid domain-fields" hidden>
                   <label>
-                    <span class="field-head">Domain action <button type="button" class="help-button" data-help-topic="domainAction" aria-label="Ohje: domain action">?</button></span>
+                    <span class="field-head"><span data-i18n="field_domainAction"></span> <button type="button" class="help-button" data-help-topic="domainAction">?</button></span>
                     <select name="domainAction">
-                      <option value="buy-new">Hanki uusi domain</option>
-                      <option value="point-existing">Osoita olemassa oleva domain</option>
+                      <option value="buy-new" data-i18n="option_domain_buy"></option>
+                      <option value="point-existing" data-i18n="option_domain_point"></option>
                     </select>
                   </label>
                   <label>
-                    <span class="field-head">Desired domain <button type="button" class="help-button" data-help-topic="desiredDomain" aria-label="Ohje: desired domain">?</button></span>
-                    <input name="desiredDomain" placeholder="example.com">
+                    <span class="field-head"><span data-i18n="field_desiredDomain"></span> <button type="button" class="help-button" data-help-topic="desiredDomain">?</button></span>
+                    <input name="desiredDomain" data-i18n-placeholder="placeholder_desiredDomain">
                   </label>
                   <label>
-                    <span class="field-head">Registrar <button type="button" class="help-button" data-help-topic="registrar" aria-label="Ohje: registrar">?</button></span>
-                    <input name="registrar" placeholder="Namecheap, Cloudflare, etc.">
+                    <span class="field-head"><span data-i18n="field_registrar"></span> <button type="button" class="help-button" data-help-topic="registrar">?</button></span>
+                    <input name="registrar" data-i18n-placeholder="placeholder_registrar">
                   </label>
                   <label>
-                    <span class="field-head">DNS action notes <button type="button" class="help-button" data-help-topic="dnsNotes" aria-label="Ohje: DNS action notes">?</button></span>
-                    <input name="dnsNotes" placeholder="Esim. paivita A/CNAME-tietueet GitHub Pagesiin">
+                    <span class="field-head"><span data-i18n="field_dnsNotes"></span> <button type="button" class="help-button" data-help-topic="dnsNotes">?</button></span>
+                    <input name="dnsNotes" data-i18n-placeholder="placeholder_dnsNotes">
                   </label>
                 </div>
                 <div class="subtle-box">
-                  <p>Domain-vaihe on valinnainen. Voit joko hankkia uuden domainin tai ohjata jo olemassa olevan domainin GitHub Pages -sivustolle DNS- ja CNAME-asetuksilla.</p>
+                  <p data-i18n="domain_box"></p>
                 </div>
               </div>
             </details>
 
             <div class="actions">
-              <button type="button" class="secondary" id="save-config">Tallenna config</button>
-              <button type="submit" class="primary" id="run-migration">Aja migraatio</button>
+              <button type="button" class="secondary" id="save-config" data-i18n="btn_save"></button>
+              <button type="submit" class="primary" id="run-migration" data-i18n="btn_run"></button>
             </div>
             <div id="status" class="status" aria-live="polite"></div>
           </form>
@@ -747,37 +830,20 @@
 
         <aside class="side-stack">
           <section class="panel">
-            <h2 class="side-title">Kahden vaiheen suunnitelma</h2>
-            <p class="hint">Yhteenveto paikallisesta migraatiosta ja sen jalkeisesta GitHub-julkaisusta.</p>
+            <h2 class="side-title" data-i18n="plan_title"></h2>
+            <p class="hint" data-i18n="plan_hint"></p>
             <ol class="plan-list" id="plan-preview"></ol>
           </section>
 
           <section class="panel">
-            <h2 class="side-title">Automation checklist</h2>
-            <ul class="check-list">
-              <li>
-                <strong>Vaihe 1. Migraatio omalle koneelle</strong>
-                <span class="meta">CLI-backend kirjoittaa sisallot, raportin ja halutessa redirectit paikalliseen kansioon.</span>
-              </li>
-              <li>
-                <strong>Paikallinen tarkistus</strong>
-                <span class="meta">Eleventy-sivusto ajetaan paikallisesti ennen julkaisua.</span>
-              </li>
-              <li>
-                <strong>Vaihe 2. GitHub Pages deploy</strong>
-                <span class="meta">Push oletusbranchiin tuottaa automaattisen julkaisun GitHub Pagesiin.</span>
-              </li>
-              <li>
-                <strong>Domainin kytkenta</strong>
-                <span class="meta">CNAME ja DNS asetetaan vain jos uusi tai olemassa oleva domain halutaan mukaan.</span>
-              </li>
-            </ul>
+            <h2 class="side-title" data-i18n="checklist_title"></h2>
+            <ul class="check-list" id="checklist"></ul>
           </section>
 
           <section class="panel">
-            <h2 class="side-title">Tuloste</h2>
-            <p class="hint">API-vastaukset ja migraation raportti nakyvat tassa.</p>
-            <div class="result"><pre id="result">Ladataan oletusarvot...</pre></div>
+            <h2 class="side-title" data-i18n="output_title"></h2>
+            <p class="hint" data-i18n="output_hint"></p>
+            <div class="result"><pre id="result"></pre></div>
           </section>
         </aside>
       </section>
@@ -787,10 +853,10 @@
       <div class="help-shell">
         <div class="help-topbar">
           <div>
-            <p class="eyebrow">Kenttaohje</p>
-            <h3 id="help-title">Ohje</h3>
+            <p class="eyebrow" data-i18n="help_eyebrow"></p>
+            <h3 id="help-title"></h3>
           </div>
-          <button type="button" class="help-close" id="help-close" aria-label="Sulje ohje">x</button>
+          <button type="button" class="help-close" id="help-close" aria-label="Close">x</button>
         </div>
         <div id="help-body" class="help-body"></div>
       </div>
@@ -810,271 +876,466 @@
       const outputRootField = form.elements.namedItem("outputRoot");
       const configPathField = form.elements.namedItem("configPath");
       const planPreview = document.getElementById("plan-preview");
+      const checklist = document.getElementById("checklist");
       const helpDialog = document.getElementById("help-dialog");
       const helpTitle = document.getElementById("help-title");
       const helpBody = document.getElementById("help-body");
       const helpClose = document.getElementById("help-close");
+      const languageSelect = document.getElementById("language-select");
+      const themeSelect = document.getElementById("theme-select");
 
       let lastSuggestedConfigPath = "";
-      const helpContent = {
-        "source-overview": {
-          title: "Lahdeasetukset",
-          body: `
-            <p>Lahdeosion kentilla maaritetaan mistä WordPress-sisalto haetaan. Nykyinen migrattori toteuttaa kaytannossa REST-rajapinnan.</p>
-            <ul>
-              <li>Tarvitset yleensa sivuston juuriosoitteen ja REST namespace -polun.</li>
-              <li>Jos rajapinta on suojattu, ota autentikointi kayttoon seuraavissa vaiheissa.</li>
-            </ul>
-          `
+      let currentLang = "fi";
+      let currentTheme = "light";
+
+      const translations = {
+        fi: {
+          hero_eyebrow: "Vaiheittainen migraatiovirta",
+          hero_title: "WordPress -> Eleventy -> GitHub Pages",
+          hero_lede: "Käyttöliittymä jakaa työn kahteen osaan: ensin WordPress-sisältö omalle koneelle ja paikallinen tarkistus, sitten julkaisu GitHub Pagesiin ja halutessa omaan domainiin.",
+          ui_language: "Kieli",
+          ui_theme: "Teema",
+          chip_1: "Vaihe 1. Migroi omalle koneelle",
+          chip_2: "WordPress-lähde",
+          chip_3: "Migraatio ja output",
+          chip_4: "Paikallinen ajo",
+          chip_5: "Vaihe 2. Julkaise GitHubiin",
+          chip_6: "GitHub Pages + domain",
+          hero_card1_title: "Suositeltu kulku",
+          hero_card1_body: "Aja ensin dry-run, tarkista migroitu sisältö paikallisesti ja julkaise vasta sen jälkeen GitHub Pagesiin.",
+          hero_card2_title: "Julkaisumalli",
+          hero_card2_body: "Vaiheessa 2 käyttöliittymä ohjaa GitHub Actions -buildiin, GitHub Pages -julkaisuun ja valinnaiseen domain-kytkentään.",
+          step1_title: "Vaihe 1: Migroi sivut omalle koneelle",
+          step1_lede: "WordPress-lähde, migraatioasetukset, paikallinen projektikansio, output ja paikallinen ajo.",
+          step2_title: "Vaihe 2: Julkaise GitHubiin ja kytke domain",
+          step2_lede: "GitHub Pages, Actions-julkaisu ja valinnainen domainin hankinta tai ohjaus.",
+          step_toggle: "Avaa / sulje",
+          source_section: "Lähdeasetukset",
+          content_section: "Sisältö ja muunnos",
+          auth_section: "Autentikointi",
+          output_section: "Paikallinen projekti ja output",
+          local_section: "Paikallinen ajo",
+          github_section: "GitHub Pages ja Actions",
+          domain_section: "Domain-optio",
+          field_sourceType: "Source type",
+          field_restNamespace: "REST namespace",
+          field_wpBaseUrl: "WordPress base URL",
+          field_contentTypes: "Content types",
+          field_htmlMode: "HTML mode",
+          field_permalink: "Permalink pattern",
+          field_authMode: "Auth mode",
+          field_wpUser: "WP username",
+          field_wpAppPassword: "WP application password",
+          field_wpBearerToken: "Bearer token",
+          field_localProjectFolder: "Paikallinen projektikansio",
+          field_outputRoot: "Output root",
+          field_configPath: "Config path",
+          field_contentDir: "Content directory",
+          field_mediaDir: "Media directory",
+          field_localDevCommand: "Paikallinen ajokomento",
+          field_localSiteUrl: "Paikallinen sivu-URL",
+          field_githubOwner: "GitHub owner",
+          field_githubRepo: "Repository name",
+          field_pagesUrl: "Pages site URL",
+          field_buildCommand: "Build command",
+          field_domainAction: "Domain-toiminto",
+          field_desiredDomain: "Haluttu domain",
+          field_registrar: "Registrar",
+          field_dnsNotes: "DNS-toimenpiteet",
+          hint_sourceType: "Nykyinen toteutus tukee REST-lähdettä.",
+          hint_restNamespace: "Oletus on WordPressin vakiopolku.",
+          hint_wpBaseUrl: "Esimerkiksi sivuston juuri ilman päättävää kauttaviivaa.",
+          hint_contentTypes: "Pilkulla eroteltu lista, esimerkiksi posts,pages.",
+          hint_htmlMode: "Säilytä HTML tai tee kevyt Markdown-muunnos.",
+          hint_permalink: "Koskee muita kuin sivuja.",
+          hint_authMode: "Useimmiten julkiselle datalle riittää none.",
+          hint_localProjectFolder: "Tähän paikalliseen projektikansioon migroitu sisältö tuodaan jatkotyöstöä varten.",
+          option_keep_html: "keep-html",
+          option_basic_markdown: "basic-markdown",
+          option_auth_none: "none",
+          option_auth_app_password: "app-password",
+          option_auth_bearer: "bearer",
+          option_domain_buy: "Hanki uusi domain",
+          option_domain_point: "Osoita olemassa oleva domain",
+          toggle_includeDrafts: "Sisällytä draftit ja private-sisällöt.",
+          toggle_downloadMedia: "Lataa mediaviittaukset paikallisesti.",
+          toggle_createRedirects: "Luo redirects.csv vanhoista URL:eista.",
+          toggle_dryRun: "Dry-run: raportti ilman tiedostojen kirjoitusta.",
+          toggle_useGitHubActions: "Käytä GitHub Actionsia buildiin ja julkaisuun automaattisesti.",
+          toggle_publishOnPush: "Julkaise aina pushin jälkeen oletusbranchista.",
+          toggle_useCustomDomain: "Ota mukaan oman domainin hankinta tai olemassa olevan domainin ohjaus.",
+          local_box: "Vaiheen 1 tavoite on, että migroitu sisältö on omalla koneella ja Eleventy-sivusto voidaan tarkistaa paikallisesti ennen GitHub-julkaisua.",
+          github_box: "Vaiheen 2 tavoite on, että vaiheessa 1 tarkistettu sivusto commitoidaan GitHubiin, buildataan Actionsissa ja julkaistaan GitHub Pagesiin ilman manuaalista deployta.",
+          domain_box: "Domain-vaihe on valinnainen. Voit joko hankkia uuden domainin tai ohjata olemassa olevan domainin GitHub Pages -sivustolle DNS- ja CNAME-asetuksilla.",
+          btn_save: "Tallenna config",
+          btn_run: "Aja migraatio",
+          plan_title: "Kahden vaiheen suunnitelma",
+          plan_hint: "Yhteenveto paikallisesta migraatiosta ja sen jälkeisestä GitHub-julkaisusta.",
+          checklist_title: "Työnkulun tarkistuslista",
+          output_title: "Tuloste",
+          output_hint: "API-vastaukset ja migraation raportti näkyvät tässä.",
+          help_eyebrow: "Kenttäohje",
+          status_defaults_loaded: "Oletusarvot ladattu.",
+          status_saving: "Tallennetaan konfiguraatio...",
+          status_saved: "Konfiguraatio tallennettu.",
+          status_running: "Migraatio käynnissä...",
+          status_done: "Migraatio valmis.",
+          result_loading: "Ladataan oletusarvot...",
+          placeholder_wpBaseUrl: "https://example.com",
+          placeholder_contentTypes: "posts,pages",
+          placeholder_permalink: "/{type}/{slug}/",
+          placeholder_localProjectFolder: "/Users/name/Documents/site-project",
+          placeholder_githubOwner: "username tai organisaatio",
+          placeholder_githubRepo: "site-repo",
+          placeholder_pagesUrl: "https://username.github.io/site-repo/",
+          placeholder_desiredDomain: "example.com",
+          placeholder_registrar: "Namecheap, Cloudflare, jne.",
+          placeholder_dnsNotes: "Esim. päivitä A- ja CNAME-tietueet GitHub Pagesiin",
+          checklist_items: [
+            ["Vaihe 1. Migraatio omalle koneelle", "CLI-backend kirjoittaa sisällöt, raportin ja haluttaessa redirectit paikalliseen kansioon."],
+            ["Paikallinen tarkistus", "Eleventy-sivusto ajetaan paikallisesti ennen julkaisua."],
+            ["Vaihe 2. GitHub Pages deploy", "Push oletusbranchiin tuottaa automaattisen julkaisun GitHub Pagesiin."],
+            ["Domainin kytkentä", "CNAME ja DNS asetetaan vain jos uusi tai olemassa oleva domain halutaan mukaan."]
+          ],
+          plan_labels: {
+            p1_extract: "Vaihe 1: WordPress -> paikallinen sisältö",
+            p1_output: "Vaihe 1: paikallinen projekti",
+            p1_local: "Vaihe 1: paikallinen ajo",
+            p2_repo: "Vaihe 2: repository ja Pages",
+            p2_actions: "Vaihe 2: GitHub Actions",
+            p2_domain: "Vaihe 2: domain"
+          },
+          plan_text: {
+            missingRepo: "GitHub owner/repo puuttuu",
+            missingProject: "paikallinen projektikansio puuttuu",
+            noDomain: "Ei omaa domainia, julkaisu GitHub Pages -osoitteeseen",
+            newDomain: "Uusi domain",
+            existingDomain: "Olemassa oleva domain",
+            dnsMissing: "DNS-ohjaus määrittämättä",
+            actionsDisabled: "Actions ei ole valittuna",
+            deployPush: "deploy jokaisesta pushista",
+            deployManual: "deploy käynnistetään hallitusti"
+          }
         },
-        sourceType: {
-          title: "Source type",
-          body: `
-            <p>Valitsee lahteen teknisen muodon. Toimiva vaihtoehto tassa projektissa on <code>rest</code>.</p>
-            <ul>
-              <li><code>xml</code> ja <code>json</code> ovat kayttoliittymassa nakyvilla, mutta migraatiologiikka ei viela aja niita.</li>
-            </ul>
-          `
-        },
-        restNamespace: {
-          title: "REST namespace",
-          body: `
-            <p>Tama liitetaan WordPressin perusosoitteeseen, jolloin endpointit muodostuvat esimerkiksi <code>https://site.com/wp-json/wp/v2/posts</code>.</p>
-          `
-        },
-        wpBaseUrl: {
-          title: "WordPress base URL",
-          body: `
-            <p>Anna sivuston juuri, esimerkiksi <code>https://example.com</code>, ilman REST-polun loppuosaa.</p>
-          `
-        },
-        "content-overview": {
-          title: "Sisalto ja muunnos",
-          body: `
-            <p>Tassa vaiheessa paatetaan mita WordPressista siirretaan ja miten HTML kirjoitetaan Eleventyyn.</p>
-            <ul>
-              <li>Aloita dry-runilla.</li>
-              <li>Tarkista raportti ennen varsinaista kirjoitusta.</li>
-            </ul>
-          `
-        },
-        contentTypes: {
-          title: "Content types",
-          body: `
-            <p>Pilkulla eroteltu lista REST API:n type-slugeista, esimerkiksi <code>posts,pages</code>.</p>
-          `
-        },
-        htmlMode: {
-          title: "HTML mode",
-          body: `
-            <p><code>keep-html</code> sailyttaa WordPressin HTML:n. <code>basic-markdown</code> tekee yksinkertaisen muunnoksen Eleventyyn paremmin sopivaan muotoon.</p>
-          `
-        },
-        targetPermalinkPattern: {
-          title: "Permalink pattern",
-          body: `
-            <p>Kohdepolun malli muille kuin sivuille. Tuetut paikkamerkit ovat <code>{type}</code> ja <code>{slug}</code>.</p>
-          `
-        },
-        includeDrafts: {
-          title: "Include drafts",
-          body: `
-            <p>Ottaa mukaan luonnokset ja private-sisallot, jos rajapinta palauttaa ne valitulla autentikoinnilla.</p>
-          `
-        },
-        downloadMedia: {
-          title: "Download media",
-          body: `
-            <p>Lataa sisallosta loytyvat mediaviittaukset paikalliseen mediahakemistoon varsinaisessa ajossa.</p>
-          `
-        },
-        createRedirects: {
-          title: "Create redirects",
-          body: `
-            <p>Luo <code>redirects.csv</code>-tiedoston vanhojen WordPress-osoitteiden mapitukseen.</p>
-          `
-        },
-        dryRun: {
-          title: "Dry-run",
-          body: `
-            <p>Turvallinen ensimmainen ajo: raportti syntyy, mutta sisaltotiedostoja ei kirjoiteta.</p>
-          `
-        },
-        "auth-overview": {
-          title: "Autentikointi",
-          body: `
-            <p>Tarvitaan vain jos REST API ei ole julkinen tai mukaan halutaan julkaisematon sisalto.</p>
-          `
-        },
-        authMode: {
-          title: "Auth mode",
-          body: `
-            <p><code>app-password</code> kayttaa Basic Authia. <code>bearer</code> lahettaa bearer-tokenin HTTP-otsakkeessa.</p>
-          `
-        },
-        wpUser: {
-          title: "WP username",
-          body: `
-            <p>WordPress-kayttajanimi application password -kirjautumista varten.</p>
-          `
-        },
-        wpAppPassword: {
-          title: "WP application password",
-          body: `
-            <p>WordPressin luoma application password, ei tavallinen salasana.</p>
-          `
-        },
-        wpBearerToken: {
-          title: "Bearer token",
-          body: `
-            <p>Token-pohjainen tunniste, jos API-kerros vaatii bearer-authin.</p>
-          `
-        },
-        "output-overview": {
-          title: "Tulostusasetukset",
-          body: `
-            <p>Maarittaa mihin konfiguraatio, sisalto, media ja raportit kirjoitetaan ennen kuin ne viedaan Eleventy-projektiin ja GitHubiin.</p>
-          `
-        },
-        "local-overview": {
-          title: "Paikallinen ajo",
-          body: `
-            <p>Vaiheen 1 lopuksi migroitu sivusto kannattaa ajaa paikallisesti, jotta sisalto, linkit ja ulkoasu voidaan tarkistaa ennen GitHub-julkaisua.</p>
-            <ul>
-              <li>Tyypillinen Eleventy-kehityskomento on <code>npx @11ty/eleventy --serve</code>.</li>
-              <li>Paikallinen osoite on usein <code>http://127.0.0.1:8080/</code>.</li>
-            </ul>
-          `
-        },
-        outputRoot: {
-          title: "Output root",
-          body: `
-            <p>Ylakansio, jonka alle migrattori kirjoittaa kaiken tuotetun materiaalin.</p>
-          `
-        },
-        configPath: {
-          title: "Config path",
-          body: `
-            <p>JSON-konfiguraation tallennuspolku. Samaa tiedostoa voi ajaa myohemmin CLI:lla.</p>
-          `
-        },
-        contentDir: {
-          title: "Content directory",
-          body: `
-            <p>Alikansio, johon Markdown-sisalto kirjoitetaan tyypeittain.</p>
-          `
-        },
-        mediaDir: {
-          title: "Media directory",
-          body: `
-            <p>Alikansio paikallisesti ladatulle medialle.</p>
-          `
-        },
-        localDevCommand: {
-          title: "Local dev command",
-          body: `
-            <p>Komento, jolla Eleventy-sivustoa ajetaan paikallisesti migraation jalkeen.</p>
-            <ul>
-              <li>Yleinen valinta on <code>npx @11ty/eleventy --serve</code> tai projektin oma <code>npm run dev</code>.</li>
-            </ul>
-          `
-        },
-        localSiteUrl: {
-          title: "Local site URL",
-          body: `
-            <p>Paikallinen osoite, josta valmis Eleventy-sivusto avataan selaimessa tarkistusta varten.</p>
-          `
-        },
-        "github-overview": {
-          title: "GitHub Pages ja Actions",
-          body: `
-            <p>Tama on vaihe 2. Tassa suunnitellaan julkaisuputki sen jalkeen kun sivusto on ensin tarkistettu paikallisesti.</p>
-            <ul>
-              <li>Yleinen malli on build every push -> deploy to Pages.</li>
-              <li>UI kuvaa tavoitetilan vaikka backend ei viela luo workflow-tiedostoja automaattisesti.</li>
-            </ul>
-          `
-        },
-        githubOwner: {
-          title: "GitHub owner",
-          body: `
-            <p>Kayttajatunnus tai organisaatio, jonka alle repo luodaan.</p>
-          `
-        },
-        githubRepo: {
-          title: "Repository name",
-          body: `
-            <p>Repositorio johon Eleventy-projekti ja migroitu sisalto viedaan.</p>
-          `
-        },
-        pagesUrl: {
-          title: "Pages site URL",
-          body: `
-            <p>Arvioitu GitHub Pages -osoite, esimerkiksi <code>https://username.github.io/repo/</code>.</p>
-          `
-        },
-        buildCommand: {
-          title: "Build command",
-          body: `
-            <p>Komento jonka GitHub Actions ajaa build-vaiheessa. Eleventy-projekteissa tama on usein <code>npx @11ty/eleventy</code> tai <code>npm run build</code>.</p>
-          `
-        },
-        useGitHubActions: {
-          title: "Use GitHub Actions",
-          body: `
-            <p>Tarkoitus on, etta build ja deploy tapahtuvat GitHubissa ilman paikallista julkaisuaskelta.</p>
-          `
-        },
-        publishOnPush: {
-          title: "Publish on push",
-          body: `
-            <p>Kun tama on paalla, tavoitetila on julkaista automaattisesti aina kun oletusbranchiin tulee uusi push.</p>
-          `
-        },
-        "domain-overview": {
-          title: "Custom domain",
-          body: `
-            <p>Valinnainen vaihe omalle domainille. Sisaltaa domainin hankinnan, DNS-asetukset ja GitHub Pagesin CNAME-kytkennan.</p>
-          `
-        },
-        useCustomDomain: {
-          title: "Use custom domain",
-          body: `
-            <p>Aktivoi oma domain -vaihe suunnitelmaan. Muuten sivusto voi jaada GitHub Pages -osoitteeseen.</p>
-          `
-        },
-        desiredDomain: {
-          title: "Desired domain",
-          body: `
-            <p>Haluttu verkkotunnus, esimerkiksi <code>example.com</code> tai <code>www.example.com</code>.</p>
-          `
-        },
-        domainAction: {
-          title: "Domain action",
-          body: `
-            <p>Valitse tehdäänkö uusi domain-hankinta vai osoitetaanko jo olemassa oleva domain tälle GitHub Pages -sivustolle.</p>
-            <ul>
-              <li><code>Hanki uusi domain</code>: suunnitelmaan kuuluu registrarilta ostaminen.</li>
-              <li><code>Osoita olemassa oleva domain</code>: käytössä oleva domain päivitetään DNS:llä tähän sivustoon.</li>
-            </ul>
-          `
-        },
-        registrar: {
-          title: "Registrar",
-          body: `
-            <p>Palvelu, josta domain hankitaan ja jossa DNS-tietueet hallitaan.</p>
-          `
-        },
-        dnsNotes: {
-          title: "DNS action notes",
-          body: `
-            <p>Kirjaa tähän miten domain kytketään GitHub Pagesiin, esimerkiksi A- tai CNAME-tietueiden paivitys.</p>
-            <ul>
-              <li>Tama sopii erityisesti tilanteeseen, jossa olemassa oleva domain siirretaan osoittamaan uuteen sivustoon.</li>
-            </ul>
-          `
+        en: {
+          hero_eyebrow: "Step-by-step migration flow",
+          hero_title: "WordPress -> Eleventy -> GitHub Pages",
+          hero_lede: "The interface splits the work into two parts: first bring WordPress content to your machine and verify it locally, then publish to GitHub Pages and optionally connect a custom domain.",
+          ui_language: "Language",
+          ui_theme: "Theme",
+          chip_1: "Step 1. Migrate locally",
+          chip_2: "WordPress source",
+          chip_3: "Migration and output",
+          chip_4: "Local run",
+          chip_5: "Step 2. Publish to GitHub",
+          chip_6: "GitHub Pages + domain",
+          hero_card1_title: "Recommended flow",
+          hero_card1_body: "Run a dry-run first, review the migrated content locally, and only then publish to GitHub Pages.",
+          hero_card2_title: "Publishing model",
+          hero_card2_body: "Step 2 guides the repo setup, GitHub Actions build, GitHub Pages deployment, and optional domain connection.",
+          step1_title: "Step 1: Migrate the site to your machine",
+          step1_lede: "WordPress source, migration settings, local project folder, output paths, and local preview.",
+          step2_title: "Step 2: Publish to GitHub and connect a domain",
+          step2_lede: "GitHub Pages, automated Actions deployment, and optional custom domain setup.",
+          step_toggle: "Open / close",
+          source_section: "Source settings",
+          content_section: "Content and conversion",
+          auth_section: "Authentication",
+          output_section: "Local project and output",
+          local_section: "Local preview",
+          github_section: "GitHub Pages and Actions",
+          domain_section: "Domain options",
+          field_sourceType: "Source type",
+          field_restNamespace: "REST namespace",
+          field_wpBaseUrl: "WordPress base URL",
+          field_contentTypes: "Content types",
+          field_htmlMode: "HTML mode",
+          field_permalink: "Permalink pattern",
+          field_authMode: "Auth mode",
+          field_wpUser: "WP username",
+          field_wpAppPassword: "WP application password",
+          field_wpBearerToken: "Bearer token",
+          field_localProjectFolder: "Local project folder",
+          field_outputRoot: "Output root",
+          field_configPath: "Config path",
+          field_contentDir: "Content directory",
+          field_mediaDir: "Media directory",
+          field_localDevCommand: "Local dev command",
+          field_localSiteUrl: "Local site URL",
+          field_githubOwner: "GitHub owner",
+          field_githubRepo: "Repository name",
+          field_pagesUrl: "Pages site URL",
+          field_buildCommand: "Build command",
+          field_domainAction: "Domain action",
+          field_desiredDomain: "Desired domain",
+          field_registrar: "Registrar",
+          field_dnsNotes: "DNS action notes",
+          hint_sourceType: "The current implementation supports the REST source.",
+          hint_restNamespace: "The default is the standard WordPress path.",
+          hint_wpBaseUrl: "For example the site root without a trailing slash.",
+          hint_contentTypes: "Comma-separated list, for example posts,pages.",
+          hint_htmlMode: "Keep HTML or perform a light Markdown conversion.",
+          hint_permalink: "Applies to non-page content.",
+          hint_authMode: "For public content, none is usually enough.",
+          hint_localProjectFolder: "This is the local project folder where the migrated content will be brought for further work.",
+          option_keep_html: "keep-html",
+          option_basic_markdown: "basic-markdown",
+          option_auth_none: "none",
+          option_auth_app_password: "app-password",
+          option_auth_bearer: "bearer",
+          option_domain_buy: "Buy a new domain",
+          option_domain_point: "Point an existing domain",
+          toggle_includeDrafts: "Include drafts and private content.",
+          toggle_downloadMedia: "Download referenced media locally.",
+          toggle_createRedirects: "Generate redirects.csv from old URLs.",
+          toggle_dryRun: "Dry-run: report only, no file writes.",
+          toggle_useGitHubActions: "Use GitHub Actions for automated build and deployment.",
+          toggle_publishOnPush: "Publish automatically on every push to the default branch.",
+          toggle_useCustomDomain: "Include either buying a new domain or pointing an existing domain.",
+          local_box: "The goal of step 1 is to have the migrated content on your machine and the Eleventy site reviewable locally before GitHub publishing.",
+          github_box: "The goal of step 2 is to commit the reviewed site to GitHub, build it in Actions, and publish it to GitHub Pages without a manual deploy step.",
+          domain_box: "The domain step is optional. You can either buy a new domain or point an existing domain to the GitHub Pages site with DNS and CNAME settings.",
+          btn_save: "Save config",
+          btn_run: "Run migration",
+          plan_title: "Two-phase plan",
+          plan_hint: "Summary of the local migration phase and the later GitHub publishing phase.",
+          checklist_title: "Workflow checklist",
+          output_title: "Output",
+          output_hint: "API responses and the migration report appear here.",
+          help_eyebrow: "Field help",
+          status_defaults_loaded: "Defaults loaded.",
+          status_saving: "Saving configuration...",
+          status_saved: "Configuration saved.",
+          status_running: "Migration running...",
+          status_done: "Migration finished.",
+          result_loading: "Loading defaults...",
+          placeholder_wpBaseUrl: "https://example.com",
+          placeholder_contentTypes: "posts,pages",
+          placeholder_permalink: "/{type}/{slug}/",
+          placeholder_localProjectFolder: "/Users/name/Documents/site-project",
+          placeholder_githubOwner: "username or organization",
+          placeholder_githubRepo: "site-repo",
+          placeholder_pagesUrl: "https://username.github.io/site-repo/",
+          placeholder_desiredDomain: "example.com",
+          placeholder_registrar: "Namecheap, Cloudflare, etc.",
+          placeholder_dnsNotes: "For example update A and CNAME records to GitHub Pages",
+          checklist_items: [
+            ["Step 1. Migrate locally", "The CLI backend writes content, a report, and optional redirects into a local folder."],
+            ["Local review", "Run the Eleventy site locally before publishing."],
+            ["Step 2. GitHub Pages deploy", "A push to the default branch triggers the automated GitHub Pages release."],
+            ["Domain connection", "CNAME and DNS are configured only if you want a new or existing custom domain."]
+          ],
+          plan_labels: {
+            p1_extract: "Step 1: WordPress -> local content",
+            p1_output: "Step 1: local project",
+            p1_local: "Step 1: local run",
+            p2_repo: "Step 2: repository and Pages",
+            p2_actions: "Step 2: GitHub Actions",
+            p2_domain: "Step 2: domain"
+          },
+          plan_text: {
+            missingRepo: "GitHub owner/repo missing",
+            missingProject: "local project folder missing",
+            noDomain: "No custom domain, publish to the GitHub Pages URL",
+            newDomain: "New domain",
+            existingDomain: "Existing domain",
+            dnsMissing: "DNS routing not defined",
+            actionsDisabled: "Actions not enabled",
+            deployPush: "deploy on every push",
+            deployManual: "deploy triggered in a controlled way"
+          }
         }
       };
+
+      const helpContent = {
+        "source-overview": {
+          fi: { title: "Lähdeasetukset", body: "<p>Tässä määritetään mistä WordPress-sisältö haetaan. Nykyinen toteutus tukee käytännössä REST-rajapintaa.</p><ul><li>Tarvitset yleensä sivuston juuriosoitteen ja REST namespace -polun.</li><li>Jos rajapinta on suojattu, ota autentikointi käyttöön alempana.</li></ul>" },
+          en: { title: "Source settings", body: "<p>This defines where WordPress content is fetched from. The current implementation works with the REST API in practice.</p><ul><li>You typically need the site root URL and the REST namespace path.</li><li>If the API is protected, enable authentication below.</li></ul>" }
+        },
+        sourceType: {
+          fi: { title: "Source type", body: "<p>Toimiva vaihtoehto tässä projektissa on <code>rest</code>.</p>" },
+          en: { title: "Source type", body: "<p>The working option in this project is <code>rest</code>.</p>" }
+        },
+        restNamespace: {
+          fi: { title: "REST namespace", body: "<p>Tämä liitetään WordPressin perusosoitteeseen, jolloin endpointit muodostuvat esimerkiksi <code>https://site.com/wp-json/wp/v2/posts</code>.</p>" },
+          en: { title: "REST namespace", body: "<p>This is appended to the WordPress base URL, for example <code>https://site.com/wp-json/wp/v2/posts</code>.</p>" }
+        },
+        wpBaseUrl: {
+          fi: { title: "WordPress base URL", body: "<p>Anna sivuston juuri ilman REST-polun loppuosaa.</p>" },
+          en: { title: "WordPress base URL", body: "<p>Enter the site root URL without the REST path suffix.</p>" }
+        },
+        "content-overview": {
+          fi: { title: "Sisältö ja muunnos", body: "<p>Tässä vaiheessa päätetään mitä WordPressista siirretään ja miten HTML kirjoitetaan Eleventyyn.</p>" },
+          en: { title: "Content and conversion", body: "<p>This step controls what is migrated from WordPress and how HTML is written into Eleventy.</p>" }
+        },
+        contentTypes: {
+          fi: { title: "Content types", body: "<p>Pilkulla eroteltu lista REST API:n type-slugeista, esimerkiksi <code>posts,pages</code>.</p>" },
+          en: { title: "Content types", body: "<p>A comma-separated list of REST API content type slugs, for example <code>posts,pages</code>.</p>" }
+        },
+        htmlMode: {
+          fi: { title: "HTML mode", body: "<p><code>keep-html</code> säilyttää HTML:n. <code>basic-markdown</code> tekee kevyen muunnoksen Markdowniin.</p>" },
+          en: { title: "HTML mode", body: "<p><code>keep-html</code> preserves HTML. <code>basic-markdown</code> performs a lightweight Markdown conversion.</p>" }
+        },
+        targetPermalinkPattern: {
+          fi: { title: "Permalink pattern", body: "<p>Kohdepolun malli muille kuin sivuille. Tuetut paikkamerkit ovat <code>{type}</code> ja <code>{slug}</code>.</p>" },
+          en: { title: "Permalink pattern", body: "<p>The target path pattern for non-page content. Supported placeholders are <code>{type}</code> and <code>{slug}</code>.</p>" }
+        },
+        includeDrafts: {
+          fi: { title: "Include drafts", body: "<p>Ottaa mukaan luonnokset ja private-sisällöt, jos rajapinta palauttaa ne valitulla autentikoinnilla.</p>" },
+          en: { title: "Include drafts", body: "<p>Includes drafts and private content if the selected authentication returns them from the API.</p>" }
+        },
+        downloadMedia: {
+          fi: { title: "Download media", body: "<p>Lataa sisällöstä löytyvät mediaviittaukset paikalliseen mediahakemistoon.</p>" },
+          en: { title: "Download media", body: "<p>Downloads media references found in content into the local media directory.</p>" }
+        },
+        createRedirects: {
+          fi: { title: "Create redirects", body: "<p>Luo <code>redirects.csv</code>-tiedoston vanhojen WordPress-osoitteiden mapitukseen.</p>" },
+          en: { title: "Create redirects", body: "<p>Generates a <code>redirects.csv</code> file for mapping old WordPress URLs.</p>" }
+        },
+        dryRun: {
+          fi: { title: "Dry-run", body: "<p>Turvallinen ensimmäinen ajo: raportti syntyy, mutta sisältötiedostoja ei kirjoiteta.</p>" },
+          en: { title: "Dry-run", body: "<p>A safe first run: you get the report, but no content files are written.</p>" }
+        },
+        "auth-overview": {
+          fi: { title: "Autentikointi", body: "<p>Tarvitaan vain jos REST API ei ole julkinen tai mukaan halutaan julkaisematon sisältö.</p>" },
+          en: { title: "Authentication", body: "<p>Only needed if the REST API is not public or you want unpublished content included.</p>" }
+        },
+        authMode: {
+          fi: { title: "Auth mode", body: "<p><code>app-password</code> käyttää Basic Authia. <code>bearer</code> lähettää bearer-tokenin HTTP-otsakkeessa.</p>" },
+          en: { title: "Auth mode", body: "<p><code>app-password</code> uses Basic Auth. <code>bearer</code> sends a bearer token in the HTTP header.</p>" }
+        },
+        wpUser: {
+          fi: { title: "WP username", body: "<p>WordPress-käyttäjänimi application password -kirjautumista varten.</p>" },
+          en: { title: "WP username", body: "<p>The WordPress username used together with an application password.</p>" }
+        },
+        wpAppPassword: {
+          fi: { title: "WP application password", body: "<p>WordPressin luoma application password, ei tavallinen salasana.</p>" },
+          en: { title: "WP application password", body: "<p>A WordPress application password, not the normal account password.</p>" }
+        },
+        wpBearerToken: {
+          fi: { title: "Bearer token", body: "<p>Token-pohjainen tunniste, jos API-kerros vaatii bearer-authin.</p>" },
+          en: { title: "Bearer token", body: "<p>A token-based credential if your API layer requires bearer authentication.</p>" }
+        },
+        "output-overview": {
+          fi: { title: "Paikallinen projekti ja output", body: "<p>Tässä määritetään mihin paikalliseen projektiin ja output-kansioon migroitu sisältö viedään vaiheessa 1.</p>" },
+          en: { title: "Local project and output", body: "<p>This defines which local project and output directory will receive the migrated content in step 1.</p>" }
+        },
+        localProjectFolder: {
+          fi: { title: "Paikallinen projektikansio", body: "<p>Tämä on kohdeprojekti, johon migroitu sisältö on tarkoitus tuoda ja jossa Eleventy-sivustoa jatkotyöstetään.</p>" },
+          en: { title: "Local project folder", body: "<p>This is the target project where the migrated content is meant to be brought and where the Eleventy site will be continued.</p>" }
+        },
+        outputRoot: {
+          fi: { title: "Output root", body: "<p>Yläkansio, jonka alle migrattori kirjoittaa tuotetut tiedostot.</p>" },
+          en: { title: "Output root", body: "<p>The top-level output directory where generated files are written.</p>" }
+        },
+        configPath: {
+          fi: { title: "Config path", body: "<p>JSON-konfiguraation tallennuspolku. Samaa tiedostoa voi ajaa myöhemmin CLI:llä.</p>" },
+          en: { title: "Config path", body: "<p>The JSON configuration save path. The same file can later be run from the CLI.</p>" }
+        },
+        contentDir: {
+          fi: { title: "Content directory", body: "<p>Alikansio, johon Markdown-sisältö kirjoitetaan tyypeittäin.</p>" },
+          en: { title: "Content directory", body: "<p>The subdirectory where Markdown content is written by type.</p>" }
+        },
+        mediaDir: {
+          fi: { title: "Media directory", body: "<p>Alikansio paikallisesti ladatulle medialle.</p>" },
+          en: { title: "Media directory", body: "<p>The subdirectory for locally downloaded media.</p>" }
+        },
+        "local-overview": {
+          fi: { title: "Paikallinen ajo", body: "<p>Vaiheen 1 lopuksi migroitu sivusto kannattaa ajaa paikallisesti, jotta sisältö, linkit ja ulkoasu voidaan tarkistaa ennen GitHub-julkaisua.</p>" },
+          en: { title: "Local preview", body: "<p>At the end of step 1, run the migrated site locally so content, links, and layout can be reviewed before GitHub publishing.</p>" }
+        },
+        localDevCommand: {
+          fi: { title: "Paikallinen ajokomento", body: "<p>Komento, jolla Eleventy-sivustoa ajetaan paikallisesti migraation jälkeen.</p>" },
+          en: { title: "Local dev command", body: "<p>The command used to run the Eleventy site locally after migration.</p>" }
+        },
+        localSiteUrl: {
+          fi: { title: "Paikallinen sivu-URL", body: "<p>Paikallinen osoite, josta sivusto avataan selaimessa tarkistusta varten.</p>" },
+          en: { title: "Local site URL", body: "<p>The local URL where the site is opened in the browser for review.</p>" }
+        },
+        "github-overview": {
+          fi: { title: "GitHub Pages ja Actions", body: "<p>Vaihe 2 suunnittelee repo-polun, buildin ja automaattisen julkaisun sen jälkeen kun sivusto on jo tarkistettu paikallisesti.</p>" },
+          en: { title: "GitHub Pages and Actions", body: "<p>Step 2 plans the repo flow, build, and automated deployment after the site has already been checked locally.</p>" }
+        },
+        githubOwner: {
+          fi: { title: "GitHub owner", body: "<p>Käyttäjätunnus tai organisaatio, jonka alle repo luodaan.</p>" },
+          en: { title: "GitHub owner", body: "<p>The user or organization that owns the repository.</p>" }
+        },
+        githubRepo: {
+          fi: { title: "Repository name", body: "<p>Repositorio johon Eleventy-projekti ja migroitu sisältö viedään.</p>" },
+          en: { title: "Repository name", body: "<p>The repository that will contain the Eleventy project and migrated content.</p>" }
+        },
+        pagesUrl: {
+          fi: { title: "Pages site URL", body: "<p>Arvioitu GitHub Pages -osoite, esimerkiksi <code>https://username.github.io/repo/</code>.</p>" },
+          en: { title: "Pages site URL", body: "<p>The expected GitHub Pages URL, for example <code>https://username.github.io/repo/</code>.</p>" }
+        },
+        buildCommand: {
+          fi: { title: "Build command", body: "<p>Komento jonka GitHub Actions ajaa build-vaiheessa.</p>" },
+          en: { title: "Build command", body: "<p>The command GitHub Actions will run during the build step.</p>" }
+        },
+        useGitHubActions: {
+          fi: { title: "Use GitHub Actions", body: "<p>Tarkoitus on että build ja deploy tapahtuvat GitHubissa ilman paikallista julkaisuaskelta.</p>" },
+          en: { title: "Use GitHub Actions", body: "<p>The intention is to build and deploy inside GitHub without a local publish step.</p>" }
+        },
+        publishOnPush: {
+          fi: { title: "Publish on push", body: "<p>Kun tämä on päällä, tavoitetila on julkaista automaattisesti aina kun oletusbranchiin tulee uusi push.</p>" },
+          en: { title: "Publish on push", body: "<p>When enabled, the target setup is to publish automatically whenever the default branch receives a push.</p>" }
+        },
+        "domain-overview": {
+          fi: { title: "Domain-optio", body: "<p>Valinnainen vaihe omalle domainille. Sisältää joko uuden domainin hankinnan tai olemassa olevan domainin ohjauksen tähän sivustoon.</p>" },
+          en: { title: "Domain option", body: "<p>An optional phase for a custom domain. It covers either buying a new domain or pointing an existing domain to this site.</p>" }
+        },
+        useCustomDomain: {
+          fi: { title: "Use custom domain", body: "<p>Aktivoi domain-vaiheen suunnitelmaan. Muuten sivusto voi jäädä GitHub Pages -osoitteeseen.</p>" },
+          en: { title: "Use custom domain", body: "<p>Adds the domain phase to the plan. Otherwise the site can stay on the GitHub Pages URL.</p>" }
+        },
+        domainAction: {
+          fi: { title: "Domain-toiminto", body: "<p>Valitse hankitaanko uusi domain vai osoitetaanko jo olemassa oleva domain tälle GitHub Pages -sivustolle.</p>" },
+          en: { title: "Domain action", body: "<p>Select whether to buy a new domain or point an existing domain to this GitHub Pages site.</p>" }
+        },
+        desiredDomain: {
+          fi: { title: "Haluttu domain", body: "<p>Haluttu verkkotunnus, esimerkiksi <code>example.com</code> tai <code>www.example.com</code>.</p>" },
+          en: { title: "Desired domain", body: "<p>The desired domain name, for example <code>example.com</code> or <code>www.example.com</code>.</p>" }
+        },
+        registrar: {
+          fi: { title: "Registrar", body: "<p>Palvelu, josta domain hankitaan tai jossa DNS-tietueet hallitaan.</p>" },
+          en: { title: "Registrar", body: "<p>The service where the domain is bought or where DNS records are managed.</p>" }
+        },
+        dnsNotes: {
+          fi: { title: "DNS-toimenpiteet", body: "<p>Kirjaa tähän miten domain kytketään GitHub Pagesiin, esimerkiksi A- tai CNAME-tietueiden päivitys.</p>" },
+          en: { title: "DNS action notes", body: "<p>Use this to note how the domain should be connected to GitHub Pages, for example A or CNAME record updates.</p>" }
+        }
+      };
+
+      function t(key) {
+        return translations[currentLang][key] ?? key;
+      }
+
+      function applyTranslations() {
+        document.documentElement.lang = currentLang;
+        document.querySelectorAll("[data-i18n]").forEach((node) => {
+          node.textContent = t(node.dataset.i18n);
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+          node.placeholder = t(node.dataset.i18nPlaceholder);
+        });
+        document.title = t("hero_title");
+        renderChecklist();
+        renderPlan();
+      }
+
+      function renderChecklist() {
+        checklist.innerHTML = translations[currentLang].checklist_items.map(([title, body]) => `
+          <li>
+            <strong>${title}</strong>
+            <span class="meta">${body}</span>
+          </li>
+        `).join("");
+      }
+
+      function setTheme(theme) {
+        currentTheme = theme;
+        document.body.dataset.theme = theme;
+      }
 
       function setBusy(isBusy) {
         saveButton.disabled = isBusy;
@@ -1101,7 +1362,7 @@
       }
 
       function openHelp(topic) {
-        const entry = helpContent[topic];
+        const entry = helpContent[topic]?.[currentLang];
         if (!entry) return;
         helpTitle.textContent = entry.title;
         helpBody.innerHTML = entry.body;
@@ -1137,6 +1398,7 @@
         return {
           wpBaseUrl: data.get("wpBaseUrl"),
           contentTypes: data.get("contentTypes"),
+          localProjectFolder: data.get("localProjectFolder"),
           outputRoot: data.get("outputRoot"),
           localDevCommand: data.get("localDevCommand"),
           localSiteUrl: data.get("localSiteUrl"),
@@ -1156,40 +1418,38 @@
 
       function renderPlan() {
         const state = getPlanState();
-        const repoLabel = state.githubOwner && state.githubRepo
-          ? `${state.githubOwner}/${state.githubRepo}`
-          : "GitHub owner/repo puuttuu";
+        const planLabels = translations[currentLang].plan_labels;
+        const planText = translations[currentLang].plan_text;
+        const repoLabel = state.githubOwner && state.githubRepo ? `${state.githubOwner}/${state.githubRepo}` : planText.missingRepo;
         const domainLine = state.useCustomDomain
-          ? `${
-              state.domainAction === "point-existing" ? "Olemassa oleva domain" : "Uusi domain"
-            }: ${state.desiredDomain || "valitse domain"}; registrar ${state.registrar || "ei maaritetty"}; ${state.dnsNotes || "DNS-ohjaus maarittamatta"}`
-          : "Ei omaa domainia, julkaisu GitHub Pages -osoitteeseen";
+          ? `${state.domainAction === "point-existing" ? planText.existingDomain : planText.newDomain}: ${state.desiredDomain || "-"}; registrar ${state.registrar || "-"}; ${state.dnsNotes || planText.dnsMissing}`
+          : planText.noDomain;
 
         const items = [
           {
-            title: "Vaihe 1: WordPress -> paikallinen sisalto",
-            text: `${state.wpBaseUrl || "WordPress URL puuttuu"} -> sisaltotyypit ${state.contentTypes || "posts,pages"}`
+            title: planLabels.p1_extract,
+            text: `${state.wpBaseUrl || "-"} -> ${state.contentTypes || "posts,pages"}`
           },
           {
-            title: "Vaihe 1: paikallinen output",
-            text: `Tuloste kirjoitetaan kansioon ${state.outputRoot || "./migrations/..."} ja tarkistetaan ennen repo-siirtoa`
+            title: planLabels.p1_output,
+            text: `${state.localProjectFolder || planText.missingProject}; ${state.outputRoot || "./migrations/..."}`
           },
           {
-            title: "Vaihe 1: paikallinen ajo",
-            text: `${state.localDevCommand || "npx @11ty/eleventy --serve"} -> avaa ${state.localSiteUrl || "http://127.0.0.1:8080/"}`
+            title: planLabels.p1_local,
+            text: `${state.localDevCommand || "npx @11ty/eleventy --serve"} -> ${state.localSiteUrl || "http://127.0.0.1:8080/"}`
           },
           {
-            title: "Vaihe 2: repository and Pages",
-            text: `${repoLabel} julkaistaan osoitteeseen ${state.pagesUrl || "https://username.github.io/repo/"}`
+            title: planLabels.p2_repo,
+            text: `${repoLabel} -> ${state.pagesUrl || "https://username.github.io/repo/"}`
           },
           {
-            title: "Vaihe 2: GitHub Actions automation",
+            title: planLabels.p2_actions,
             text: state.useGitHubActions
-              ? `Build command: ${state.buildCommand || "npx @11ty/eleventy"}; ${state.publishOnPush ? "deploy jokaisesta pushista" : "deploy kaynnistetaan hallitusti"}`
-              : "Actions ei ole valittuna"
+              ? `${state.buildCommand || "npx @11ty/eleventy"}; ${state.publishOnPush ? planText.deployPush : planText.deployManual}`
+              : planText.actionsDisabled
           },
           {
-            title: "Vaihe 2: custom domain",
+            title: planLabels.p2_domain,
             text: domainLine
           }
         ];
@@ -1214,6 +1474,7 @@
           githubOwner: "",
           githubRepo: "",
           pagesUrl: "",
+          localProjectFolder: "",
           localDevCommand: "npx @11ty/eleventy --serve",
           localSiteUrl: "http://127.0.0.1:8080/",
           buildCommand: "npx @11ty/eleventy",
@@ -1251,18 +1512,29 @@
       }
 
       async function loadDefaults() {
+        resultNode.textContent = t("result_loading");
         const response = await fetch("/api/defaults");
         const data = await response.json();
         fillForm(data);
         resultNode.textContent = JSON.stringify(data, null, 2);
-        setStatus("Oletusarvot ladattu.");
+        setStatus(t("status_defaults_loaded"));
       }
+
+      languageSelect.addEventListener("change", () => {
+        currentLang = languageSelect.value;
+        applyTranslations();
+      });
+
+      themeSelect.addEventListener("change", () => {
+        setTheme(themeSelect.value);
+      });
 
       authMode.addEventListener("change", updateAuthVisibility);
       useCustomDomain.addEventListener("change", () => {
         updateDomainVisibility();
         renderPlan();
       });
+
       outputRootField.addEventListener("input", () => {
         const nextPath = suggestConfigPath(outputRootField.value);
         if (!configPathField.value || configPathField.value === lastSuggestedConfigPath) {
@@ -1283,30 +1555,19 @@
       helpClose.addEventListener("click", () => helpDialog.close());
       helpDialog.addEventListener("click", (event) => {
         const rect = helpDialog.getBoundingClientRect();
-        const inside =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
+        const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
         if (!inside) helpDialog.close();
       });
 
       saveButton.addEventListener("click", async () => {
         setBusy(true);
-        setStatus("Tallennetaan konfiguraatio...");
+        setStatus(t("status_saving"));
         try {
           const data = await callApi("/api/save-config", getPayload());
-          resultNode.textContent = JSON.stringify(
-            {
-              ...data,
-              deploymentPlan: getPlanState()
-            },
-            null,
-            2
-          );
+          resultNode.textContent = JSON.stringify({ ...data, deploymentPlan: getPlanState() }, null, 2);
           configPathField.value = data.configPath;
           lastSuggestedConfigPath = data.configPath;
-          setStatus("Konfiguraatio tallennettu.");
+          setStatus(t("status_saved"));
         } catch (error) {
           setStatus(error.message, true);
         } finally {
@@ -1317,20 +1578,13 @@
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         setBusy(true);
-        setStatus("Migraatio kaynnissa...");
+        setStatus(t("status_running"));
         try {
           const data = await callApi("/api/run", getPayload());
-          resultNode.textContent = JSON.stringify(
-            {
-              ...data,
-              deploymentPlan: getPlanState()
-            },
-            null,
-            2
-          );
+          resultNode.textContent = JSON.stringify({ ...data, deploymentPlan: getPlanState() }, null, 2);
           configPathField.value = data.configPath;
           lastSuggestedConfigPath = data.configPath;
-          setStatus("Migraatio valmis.");
+          setStatus(t("status_done"));
         } catch (error) {
           setStatus(error.message, true);
         } finally {
@@ -1338,6 +1592,7 @@
         }
       });
 
+      applyTranslations();
       loadDefaults().catch((error) => {
         setStatus(error.message, true);
         resultNode.textContent = error.stack || String(error);
