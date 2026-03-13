@@ -645,6 +645,7 @@
         <div class="panel">
           <div class="tabs">
             <button type="button" class="tab-button is-active" data-tab-target="workflow-tab" id="workflow-tab-button" data-i18n="tab_workflow"></button>
+            <button type="button" class="tab-button" data-tab-target="styles-tab" id="styles-tab-button" data-i18n="tab_styles"></button>
             <button type="button" class="tab-button" data-tab-target="plugins-tab" id="plugins-tab-button" data-i18n="tab_plugins"></button>
           </div>
         </div>
@@ -733,36 +734,6 @@
                   <label class="toggle">
                     <input name="dryRun" type="checkbox">
                     <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts">
-                    <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="convertKadenceBlocks" type="checkbox" id="convertKadenceBlocks">
-                    <span data-i18n="toggle_convertKadenceBlocks"></span> <button type="button" class="help-button" data-help-topic="convertKadenceBlocks">?</button>
-                  </label>
-                </div>
-                <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_pageLayout"></span> <button type="button" class="help-button" data-help-topic="pageLayout">?</button></span>
-                    <input name="pageLayout" data-i18n-placeholder="placeholder_pageLayout">
-                    <span data-i18n="hint_pageLayout"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_postLayout"></span> <button type="button" class="help-button" data-help-topic="postLayout">?</button></span>
-                    <input name="postLayout" data-i18n-placeholder="placeholder_postLayout">
-                    <span data-i18n="hint_postLayout"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
-                    <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout">
-                    <span data-i18n="hint_defaultLayout"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_kadenceBlocksDir"></span> <button type="button" class="help-button" data-help-topic="kadenceBlocksDir">?</button></span>
-                    <input name="kadenceBlocksDir" data-i18n-placeholder="placeholder_kadenceBlocksDir">
-                    <span data-i18n="hint_kadenceBlocksDir"></span>
                   </label>
                 </div>
 
@@ -959,6 +930,103 @@
         </aside>
       </section>
 
+      <section class="layout tab-panel" id="styles-tab" hidden>
+        <div class="panel">
+          <div class="section-head">
+            <h2 class="section-title" data-i18n="styles_title"></h2>
+            <button type="button" class="help-button" data-help-topic="styles-overview">?</button>
+          </div>
+          <p class="hint" data-i18n="styles_intro"></p>
+
+          <div class="section-head">
+            <h3 class="section-title" data-i18n="styles_preset_section"></h3>
+            <button type="button" class="help-button" data-help-topic="preset">?</button>
+          </div>
+          <div class="grid">
+            <label>
+              <span class="field-head"><span data-i18n="field_preset"></span></span>
+              <select name="preset" id="preset" form="migration-form">
+                <option value="none" data-i18n="option_preset_none"></option>
+                <option value="kadence" data-i18n="option_preset_kadence"></option>
+              </select>
+              <span data-i18n="hint_preset"></span>
+            </label>
+          </div>
+
+          <div class="section-head">
+            <h3 class="section-title" data-i18n="styles_render_section"></h3>
+            <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts" form="migration-form">
+              <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
+            </label>
+            <label class="toggle">
+              <input name="convertKadenceBlocks" type="checkbox" id="convertKadenceBlocks" form="migration-form">
+              <span data-i18n="toggle_convertKadenceBlocks"></span> <button type="button" class="help-button" data-help-topic="convertKadenceBlocks">?</button>
+            </label>
+          </div>
+          <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
+            <label>
+              <span class="field-head"><span data-i18n="field_pageLayout"></span> <button type="button" class="help-button" data-help-topic="pageLayout">?</button></span>
+              <input name="pageLayout" data-i18n-placeholder="placeholder_pageLayout" form="migration-form">
+              <span data-i18n="hint_pageLayout"></span>
+            </label>
+            <label>
+              <span class="field-head"><span data-i18n="field_postLayout"></span> <button type="button" class="help-button" data-help-topic="postLayout">?</button></span>
+              <input name="postLayout" data-i18n-placeholder="placeholder_postLayout" form="migration-form">
+              <span data-i18n="hint_postLayout"></span>
+            </label>
+            <label>
+              <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
+              <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout" form="migration-form">
+              <span data-i18n="hint_defaultLayout"></span>
+            </label>
+            <label>
+              <span class="field-head"><span data-i18n="field_kadenceBlocksDir"></span> <button type="button" class="help-button" data-help-topic="kadenceBlocksDir">?</button></span>
+              <input name="kadenceBlocksDir" data-i18n-placeholder="placeholder_kadenceBlocksDir" form="migration-form">
+              <span data-i18n="hint_kadenceBlocksDir"></span>
+            </label>
+          </div>
+
+          <div class="section-head">
+            <h3 class="section-title" data-i18n="styles_migration_section"></h3>
+            <button type="button" class="help-button" data-help-topic="migrateStyles">?</button>
+          </div>
+          <div class="toggle-row">
+            <label class="toggle">
+              <input name="migrateStyles" type="checkbox" id="migrateStyles" form="migration-form">
+              <span data-i18n="toggle_migrateStyles"></span> <button type="button" class="help-button" data-help-topic="migrateStyles">?</button>
+            </label>
+          </div>
+          <div class="grid">
+            <label>
+              <span class="field-head"><span data-i18n="field_stylesDir"></span> <button type="button" class="help-button" data-help-topic="stylesDir">?</button></span>
+              <input name="stylesDir" data-i18n-placeholder="placeholder_stylesDir" form="migration-form">
+              <span data-i18n="hint_stylesDir"></span>
+            </label>
+          </div>
+          <div class="subtle-box">
+            <p data-i18n="styles_box"></p>
+          </div>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel">
+            <h2 class="side-title" data-i18n="styles_summary_title"></h2>
+            <p class="hint" data-i18n="styles_summary_hint"></p>
+            <ul class="check-list" id="styles-summary"></ul>
+          </section>
+
+          <section class="panel">
+            <h2 class="side-title" data-i18n="styles_outputs_title"></h2>
+            <p class="hint" data-i18n="styles_outputs_hint"></p>
+            <ul class="check-list" id="styles-outputs"></ul>
+          </section>
+        </aside>
+      </section>
+
       <section class="layout tab-panel" id="plugins-tab" hidden>
         <div class="panel">
           <div class="section-head">
@@ -1014,6 +1082,7 @@
 
     <script>
       const form = document.getElementById("migration-form");
+      const presetSelect = document.getElementById("preset");
       const authMode = document.getElementById("authMode");
       const appPasswordFields = document.getElementById("app-password-fields");
       const bearerFields = document.getElementById("bearer-fields");
@@ -1021,6 +1090,7 @@
       const domainFields = document.getElementById("domain-fields");
       const useNunjucksLayouts = document.getElementById("useNunjucksLayouts");
       const convertKadenceBlocks = document.getElementById("convertKadenceBlocks");
+      const migrateStyles = document.getElementById("migrateStyles");
       const nunjucksFields = document.getElementById("nunjucks-fields");
       const saveButton = document.getElementById("save-config");
       const runButton = document.getElementById("run-migration");
@@ -1038,7 +1108,10 @@
       const themeSelect = document.getElementById("theme-select");
       const tabButtons = document.querySelectorAll("[data-tab-target]");
       const workflowTab = document.getElementById("workflow-tab");
+      const stylesTab = document.getElementById("styles-tab");
       const pluginsTab = document.getElementById("plugins-tab");
+      const stylesSummary = document.getElementById("styles-summary");
+      const stylesOutputs = document.getElementById("styles-outputs");
       const pluginGrid = document.getElementById("plugin-grid");
       const pluginSummary = document.getElementById("plugin-summary");
       const pluginRisks = document.getElementById("plugin-risks");
@@ -1062,6 +1135,7 @@
           ui_language: "Kieli",
           ui_theme: "Teema",
           tab_workflow: "Migraatiotyönkulku",
+          tab_styles: "Teemat ja tyylit",
           tab_plugins: "Plugin-analyysi",
           chip_1: "Vaihe 1. Migroi omalle koneelle",
           chip_2: "WordPress-lähde",
@@ -1085,6 +1159,7 @@
           local_section: "Paikallinen ajo",
           github_section: "GitHub Pages ja Actions",
           domain_section: "Domain-optio",
+          field_preset: "Preset",
           field_sourceType: "Source type",
           field_restNamespace: "REST namespace",
           field_wpBaseUrl: "WordPress base URL",
@@ -1095,6 +1170,7 @@
           field_postLayout: "Postausten layout",
           field_defaultLayout: "Oletuslayout muille tyypeille",
           field_kadenceBlocksDir: "Kadence-partialien hakemisto",
+          field_stylesDir: "Tyylien output-hakemisto",
           field_authMode: "Auth mode",
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
@@ -1114,6 +1190,7 @@
           field_desiredDomain: "Haluttu domain",
           field_registrar: "Registrar",
           field_dnsNotes: "DNS-toimenpiteet",
+          hint_preset: "Kadence-preset laittaa päälle lohkomuunnoksen ja tyylien migraation oletusasetuksilla.",
           hint_sourceType: "Nykyinen toteutus tukee REST-lähdettä.",
           hint_restNamespace: "Oletus on WordPressin vakiopolku.",
           hint_wpBaseUrl: "Esimerkiksi sivuston juuri ilman päättävää kauttaviivaa.",
@@ -1124,8 +1201,11 @@
           hint_postLayout: "Postaukset saavat tämän layout-polun front matteriin.",
           hint_defaultLayout: "Valinnainen fallback muille sisältötyypeille kuin pages/posts.",
           hint_kadenceBlocksDir: "Hakemisto, johon generoidut Kadence Nunjucks -partialit kirjoitetaan.",
+          hint_stylesDir: "Hakemisto, johon ladatut legacy-tyylit ja design tokenit kirjoitetaan.",
           hint_authMode: "Useimmiten julkiselle datalle riittää none.",
           hint_localProjectFolder: "Tähän paikalliseen projektikansioon migroitu sisältö tuodaan jatkotyöstöä varten.",
+          option_preset_none: "Ei presetiä",
+          option_preset_kadence: "Kadence",
           option_keep_html: "keep-html",
           option_basic_markdown: "basic-markdown",
           option_auth_none: "none",
@@ -1139,6 +1219,7 @@
           toggle_dryRun: "Dry-run: raportti ilman tiedostojen kirjoitusta.",
           toggle_useNunjucksLayouts: "Lisää front matteriin Nunjucks-layoutit valinnaisena.",
           toggle_convertKadenceBlocks: "Muunna tuetut Kadence-lohkot Nunjucks-includeiksi.",
+          toggle_migrateStyles: "Lataa tyylitiedostot ja poimi CSS design tokenit.",
           toggle_useGitHubActions: "Käytä GitHub Actionsia buildiin ja julkaisuun automaattisesti.",
           toggle_publishOnPush: "Julkaise aina pushin jälkeen oletusbranchista.",
           toggle_useCustomDomain: "Ota mukaan oman domainin hankinta tai olemassa olevan domainin ohjaus.",
@@ -1152,6 +1233,16 @@
           checklist_title: "Työnkulun tarkistuslista",
           output_title: "Tuloste",
           output_hint: "API-vastaukset ja migraation raportti näkyvät tässä.",
+          styles_title: "Teemat ja tyylit",
+          styles_intro: "Tällä välilehdellä hallitaan teema- ja tyyliasetuksia, kuten Kadence-presetiä, Nunjucks-renderöintiä ja legacy-tyylien migraatiota.",
+          styles_preset_section: "Presetit",
+          styles_render_section: "Renderöinti ja lohkot",
+          styles_migration_section: "Tyylien migraatio",
+          styles_box: "Kadence-preset on tarkoitettu tilanteisiin, joissa haluat siirtää sekä lohkorakennetta että vanhan WordPress-teeman tyylikerrosta Eleventy-projektiin best-effort-mallilla.",
+          styles_summary_title: "Tyylistrategia",
+          styles_summary_hint: "Yhteenveto valitusta presetistä, renderöintitavasta ja style-migraatiosta.",
+          styles_outputs_title: "Tyylien output",
+          styles_outputs_hint: "Näihin polkuihin migrattori kirjoittaa partialit, legacy-CSS:n ja design tokenit.",
           plugin_audit_title: "WordPress-pluginien korvaavuus",
           plugin_audit_intro: "Tämä näkymä kokoaa julkisista jäljistä havaitut todennäköiset WordPress-lisäosat ja ehdottaa niille korvaajia Eleventy + GitHub Pages -mallissa.",
           plugin_replacement_label: "Korvaaja",
@@ -1179,6 +1270,7 @@
           placeholder_postLayout: "layouts/post.njk",
           placeholder_defaultLayout: "layouts/default.njk",
           placeholder_kadenceBlocksDir: "_includes/blocks/kadence",
+          placeholder_stylesDir: "styles/kadence-legacy",
           placeholder_localProjectFolder: "/Users/name/Documents/site-project",
           placeholder_githubOwner: "username tai organisaatio",
           placeholder_githubRepo: "site-repo",
@@ -1211,6 +1303,16 @@
             deployPush: "deploy jokaisesta pushista",
             deployManual: "deploy käynnistetään hallitusti"
           },
+          styles_summary_items: [
+            ["Preset", "{preset}"],
+            ["Renderöinti", "{render}"],
+            ["Style-migraatio", "{styles}"]
+          ],
+          styles_output_items: [
+            ["Kadence partialit", "{kadenceDir}"],
+            ["Legacy-tyylit", "{stylesDir}"],
+            ["Design tokenit", "{stylesDir}/design-tokens.json"]
+          ],
           plugin_summary_items: [
             ["Poista kokonaan", "SSL- ja suuri osa WordPress-kohtaisesta analytiikka- ja cookie-logiikasta voidaan usein jättää pois tai korvata kevyemmällä palvelulla."],
             ["Korvaa Eleventyllä", "SEO-meta, navigaatio, sisältökokoelmat, embed-komponentit ja dokumentaatiorakenne voidaan rakentaa staattisesti."],
@@ -1230,6 +1332,7 @@
           ui_language: "Language",
           ui_theme: "Theme",
           tab_workflow: "Migration workflow",
+          tab_styles: "Themes and styles",
           tab_plugins: "Plugin audit",
           chip_1: "Step 1. Migrate locally",
           chip_2: "WordPress source",
@@ -1253,6 +1356,7 @@
           local_section: "Local preview",
           github_section: "GitHub Pages and Actions",
           domain_section: "Domain options",
+          field_preset: "Preset",
           field_sourceType: "Source type",
           field_restNamespace: "REST namespace",
           field_wpBaseUrl: "WordPress base URL",
@@ -1263,6 +1367,7 @@
           field_postLayout: "Post layout",
           field_defaultLayout: "Default layout for other types",
           field_kadenceBlocksDir: "Kadence partial directory",
+          field_stylesDir: "Styles output directory",
           field_authMode: "Auth mode",
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
@@ -1282,6 +1387,7 @@
           field_desiredDomain: "Desired domain",
           field_registrar: "Registrar",
           field_dnsNotes: "DNS action notes",
+          hint_preset: "The Kadence preset enables block conversion and style migration with default paths.",
           hint_sourceType: "The current implementation supports the REST source.",
           hint_restNamespace: "The default is the standard WordPress path.",
           hint_wpBaseUrl: "For example the site root without a trailing slash.",
@@ -1292,8 +1398,11 @@
           hint_postLayout: "Posts will receive this layout path in front matter.",
           hint_defaultLayout: "Optional fallback for content types other than pages/posts.",
           hint_kadenceBlocksDir: "Directory where generated Kadence Nunjucks partials are written.",
+          hint_stylesDir: "Directory where downloaded legacy styles and extracted design tokens are written.",
           hint_authMode: "For public content, none is usually enough.",
           hint_localProjectFolder: "This is the local project folder where the migrated content will be brought for further work.",
+          option_preset_none: "No preset",
+          option_preset_kadence: "Kadence",
           option_keep_html: "keep-html",
           option_basic_markdown: "basic-markdown",
           option_auth_none: "none",
@@ -1307,6 +1416,7 @@
           toggle_dryRun: "Dry-run: report only, no file writes.",
           toggle_useNunjucksLayouts: "Optionally add Nunjucks layouts to front matter.",
           toggle_convertKadenceBlocks: "Convert supported Kadence blocks into Nunjucks includes.",
+          toggle_migrateStyles: "Download stylesheets and extract CSS design tokens.",
           toggle_useGitHubActions: "Use GitHub Actions for automated build and deployment.",
           toggle_publishOnPush: "Publish automatically on every push to the default branch.",
           toggle_useCustomDomain: "Include either buying a new domain or pointing an existing domain.",
@@ -1320,6 +1430,16 @@
           checklist_title: "Workflow checklist",
           output_title: "Output",
           output_hint: "API responses and the migration report appear here.",
+          styles_title: "Themes and styles",
+          styles_intro: "This tab manages theme and style settings such as the Kadence preset, Nunjucks rendering, and legacy stylesheet migration.",
+          styles_preset_section: "Presets",
+          styles_render_section: "Rendering and blocks",
+          styles_migration_section: "Style migration",
+          styles_box: "The Kadence preset is intended for cases where you want to migrate both block structure and the old WordPress theme styling into the Eleventy project in a best-effort form.",
+          styles_summary_title: "Style strategy",
+          styles_summary_hint: "Summary of the selected preset, rendering mode, and style migration.",
+          styles_outputs_title: "Style outputs",
+          styles_outputs_hint: "These are the paths where the migrator writes partials, legacy CSS, and design tokens.",
           plugin_audit_title: "WordPress plugin replacement audit",
           plugin_audit_intro: "This view summarizes the likely WordPress plugins visible from public traces and suggests replacements for an Eleventy + GitHub Pages setup.",
           plugin_replacement_label: "Replacement",
@@ -1347,6 +1467,7 @@
           placeholder_postLayout: "layouts/post.njk",
           placeholder_defaultLayout: "layouts/default.njk",
           placeholder_kadenceBlocksDir: "_includes/blocks/kadence",
+          placeholder_stylesDir: "styles/kadence-legacy",
           placeholder_localProjectFolder: "/Users/name/Documents/site-project",
           placeholder_githubOwner: "username or organization",
           placeholder_githubRepo: "site-repo",
@@ -1379,6 +1500,16 @@
             deployPush: "deploy on every push",
             deployManual: "deploy triggered in a controlled way"
           },
+          styles_summary_items: [
+            ["Preset", "{preset}"],
+            ["Rendering", "{render}"],
+            ["Style migration", "{styles}"]
+          ],
+          styles_output_items: [
+            ["Kadence partials", "{kadenceDir}"],
+            ["Legacy styles", "{stylesDir}"],
+            ["Design tokens", "{stylesDir}/design-tokens.json"]
+          ],
           plugin_summary_items: [
             ["Remove entirely", "SSL handling and a large part of WordPress-specific analytics or cookie logic can often be dropped or replaced with lighter services."],
             ["Replace with Eleventy", "SEO meta, navigation, content collections, embed components, and documentation structure can be built statically."],
@@ -1624,6 +1755,10 @@
           fi: { title: "HTML mode", body: "<p><code>keep-html</code> säilyttää HTML:n. <code>basic-markdown</code> tekee kevyen muunnoksen Markdowniin.</p>" },
           en: { title: "HTML mode", body: "<p><code>keep-html</code> preserves HTML. <code>basic-markdown</code> performs a lightweight Markdown conversion.</p>" }
         },
+        preset: {
+          fi: { title: "Preset", body: "<p><code>Kadence</code>-preset laittaa päälle Kadence-lohkojen Nunjucks-muunnoksen, Nunjucks-layoutit ja tyylien migraation oletuspoluilla.</p>" },
+          en: { title: "Preset", body: "<p>The <code>Kadence</code> preset enables Kadence block conversion, Nunjucks layouts, and style migration with default paths.</p>" }
+        },
         targetPermalinkPattern: {
           fi: { title: "Permalink pattern", body: "<p>Kohdepolun malli muille kuin sivuille. Tuetut paikkamerkit ovat <code>{type}</code> ja <code>{slug}</code>.</p>" },
           en: { title: "Permalink pattern", body: "<p>The target path pattern for non-page content. Supported placeholders are <code>{type}</code> and <code>{slug}</code>.</p>" }
@@ -1652,6 +1787,14 @@
           fi: { title: "Kadence-lohkojen muunnos", body: "<p>Best-effort-muunnos 18 yleiseen Kadence-lohkoon. Muunnos tarvitsee mieluiten WordPressin raw block -sisällön, joten autentikoitu REST-haku <code>context=edit</code>-tilassa toimii parhaiten.</p>" },
           en: { title: "Kadence block conversion", body: "<p>A best-effort conversion for 18 common Kadence blocks. It works best with raw WordPress block content, so authenticated REST access with <code>context=edit</code> is preferred.</p>" }
         },
+        "styles-overview": {
+          fi: { title: "Teemat ja tyylit", body: "<p>Tällä välilehdellä hallitaan, miten vanhan WordPress-sivuston lohkot, layoutit ja tyylit tuodaan Eleventy-projektiin.</p><ul><li>Kadence-preset kokoaa yhteen lohko- ja tyyliasetukset.</li><li>Style-migraatio tallentaa legacy-CSS:n ja CSS-muuttujat erillisiksi tiedostoiksi.</li></ul>" },
+          en: { title: "Themes and styles", body: "<p>This tab controls how the old WordPress site's blocks, layouts, and styles are brought into the Eleventy project.</p><ul><li>The Kadence preset bundles block and style settings together.</li><li>Style migration stores legacy CSS and CSS variables into separate files.</li></ul>" }
+        },
+        migrateStyles: {
+          fi: { title: "Tyylien migraatio", body: "<p>Lataa sivuston stylesheetit paikallisesti ja poimii niistä CSS custom propertyt erilliseen token-JSON-tiedostoon. Kadence-presetissä suodatus painottaa Kadence-, theme- ja global styles -tiedostoja.</p>" },
+          en: { title: "Style migration", body: "<p>Downloads the site's stylesheets locally and extracts CSS custom properties into a separate token JSON file. In the Kadence preset, filtering favors Kadence, theme, and global styles files.</p>" }
+        },
         pageLayout: {
           fi: { title: "Sivujen layout", body: "<p>Tätä layout-polku käytetään <code>pages</code>-sisällölle, esimerkiksi <code>layouts/page.njk</code>.</p>" },
           en: { title: "Page layout", body: "<p>This layout path is used for <code>pages</code> content, for example <code>layouts/page.njk</code>.</p>" }
@@ -1667,6 +1810,10 @@
         kadenceBlocksDir: {
           fi: { title: "Kadence-partialien hakemisto", body: "<p>Hakemisto, johon generoidut <code>.njk</code>-partialit kirjoitetaan, esimerkiksi <code>_includes/blocks/kadence</code>.</p>" },
           en: { title: "Kadence partial directory", body: "<p>The directory where generated <code>.njk</code> partials are written, for example <code>_includes/blocks/kadence</code>.</p>" }
+        },
+        stylesDir: {
+          fi: { title: "Tyylien output-hakemisto", body: "<p>Hakemisto, johon legacy-CSS, manifesti ja design tokenit kirjoitetaan, esimerkiksi <code>styles/kadence-legacy</code>.</p>" },
+          en: { title: "Styles output directory", body: "<p>The directory where legacy CSS, the manifest, and design tokens are written, for example <code>styles/kadence-legacy</code>.</p>" }
         },
         "auth-overview": {
           fi: { title: "Autentikointi", body: "<p>Tarvitaan vain jos REST API ei ole julkinen tai mukaan halutaan julkaisematon sisältö.</p>" },
@@ -1797,6 +1944,7 @@
         document.title = t("hero_title");
         renderChecklist();
         renderPlan();
+        renderStylesPanel();
         renderPluginAudit();
       }
 
@@ -1868,9 +2016,37 @@
         pluginNextButton.disabled = commonPluginPage >= totalPages;
       }
 
+      function renderStylesPanel() {
+        const data = new FormData(form);
+        const preset = data.get("preset") || "none";
+        const renderMode = [
+          data.get("useNunjucksLayouts") === "on" ? "Nunjucks layouts" : "No layout mapping",
+          data.get("convertKadenceBlocks") === "on" ? "Kadence -> Nunjucks" : "Kadence blocks off"
+        ].join(" / ");
+        const stylesMode = data.get("migrateStyles") === "on" ? "enabled" : "disabled";
+
+        stylesSummary.innerHTML = translations[currentLang].styles_summary_items.map(([title, template]) => {
+          const text = template
+            .replace("{preset}", preset)
+            .replace("{render}", renderMode)
+            .replace("{styles}", stylesMode);
+          return `<li><strong>${title}</strong><span class="meta">${text}</span></li>`;
+        }).join("");
+
+        const kadenceDir = data.get("kadenceBlocksDir") || "_includes/blocks/kadence";
+        const stylesDir = data.get("stylesDir") || "styles/legacy";
+        stylesOutputs.innerHTML = translations[currentLang].styles_output_items.map(([title, template]) => {
+          const text = template
+            .replace("{kadenceDir}", kadenceDir)
+            .replace("{stylesDir}", stylesDir);
+          return `<li><strong>${title}</strong><span class="meta">${text}</span></li>`;
+        }).join("");
+      }
+
       function setActiveTab(tabId) {
         currentTab = tabId;
         workflowTab.hidden = tabId !== "workflow-tab";
+        stylesTab.hidden = tabId !== "styles-tab";
         pluginsTab.hidden = tabId !== "plugins-tab";
         tabButtons.forEach((button) => {
           button.classList.toggle("is-active", button.dataset.tabTarget === tabId);
@@ -1921,6 +2097,7 @@
       function getPayload() {
         const data = new FormData(form);
         return {
+          preset: data.get("preset"),
           sourceType: data.get("sourceType"),
           wpBaseUrl: data.get("wpBaseUrl"),
           restNamespace: data.get("restNamespace"),
@@ -1937,10 +2114,12 @@
           dryRun: data.get("dryRun") === "on",
           useNunjucksLayouts: data.get("useNunjucksLayouts") === "on",
           convertKadenceBlocks: data.get("convertKadenceBlocks") === "on",
+          migrateStyles: data.get("migrateStyles") === "on",
           pageLayout: data.get("pageLayout"),
           postLayout: data.get("postLayout"),
           defaultLayout: data.get("defaultLayout"),
           kadenceBlocksDir: data.get("kadenceBlocksDir"),
+          stylesDir: data.get("stylesDir"),
           outputRoot: data.get("outputRoot"),
           contentDir: data.get("contentDir"),
           mediaDir: data.get("mediaDir"),
@@ -2026,6 +2205,7 @@
         });
 
         const defaults = {
+          preset: "none",
           githubOwner: "",
           githubRepo: "",
           pagesUrl: "",
@@ -2038,10 +2218,12 @@
           useCustomDomain: false,
           useNunjucksLayouts: false,
           convertKadenceBlocks: false,
+          migrateStyles: false,
           pageLayout: "layouts/page.njk",
           postLayout: "layouts/post.njk",
           defaultLayout: "",
           kadenceBlocksDir: "_includes/blocks/kadence",
+          stylesDir: "styles/legacy",
           domainAction: "buy-new",
           desiredDomain: "",
           registrar: "",
@@ -2060,6 +2242,24 @@
         updateDomainVisibility();
         updateNunjucksVisibility();
         renderPlan();
+        renderStylesPanel();
+      }
+
+      function applyPresetDefaults() {
+        if (presetSelect.value !== "kadence") return;
+        form.elements.namedItem("htmlMode").value = "keep-html";
+        form.elements.namedItem("useNunjucksLayouts").checked = true;
+        form.elements.namedItem("convertKadenceBlocks").checked = true;
+        form.elements.namedItem("migrateStyles").checked = true;
+        if (!form.elements.namedItem("pageLayout").value) form.elements.namedItem("pageLayout").value = "layouts/page.njk";
+        if (!form.elements.namedItem("postLayout").value) form.elements.namedItem("postLayout").value = "layouts/post.njk";
+        if (!form.elements.namedItem("kadenceBlocksDir").value || form.elements.namedItem("kadenceBlocksDir").value === "_includes/blocks/kadence") {
+          form.elements.namedItem("kadenceBlocksDir").value = "_includes/blocks/kadence";
+        }
+        if (!form.elements.namedItem("stylesDir").value || form.elements.namedItem("stylesDir").value === "styles/legacy") {
+          form.elements.namedItem("stylesDir").value = "styles/kadence-legacy";
+        }
+        updateNunjucksVisibility();
       }
 
       async function callApi(url, payload) {
@@ -2093,6 +2293,12 @@
 
       tabButtons.forEach((button) => {
         button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget));
+      });
+
+      presetSelect.addEventListener("change", () => {
+        applyPresetDefaults();
+        renderPlan();
+        renderStylesPanel();
       });
 
       pluginFilterInput.addEventListener("input", () => {
@@ -2131,6 +2337,7 @@
 
       form.addEventListener("input", (event) => {
         if (event.target !== outputRootField) renderPlan();
+        renderStylesPanel();
       });
 
       document.querySelectorAll("[data-help-topic]").forEach((button) => {

@@ -12,6 +12,8 @@ const DEFAULT_TYPES = ["posts", "pages"];
 const DEFAULT_NAMESPACE = "/wp-json/wp/v2";
 const DEFAULT_DATA_DIR = "_data";
 const DEFAULT_KADENCE_BLOCKS_DIR = "_includes/blocks/kadence";
+const DEFAULT_STYLES_DIR = "styles/legacy";
+const DEFAULT_KADENCE_STYLES_DIR = "styles/kadence-legacy";
 const SUPPORTED_KADENCE_BLOCKS = [
   "advancedheading",
   "advancedbtn",
@@ -348,6 +350,90 @@ async function downloadFile(url, outPath, headers = {}) {
   await fs.writeFile(outPath, arr);
 }
 
+async function fetchText(url, headers = {}) {
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} for ${url}\n${body.slice(0, 300)}`);
+  }
+  return res.text();
+}
+
+function extractStylesheetUrls(html, baseUrl) {
+  const urls = new Set();
+  for (const match of String(html || "").matchAll(/<link[^>]+rel=["'][^"']*stylesheet[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>/gi)) {
+    try {
+      urls.add(new URL(match[1], baseUrl).toString());
+    } catch {
+      // ignore malformed URLs
+    }
+  }
+  return [...urls];
+}
+
+function extractCssVariables(css) {
+  const vars = {};
+  for (const match of String(css || "").matchAll(/(--[a-zA-Z0-9_-]+)\s*:\s*([^;}{]+);/g)) {
+    const [, name, value] = match;
+    if (!vars[name]) vars[name] = value.trim();
+  }
+  return vars;
+}
+
+async function migrateStyles(config, root, report, headers) {
+  const stylesDir = path.join(root, config.stylesDir || DEFAULT_STYLES_DIR);
+  const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
+  const urls = extractStylesheetUrls(homepageHtml, config.wpBaseUrl);
+  const sameOriginUrls = urls.filter((url) => {
+    try {
+      return new URL(url).origin === new URL(config.wpBaseUrl).origin;
+    } catch {
+      return false;
+    }
+  });
+  const filteredUrls = config.preset === "kadence"
+    ? sameOriginUrls.filter((url) => /kadence|global-styles|blocks?|theme|style/i.test(url))
+    : sameOriginUrls;
+
+  const stylesheets = [];
+  const tokenMap = {};
+  await fs.mkdir(stylesDir, { recursive: true });
+
+  for (const [index, stylesheetUrl] of filteredUrls.entries()) {
+    try {
+      const css = await fetchText(stylesheetUrl, headers);
+      const urlObj = new URL(stylesheetUrl);
+      const baseName = sanitizeFileSegment(path.basename(urlObj.pathname) || `style-${index + 1}.css`);
+      const fileName = baseName.endsWith(".css") ? baseName : `${baseName}.css`;
+      const outPath = path.join(stylesDir, fileName);
+      if (!config.dryRun) await fs.writeFile(outPath, css, "utf8");
+      Object.assign(tokenMap, extractCssVariables(css));
+      stylesheets.push({
+        sourceUrl: stylesheetUrl,
+        outputPath: outPath,
+        size: css.length
+      });
+    } catch (err) {
+      report.warnings.push(`Stylesheet fetch failed for ${stylesheetUrl}: ${String(err.message || err)}`);
+    }
+  }
+
+  const manifestPath = path.join(stylesDir, "styles-manifest.json");
+  const tokensPath = path.join(stylesDir, "design-tokens.json");
+  if (!config.dryRun) {
+    await fs.writeFile(manifestPath, `${JSON.stringify(stylesheets, null, 2)}\n`, "utf8");
+    await fs.writeFile(tokensPath, `${JSON.stringify(tokenMap, null, 2)}\n`, "utf8");
+  }
+
+  report.styles = {
+    migrated: stylesheets.length,
+    stylesDir,
+    manifestPath,
+    tokensPath,
+    stylesheetUrls: filteredUrls
+  };
+}
+
 function buildTargetPermalink(type, slug, config) {
   if (type === "pages") return `/${slug}/`;
   const tpl = config.targetPermalinkPattern || "/{type}/{slug}/";
@@ -634,6 +720,15 @@ async function runMigration(configPath, explicitConfig) {
   const categoryMap = new Map(cats.map((c) => [c.id, c.name]));
   const tagMap = new Map(tags.map((t) => [t.id, t.name]));
 
+  if (config.migrateStyles) {
+    printStep("fetch", "Stylesheets and design tokens");
+    try {
+      await migrateStyles(config, root, report, headers);
+    } catch (err) {
+      report.warnings.push(`Style migration failed: ${String(err.message || err)}`);
+    }
+  }
+
   if (config.importMenus) {
     printStep("fetch", "Menus (best effort)");
     const menuResult = await fetchMenus(config.wpBaseUrl, headers, report.warnings);
@@ -719,14 +814,26 @@ async function runMigration(configPath, explicitConfig) {
 
 async function createConfigFromInput(raw = {}) {
   const stamp = nowStamp();
+  const preset = ["none", "kadence"].includes(String(raw.preset || "none")) ? String(raw.preset || "none") : "none";
   const authMode = ["none", "app-password", "bearer"].includes(String(raw.authMode || "none"))
     ? String(raw.authMode || "none")
     : "none";
   const htmlMode = String(raw.htmlMode || "keep-html") === "basic-markdown" ? "basic-markdown" : "keep-html";
   const outputRoot = String(raw.outputRoot || `./migrations/wp-to-eleventy-${stamp}`).trim() || `./migrations/wp-to-eleventy-${stamp}`;
   const contentTypes = parseCsvList(raw.contentTypes || DEFAULT_TYPES.join(","));
+  const presetDefaults = preset === "kadence" ? {
+    useNunjucksLayouts: true,
+    convertKadenceBlocks: true,
+    migrateStyles: true,
+    pageLayout: "layouts/page.njk",
+    postLayout: "layouts/post.njk",
+    kadenceBlocksDir: DEFAULT_KADENCE_BLOCKS_DIR,
+    stylesDir: DEFAULT_KADENCE_STYLES_DIR,
+    htmlMode: "keep-html"
+  } : {};
 
   return {
+    preset,
     sourceType: String(raw.sourceType || "rest").toLowerCase(),
     wpBaseUrl: String(raw.wpBaseUrl || "").trim().replace(/\/+$/, ""),
     restNamespace: String(raw.restNamespace || DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE,
@@ -735,19 +842,21 @@ async function createConfigFromInput(raw = {}) {
     downloadMedia: Boolean(raw.downloadMedia),
     createRedirects: Boolean(raw.createRedirects ?? true),
     importMenus: Boolean(raw.importMenus ?? true),
-    htmlMode,
+    htmlMode: presetDefaults.htmlMode || htmlMode,
     targetPermalinkPattern: String(raw.targetPermalinkPattern || "/{type}/{slug}/").trim() || "/{type}/{slug}/",
     authMode,
     wpUser: String(raw.wpUser || ""),
     wpAppPassword: String(raw.wpAppPassword || ""),
     wpBearerToken: String(raw.wpBearerToken || ""),
     dryRun: Boolean(raw.dryRun ?? true),
-    useNunjucksLayouts: Boolean(raw.useNunjucksLayouts),
-    pageLayout: String(raw.pageLayout || "layouts/page.njk").trim() || "layouts/page.njk",
-    postLayout: String(raw.postLayout || "layouts/post.njk").trim() || "layouts/post.njk",
+    useNunjucksLayouts: Boolean(raw.useNunjucksLayouts ?? presetDefaults.useNunjucksLayouts),
+    pageLayout: String(raw.pageLayout || presetDefaults.pageLayout || "layouts/page.njk").trim() || "layouts/page.njk",
+    postLayout: String(raw.postLayout || presetDefaults.postLayout || "layouts/post.njk").trim() || "layouts/post.njk",
     defaultLayout: String(raw.defaultLayout || "").trim(),
-    convertKadenceBlocks: Boolean(raw.convertKadenceBlocks),
-    kadenceBlocksDir: String(raw.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR).trim() || DEFAULT_KADENCE_BLOCKS_DIR,
+    convertKadenceBlocks: Boolean(raw.convertKadenceBlocks ?? presetDefaults.convertKadenceBlocks),
+    kadenceBlocksDir: String(raw.kadenceBlocksDir || presetDefaults.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR).trim() || DEFAULT_KADENCE_BLOCKS_DIR,
+    migrateStyles: Boolean(raw.migrateStyles ?? presetDefaults.migrateStyles),
+    stylesDir: String(raw.stylesDir || presetDefaults.stylesDir || DEFAULT_STYLES_DIR).trim() || DEFAULT_STYLES_DIR,
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
     mediaDir: String(raw.mediaDir || "media").trim() || "media",
@@ -802,6 +911,7 @@ async function serveUi(port = 4173) {
         const outputRoot = `./migrations/wp-to-eleventy-${stamp}`;
         sendJson(res, 200, {
           sourceType: "rest",
+          preset: "none",
           wpBaseUrl: "",
           restNamespace: DEFAULT_NAMESPACE,
           contentTypes: DEFAULT_TYPES.join(","),
@@ -822,6 +932,8 @@ async function serveUi(port = 4173) {
           defaultLayout: "",
           convertKadenceBlocks: false,
           kadenceBlocksDir: DEFAULT_KADENCE_BLOCKS_DIR,
+          migrateStyles: false,
+          stylesDir: DEFAULT_STYLES_DIR,
           outputRoot,
           contentDir: "content",
           mediaDir: "media",
@@ -871,6 +983,7 @@ async function runWizard() {
     output.write("This wizard asks required migration choices and can run migration immediately.\n");
 
     const sourceType = (await ask(rl, "Source type (rest/xml/json)", "rest")).toLowerCase();
+    const preset = (await ask(rl, "Preset (none/kadence)", "none")).toLowerCase();
     const wpBaseUrl = await ask(rl, "WordPress base URL (e.g. https://example.com)", "");
     const restNamespace = await ask(rl, "REST namespace path", DEFAULT_NAMESPACE);
     const contentTypes = parseCsvList(await ask(rl, "Content types (comma-separated)", DEFAULT_TYPES.join(",")));
@@ -895,10 +1008,12 @@ async function runWizard() {
     const dryRun = await askYesNo(rl, "Dry run (no files written)", true);
     const useNunjucksLayouts = await askYesNo(rl, "Add Nunjucks layout fields to front matter", false);
     const convertKadenceBlocks = await askYesNo(rl, "Convert supported Kadence blocks into Nunjucks includes", false);
+    const migrateStyles = await askYesNo(rl, "Download site stylesheets and extract CSS design tokens", false);
     const pageLayout = await ask(rl, "Page layout path", "layouts/page.njk");
     const postLayout = await ask(rl, "Post layout path", "layouts/post.njk");
     const defaultLayout = await ask(rl, "Default layout path for other content types (optional)", "");
     const kadenceBlocksDir = await ask(rl, "Kadence partial output directory", DEFAULT_KADENCE_BLOCKS_DIR);
+    const stylesDir = await ask(rl, "Styles output directory", DEFAULT_STYLES_DIR);
     const stamp = nowStamp();
     const outputRoot = await ask(rl, "Output root", `./migrations/wp-to-eleventy-${stamp}`);
     const contentDir = await ask(rl, "Content subdirectory", "content");
@@ -908,6 +1023,7 @@ async function runWizard() {
 
     const config = await createConfigFromInput({
       sourceType,
+      preset,
       wpBaseUrl,
       restNamespace,
       contentTypes: contentTypes.join(","),
@@ -924,10 +1040,12 @@ async function runWizard() {
       dryRun,
       useNunjucksLayouts,
       convertKadenceBlocks,
+      migrateStyles,
       pageLayout,
       postLayout,
       defaultLayout,
       kadenceBlocksDir,
+      stylesDir,
       outputRoot,
       contentDir,
       mediaDir,
