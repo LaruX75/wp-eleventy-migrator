@@ -476,18 +476,18 @@
             GitHub Pages, Actions-julkaisu ja halutessa oma domain. Migraation ajo kayttaa samaa backendia kuin CLI.
           </p>
           <div class="chip-row">
-            <div class="chip">1. WordPress source</div>
-            <div class="chip">2. Migration settings</div>
-            <div class="chip">3. Auth</div>
-            <div class="chip">4. Output</div>
-            <div class="chip">5. GitHub Pages</div>
-            <div class="chip">6. Optional domain</div>
+            <div class="chip">Vaihe 1. Migroi omalle koneelle</div>
+            <div class="chip">WordPress source</div>
+            <div class="chip">Migration output</div>
+            <div class="chip">Paikallinen ajo</div>
+            <div class="chip">Vaihe 2. Julkaise GitHubiin</div>
+            <div class="chip">GitHub Pages + domain</div>
           </div>
         </div>
         <div class="hero-side">
           <div class="card">
             <strong>Suositeltu kulku</strong>
-            <p>Aja ensin dry-run, tarkista raportti, sitten tee varsinainen migraatio ja vasta sen jalkeen ota GitHub Pages -julkaisu kayttoon.</p>
+            <p>Vaihe 1: migroi sisalto omalle koneelle ja tarkista se paikallisesti. Vaihe 2: julkaise GitHub Pagesiin ja kytke halutessa oma domain.</p>
           </div>
           <div class="card">
             <strong>Julkaisumalli</strong>
@@ -504,8 +504,8 @@
                 <div class="step-head">
                   <div class="step-number">1</div>
                   <div>
-                    <h2 class="step-title">WordPress source</h2>
-                    <p class="step-lede">Mista sisalto haetaan ja mita endpointteja kaytetaan.</p>
+                    <h2 class="step-title">Vaihe 1: Migroi sivut omalle koneelle</h2>
+                    <p class="step-lede">WordPress-lahde, migraatioasetukset, output ja paikallinen ajo ennen julkaisua.</p>
                   </div>
                   <div class="step-toggle">Avaa / sulje</div>
                 </div>
@@ -538,21 +538,6 @@
                     <span>Esimerkiksi sivuston juuri ilman paattyvaa kauttaviivaa.</span>
                   </label>
                 </div>
-              </div>
-            </details>
-
-            <details class="step">
-              <summary>
-                <div class="step-head">
-                  <div class="step-number">2</div>
-                  <div>
-                    <h2 class="step-title">Migration settings</h2>
-                    <p class="step-lede">Valitse sisaltotyypit, muunnos ja turvallinen dry-run-virta.</p>
-                  </div>
-                  <div class="step-toggle">Avaa / sulje</div>
-                </div>
-              </summary>
-              <div class="step-body">
                 <div class="section-head">
                   <h3 class="section-title">Sisalto ja muunnos</h3>
                   <button type="button" class="help-button" data-help-topic="content-overview" aria-label="Ohje: sisalto ja muunnos">?</button>
@@ -595,21 +580,6 @@
                     <span>Dry-run: raportti ilman tiedostojen kirjoitusta. <button type="button" class="help-button" data-help-topic="dryRun" aria-label="Ohje: dry-run">?</button></span>
                   </label>
                 </div>
-              </div>
-            </details>
-
-            <details class="step">
-              <summary>
-                <div class="step-head">
-                  <div class="step-number">3</div>
-                  <div>
-                    <h2 class="step-title">Authentication</h2>
-                    <p class="step-lede">Tarvitaan jos REST API ei ole julkinen tai mukaan halutaan luonnokset.</p>
-                  </div>
-                  <div class="step-toggle">Avaa / sulje</div>
-                </div>
-              </summary>
-              <div class="step-body">
                 <div class="section-head">
                   <h3 class="section-title">Autentikointi</h3>
                   <button type="button" class="help-button" data-help-topic="auth-overview" aria-label="Ohje: autentikointi">?</button>
@@ -641,21 +611,6 @@
                     <input name="wpBearerToken" type="password">
                   </label>
                 </div>
-              </div>
-            </details>
-
-            <details class="step">
-              <summary>
-                <div class="step-head">
-                  <div class="step-number">4</div>
-                  <div>
-                    <h2 class="step-title">Migration output</h2>
-                    <p class="step-lede">Mihin konfiguraatio, sisalto, media ja raportit kirjoitetaan.</p>
-                  </div>
-                  <div class="step-toggle">Avaa / sulje</div>
-                </div>
-              </summary>
-              <div class="step-body">
                 <div class="section-head">
                   <h3 class="section-title">Tulostus</h3>
                   <button type="button" class="help-button" data-help-topic="output-overview" aria-label="Ohje: tulostus">?</button>
@@ -678,16 +633,33 @@
                     <input name="mediaDir" required>
                   </label>
                 </div>
+                <div class="section-head">
+                  <h3 class="section-title">Paikallinen ajo</h3>
+                  <button type="button" class="help-button" data-help-topic="local-overview" aria-label="Ohje: paikallinen ajo">?</button>
+                </div>
+                <div class="grid">
+                  <label>
+                    <span class="field-head">Local dev command <button type="button" class="help-button" data-help-topic="localDevCommand" aria-label="Ohje: local dev command">?</button></span>
+                    <input name="localDevCommand" value="npx @11ty/eleventy --serve">
+                  </label>
+                  <label>
+                    <span class="field-head">Local site URL <button type="button" class="help-button" data-help-topic="localSiteUrl" aria-label="Ohje: local site URL">?</button></span>
+                    <input name="localSiteUrl" value="http://127.0.0.1:8080/">
+                  </label>
+                </div>
+                <div class="subtle-box">
+                  <p>Vaiheen 1 tavoite on, etta migroitu sisalto on omalla koneella ja Eleventy-sivusto voidaan tarkistaa paikallisesti ennen GitHub-julkaisua.</p>
+                </div>
               </div>
             </details>
 
             <details class="step">
               <summary>
                 <div class="step-head">
-                  <div class="step-number">5</div>
+                  <div class="step-number">2</div>
                   <div>
-                    <h2 class="step-title">GitHub Pages deployment</h2>
-                    <p class="step-lede">Suunnittele repo, Actions-build ja automaattinen julkaisu GitHub Pagesiin.</p>
+                    <h2 class="step-title">Vaihe 2: Julkaise GitHubiin ja kytke domain</h2>
+                    <p class="step-lede">GitHub Pages, Actions-julkaisu ja halutessa oma domain tai olemassa olevan domainin ohjaus.</p>
                   </div>
                   <div class="step-toggle">Avaa / sulje</div>
                 </div>
@@ -726,23 +698,8 @@
                   </label>
                 </div>
                 <div class="subtle-box">
-                  <p>Tausta-ajatus: WordPressista tuotettu sisalto commitoidaan repossa, GitHub Actions rakentaa Eleventy-sivun ja GitHub Pages julkaisee sen ilman manuaalista deployta.</p>
+                  <p>Vaiheen 2 tavoite on, etta vaiheessa 1 tarkistettu Eleventy-sivusto commitoidaan GitHubiin, buildataan Actionsissa ja julkaistaan GitHub Pagesiin ilman manuaalista deployta.</p>
                 </div>
-              </div>
-            </details>
-
-            <details class="step">
-              <summary>
-                <div class="step-head">
-                  <div class="step-number">6</div>
-                  <div>
-                    <h2 class="step-title">Optional custom domain</h2>
-                    <p class="step-lede">Halutessa oma domain, DNS-ohjaus ja CNAME GitHub Pagesin paalle.</p>
-                  </div>
-                  <div class="step-toggle">Avaa / sulje</div>
-                </div>
-              </summary>
-              <div class="step-body">
                 <div class="section-head">
                   <h3 class="section-title">Domain-optio</h3>
                   <button type="button" class="help-button" data-help-topic="domain-overview" aria-label="Ohje: domain">?</button>
@@ -755,6 +712,13 @@
                 </div>
                 <div id="domain-fields" class="grid domain-fields" hidden>
                   <label>
+                    <span class="field-head">Domain action <button type="button" class="help-button" data-help-topic="domainAction" aria-label="Ohje: domain action">?</button></span>
+                    <select name="domainAction">
+                      <option value="buy-new">Hanki uusi domain</option>
+                      <option value="point-existing">Osoita olemassa oleva domain</option>
+                    </select>
+                  </label>
+                  <label>
                     <span class="field-head">Desired domain <button type="button" class="help-button" data-help-topic="desiredDomain" aria-label="Ohje: desired domain">?</button></span>
                     <input name="desiredDomain" placeholder="example.com">
                   </label>
@@ -762,9 +726,13 @@
                     <span class="field-head">Registrar <button type="button" class="help-button" data-help-topic="registrar" aria-label="Ohje: registrar">?</button></span>
                     <input name="registrar" placeholder="Namecheap, Cloudflare, etc.">
                   </label>
+                  <label>
+                    <span class="field-head">DNS action notes <button type="button" class="help-button" data-help-topic="dnsNotes" aria-label="Ohje: DNS action notes">?</button></span>
+                    <input name="dnsNotes" placeholder="Esim. paivita A/CNAME-tietueet GitHub Pagesiin">
+                  </label>
                 </div>
                 <div class="subtle-box">
-                  <p>Domain-vaihe on valinnainen. Julkaisu voi toimia myos suoraan GitHub Pages -osoitteella ilman omaa domainia.</p>
+                  <p>Domain-vaihe on valinnainen. Voit joko hankkia uuden domainin tai ohjata jo olemassa olevan domainin GitHub Pages -sivustolle DNS- ja CNAME-asetuksilla.</p>
                 </div>
               </div>
             </details>
@@ -779,8 +747,8 @@
 
         <aside class="side-stack">
           <section class="panel">
-            <h2 class="side-title">Deployment blueprint</h2>
-            <p class="hint">Yhteenveto kayttoliittyman vaiheista WordPressista julkaistuun sivustoon.</p>
+            <h2 class="side-title">Kahden vaiheen suunnitelma</h2>
+            <p class="hint">Yhteenveto paikallisesta migraatiosta ja sen jalkeisesta GitHub-julkaisusta.</p>
             <ol class="plan-list" id="plan-preview"></ol>
           </section>
 
@@ -788,20 +756,20 @@
             <h2 class="side-title">Automation checklist</h2>
             <ul class="check-list">
               <li>
-                <strong>1. Migraatio ajetaan</strong>
-                <span class="meta">CLI-backend kirjoittaa sisallot, raportin ja halutessa redirectit.</span>
+                <strong>Vaihe 1. Migraatio omalle koneelle</strong>
+                <span class="meta">CLI-backend kirjoittaa sisallot, raportin ja halutessa redirectit paikalliseen kansioon.</span>
               </li>
               <li>
-                <strong>2. Eleventy build</strong>
-                <span class="meta">Build-komento ajetaan GitHub Actionsissa.</span>
+                <strong>Paikallinen tarkistus</strong>
+                <span class="meta">Eleventy-sivusto ajetaan paikallisesti ennen julkaisua.</span>
               </li>
               <li>
-                <strong>3. GitHub Pages deploy</strong>
-                <span class="meta">Push oletusbranchiin tuottaa automaattisen julkaisun.</span>
+                <strong>Vaihe 2. GitHub Pages deploy</strong>
+                <span class="meta">Push oletusbranchiin tuottaa automaattisen julkaisun GitHub Pagesiin.</span>
               </li>
               <li>
-                <strong>4. Optional domain</strong>
-                <span class="meta">CNAME ja DNS asetetaan vain jos oma domain halutaan mukaan.</span>
+                <strong>Domainin kytkenta</strong>
+                <span class="meta">CNAME ja DNS asetetaan vain jos uusi tai olemassa oleva domain halutaan mukaan.</span>
               </li>
             </ul>
           </section>
@@ -968,6 +936,16 @@
             <p>Maarittaa mihin konfiguraatio, sisalto, media ja raportit kirjoitetaan ennen kuin ne viedaan Eleventy-projektiin ja GitHubiin.</p>
           `
         },
+        "local-overview": {
+          title: "Paikallinen ajo",
+          body: `
+            <p>Vaiheen 1 lopuksi migroitu sivusto kannattaa ajaa paikallisesti, jotta sisalto, linkit ja ulkoasu voidaan tarkistaa ennen GitHub-julkaisua.</p>
+            <ul>
+              <li>Tyypillinen Eleventy-kehityskomento on <code>npx @11ty/eleventy --serve</code>.</li>
+              <li>Paikallinen osoite on usein <code>http://127.0.0.1:8080/</code>.</li>
+            </ul>
+          `
+        },
         outputRoot: {
           title: "Output root",
           body: `
@@ -992,10 +970,25 @@
             <p>Alikansio paikallisesti ladatulle medialle.</p>
           `
         },
+        localDevCommand: {
+          title: "Local dev command",
+          body: `
+            <p>Komento, jolla Eleventy-sivustoa ajetaan paikallisesti migraation jalkeen.</p>
+            <ul>
+              <li>Yleinen valinta on <code>npx @11ty/eleventy --serve</code> tai projektin oma <code>npm run dev</code>.</li>
+            </ul>
+          `
+        },
+        localSiteUrl: {
+          title: "Local site URL",
+          body: `
+            <p>Paikallinen osoite, josta valmis Eleventy-sivusto avataan selaimessa tarkistusta varten.</p>
+          `
+        },
         "github-overview": {
           title: "GitHub Pages ja Actions",
           body: `
-            <p>Tassa vaiheessa suunnitellaan julkaisuputki: Eleventy-build GitHub Actionsissa ja automaattinen julkaisu GitHub Pagesiin.</p>
+            <p>Tama on vaihe 2. Tassa suunnitellaan julkaisuputki sen jalkeen kun sivusto on ensin tarkistettu paikallisesti.</p>
             <ul>
               <li>Yleinen malli on build every push -> deploy to Pages.</li>
               <li>UI kuvaa tavoitetilan vaikka backend ei viela luo workflow-tiedostoja automaattisesti.</li>
@@ -1056,10 +1049,29 @@
             <p>Haluttu verkkotunnus, esimerkiksi <code>example.com</code> tai <code>www.example.com</code>.</p>
           `
         },
+        domainAction: {
+          title: "Domain action",
+          body: `
+            <p>Valitse tehdäänkö uusi domain-hankinta vai osoitetaanko jo olemassa oleva domain tälle GitHub Pages -sivustolle.</p>
+            <ul>
+              <li><code>Hanki uusi domain</code>: suunnitelmaan kuuluu registrarilta ostaminen.</li>
+              <li><code>Osoita olemassa oleva domain</code>: käytössä oleva domain päivitetään DNS:llä tähän sivustoon.</li>
+            </ul>
+          `
+        },
         registrar: {
           title: "Registrar",
           body: `
             <p>Palvelu, josta domain hankitaan ja jossa DNS-tietueet hallitaan.</p>
+          `
+        },
+        dnsNotes: {
+          title: "DNS action notes",
+          body: `
+            <p>Kirjaa tähän miten domain kytketään GitHub Pagesiin, esimerkiksi A- tai CNAME-tietueiden paivitys.</p>
+            <ul>
+              <li>Tama sopii erityisesti tilanteeseen, jossa olemassa oleva domain siirretaan osoittamaan uuteen sivustoon.</li>
+            </ul>
           `
         }
       };
@@ -1126,6 +1138,8 @@
           wpBaseUrl: data.get("wpBaseUrl"),
           contentTypes: data.get("contentTypes"),
           outputRoot: data.get("outputRoot"),
+          localDevCommand: data.get("localDevCommand"),
+          localSiteUrl: data.get("localSiteUrl"),
           githubOwner: data.get("githubOwner"),
           githubRepo: data.get("githubRepo"),
           pagesUrl: data.get("pagesUrl"),
@@ -1133,8 +1147,10 @@
           useGitHubActions: data.get("useGitHubActions") === "on",
           publishOnPush: data.get("publishOnPush") === "on",
           useCustomDomain: data.get("useCustomDomain") === "on",
+          domainAction: data.get("domainAction"),
           desiredDomain: data.get("desiredDomain"),
-          registrar: data.get("registrar")
+          registrar: data.get("registrar"),
+          dnsNotes: data.get("dnsNotes")
         };
       }
 
@@ -1144,30 +1160,36 @@
           ? `${state.githubOwner}/${state.githubRepo}`
           : "GitHub owner/repo puuttuu";
         const domainLine = state.useCustomDomain
-          ? `${state.desiredDomain || "valitse domain"} registrarilla ${state.registrar || "ei maaritetty"}`
+          ? `${
+              state.domainAction === "point-existing" ? "Olemassa oleva domain" : "Uusi domain"
+            }: ${state.desiredDomain || "valitse domain"}; registrar ${state.registrar || "ei maaritetty"}; ${state.dnsNotes || "DNS-ohjaus maarittamatta"}`
           : "Ei omaa domainia, julkaisu GitHub Pages -osoitteeseen";
 
         const items = [
           {
-            title: "WordPress extraction",
+            title: "Vaihe 1: WordPress -> paikallinen sisalto",
             text: `${state.wpBaseUrl || "WordPress URL puuttuu"} -> sisaltotyypit ${state.contentTypes || "posts,pages"}`
           },
           {
-            title: "Migration output",
+            title: "Vaihe 1: paikallinen output",
             text: `Tuloste kirjoitetaan kansioon ${state.outputRoot || "./migrations/..."} ja tarkistetaan ennen repo-siirtoa`
           },
           {
-            title: "Repository and Pages",
+            title: "Vaihe 1: paikallinen ajo",
+            text: `${state.localDevCommand || "npx @11ty/eleventy --serve"} -> avaa ${state.localSiteUrl || "http://127.0.0.1:8080/"}`
+          },
+          {
+            title: "Vaihe 2: repository and Pages",
             text: `${repoLabel} julkaistaan osoitteeseen ${state.pagesUrl || "https://username.github.io/repo/"}`
           },
           {
-            title: "GitHub Actions automation",
+            title: "Vaihe 2: GitHub Actions automation",
             text: state.useGitHubActions
               ? `Build command: ${state.buildCommand || "npx @11ty/eleventy"}; ${state.publishOnPush ? "deploy jokaisesta pushista" : "deploy kaynnistetaan hallitusti"}`
               : "Actions ei ole valittuna"
           },
           {
-            title: "Custom domain",
+            title: "Vaihe 2: custom domain",
             text: domainLine
           }
         ];
@@ -1192,12 +1214,16 @@
           githubOwner: "",
           githubRepo: "",
           pagesUrl: "",
+          localDevCommand: "npx @11ty/eleventy --serve",
+          localSiteUrl: "http://127.0.0.1:8080/",
           buildCommand: "npx @11ty/eleventy",
           useGitHubActions: true,
           publishOnPush: true,
           useCustomDomain: false,
+          domainAction: "buy-new",
           desiredDomain: "",
-          registrar: ""
+          registrar: "",
+          dnsNotes: ""
         };
 
         Object.entries(defaults).forEach(([key, value]) => {
