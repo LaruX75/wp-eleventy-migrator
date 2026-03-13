@@ -484,9 +484,24 @@ function extractInlineStyles(html) {
   return styles;
 }
 
+// Common words that look like shortcodes but aren't — Finnish, English, JS artifacts
+const SHORTCODE_BLOCKLIST = new Set([
+  "ei","on","ja","tai","se","ne","he","me","te","no","ok","id","em","en",
+  "object","class","style","type","href","src","alt","rel","div","span",
+  "a","b","i","p","s","u","br","hr","li","ul","ol","tr","td","th",
+  "if","else","for","do","in","is","as","at","or","of","to","by","an",
+  "the","and","not","but","was","are","has","had","its","via",
+  "luovat","luova","hyvä","hyvät","uusi","uudet","uutta",
+]);
+
 function detectShortcodes(content) {
   const found = new Set();
   for (const m of String(content || "").matchAll(/\[([a-z_][a-z0-9_-]*)(?:\s[^\]]*)?]/gi)) {
+    const name = m[1].toLowerCase();
+    // Must be at least 3 chars, not a blocked word, and either contain _ / - or be ≥5 chars
+    if (name.length < 3) continue;
+    if (SHORTCODE_BLOCKLIST.has(name)) continue;
+    if (name.length < 5 && !name.includes("_") && !name.includes("-")) continue;
     found.add(m[1]);
   }
   return [...found];
@@ -1835,8 +1850,33 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(menuResult.menus, null, 2)}\n`, "utf8");
       progress("ok", `Valikot: ${menuResult.menus.length} kpl (lähde: ${menuResult.source})`);
     } else {
-      report.warnings.push("No menu structure was imported. WordPress menus often need a dedicated menu REST endpoint or plugin.");
-      progress("warn", "Valikkoja ei löydetty");
+      // Fallback: parse nav structure from rendered homepage HTML
+      progress("warn", "REST API ei palauttanut valikoita — yritetään parsia renderöidystä HTML:stä…");
+      try {
+        const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
+        const parsedNavs = extractNavFromHtml(homepageHtml, config.wpBaseUrl);
+        if (parsedNavs.length) {
+          const parsedNavRecord = parsedNavs.map((nav, i) => ({
+            id: nav.id || `parsed-nav-${i}`,
+            slug: nav.id || `parsed-nav-${i}`,
+            title: nav.ariaLabel || `Navigation ${i + 1}`,
+            location: "",
+            items: nav.items,
+          }));
+          const navigationPath = path.join(dataRoot, "navigation.json");
+          report.menus.outputPath = navigationPath;
+          report.menus.source = "html-fallback";
+          report.menus.imported = parsedNavRecord.length;
+          if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(parsedNavRecord, null, 2)}\n`, "utf8");
+          progress("ok", `Valikot parsittu HTML:stä: ${parsedNavRecord.length} kpl`);
+        } else {
+          report.warnings.push("No menu structure was imported. WordPress menus often need a dedicated menu REST endpoint or plugin.");
+          progress("warn", "Valikkoja ei löydetty REST API:sta eikä HTML:stä");
+        }
+      } catch (err) {
+        report.warnings.push(`Menu HTML fallback failed: ${String(err.message || err)}`);
+        progress("warn", `Valikkojen parsinta epäonnistui: ${err.message}`);
+      }
     }
   }
 
