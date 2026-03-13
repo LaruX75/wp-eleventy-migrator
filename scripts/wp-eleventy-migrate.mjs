@@ -14,6 +14,7 @@ const DEFAULT_DATA_DIR = "_data";
 const DEFAULT_KADENCE_BLOCKS_DIR = "_includes/blocks/kadence";
 const DEFAULT_STYLES_DIR = "styles/legacy";
 const DEFAULT_KADENCE_STYLES_DIR = "styles/kadence-legacy";
+const DEFAULT_KADENCE_PRO_STYLES_DIR = "styles/kadence-pro-legacy";
 const SUPPORTED_KADENCE_BLOCKS = [
   "advancedheading",
   "advancedbtn",
@@ -391,8 +392,13 @@ async function migrateStyles(config, root, report, headers) {
       return false;
     }
   });
-  const filteredUrls = config.preset === "kadence"
-    ? sameOriginUrls.filter((url) => /kadence|global-styles|blocks?|theme|style/i.test(url))
+  const filteredUrls = (config.preset === "kadence" || config.preset === "kadence-pro")
+    ? sameOriginUrls.filter((url) => {
+      const pattern = config.preset === "kadence-pro"
+        ? /kadence|kadence-pro|pro|global-styles|blocks?|theme|style/i
+        : /kadence|global-styles|blocks?|theme|style/i;
+      return pattern.test(url);
+    })
     : sameOriginUrls;
 
   const stylesheets = [];
@@ -814,7 +820,7 @@ async function runMigration(configPath, explicitConfig) {
 
 async function createConfigFromInput(raw = {}) {
   const stamp = nowStamp();
-  const preset = ["none", "kadence"].includes(String(raw.preset || "none")) ? String(raw.preset || "none") : "none";
+  const preset = ["none", "kadence", "kadence-pro"].includes(String(raw.preset || "none")) ? String(raw.preset || "none") : "none";
   const authMode = ["none", "app-password", "bearer"].includes(String(raw.authMode || "none"))
     ? String(raw.authMode || "none")
     : "none";
@@ -829,6 +835,15 @@ async function createConfigFromInput(raw = {}) {
     postLayout: "layouts/post.njk",
     kadenceBlocksDir: DEFAULT_KADENCE_BLOCKS_DIR,
     stylesDir: DEFAULT_KADENCE_STYLES_DIR,
+    htmlMode: "keep-html"
+  } : preset === "kadence-pro" ? {
+    useNunjucksLayouts: true,
+    convertKadenceBlocks: true,
+    migrateStyles: true,
+    pageLayout: "layouts/page.njk",
+    postLayout: "layouts/post.njk",
+    kadenceBlocksDir: DEFAULT_KADENCE_BLOCKS_DIR,
+    stylesDir: DEFAULT_KADENCE_PRO_STYLES_DIR,
     htmlMode: "keep-html"
   } : {};
 
@@ -983,7 +998,7 @@ async function runWizard() {
     output.write("This wizard asks required migration choices and can run migration immediately.\n");
 
     const sourceType = (await ask(rl, "Source type (rest/xml/json)", "rest")).toLowerCase();
-    const preset = (await ask(rl, "Preset (none/kadence)", "none")).toLowerCase();
+    const preset = (await ask(rl, "Preset (none/kadence/kadence-pro)", "none")).toLowerCase();
     const wpBaseUrl = await ask(rl, "WordPress base URL (e.g. https://example.com)", "");
     const restNamespace = await ask(rl, "REST namespace path", DEFAULT_NAMESPACE);
     const contentTypes = parseCsvList(await ask(rl, "Content types (comma-separated)", DEFAULT_TYPES.join(",")));
