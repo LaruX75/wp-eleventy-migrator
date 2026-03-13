@@ -1,0 +1,11 @@
+{
+  "name": "wp-eleventy-migrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generic WordPress to Eleventy migration wizard",
+  "scripts": {
+    "migrate:wp": "node scripts/wp-eleventy-migrate.mjs wizard",
+    "migrate:wp:run": "node scripts/wp-eleventy-migrate.mjs run"
+  }
+}
