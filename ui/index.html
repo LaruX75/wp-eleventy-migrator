@@ -518,7 +518,8 @@
       }
 
       .auth-fields[hidden],
-      .domain-fields[hidden] {
+      .domain-fields[hidden],
+      .nunjucks-fields[hidden] {
         display: none;
       }
 
@@ -732,6 +733,27 @@
                   <label class="toggle">
                     <input name="dryRun" type="checkbox">
                     <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
+                  </label>
+                  <label class="toggle">
+                    <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts">
+                    <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
+                  </label>
+                </div>
+                <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
+                  <label>
+                    <span class="field-head"><span data-i18n="field_pageLayout"></span> <button type="button" class="help-button" data-help-topic="pageLayout">?</button></span>
+                    <input name="pageLayout" data-i18n-placeholder="placeholder_pageLayout">
+                    <span data-i18n="hint_pageLayout"></span>
+                  </label>
+                  <label>
+                    <span class="field-head"><span data-i18n="field_postLayout"></span> <button type="button" class="help-button" data-help-topic="postLayout">?</button></span>
+                    <input name="postLayout" data-i18n-placeholder="placeholder_postLayout">
+                    <span data-i18n="hint_postLayout"></span>
+                  </label>
+                  <label>
+                    <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
+                    <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout">
+                    <span data-i18n="hint_defaultLayout"></span>
                   </label>
                 </div>
 
@@ -988,6 +1010,8 @@
       const bearerFields = document.getElementById("bearer-fields");
       const useCustomDomain = document.getElementById("useCustomDomain");
       const domainFields = document.getElementById("domain-fields");
+      const useNunjucksLayouts = document.getElementById("useNunjucksLayouts");
+      const nunjucksFields = document.getElementById("nunjucks-fields");
       const saveButton = document.getElementById("save-config");
       const runButton = document.getElementById("run-migration");
       const statusNode = document.getElementById("status");
@@ -1057,6 +1081,9 @@
           field_contentTypes: "Content types",
           field_htmlMode: "HTML mode",
           field_permalink: "Permalink pattern",
+          field_pageLayout: "Sivujen layout",
+          field_postLayout: "Postausten layout",
+          field_defaultLayout: "Oletuslayout muille tyypeille",
           field_authMode: "Auth mode",
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
@@ -1082,6 +1109,9 @@
           hint_contentTypes: "Pilkulla eroteltu lista, esimerkiksi posts,pages.",
           hint_htmlMode: "Säilytä HTML tai tee kevyt Markdown-muunnos.",
           hint_permalink: "Koskee muita kuin sivuja.",
+          hint_pageLayout: "Lisätään front matteriin vain jos Nunjucks-vipu on päällä.",
+          hint_postLayout: "Postaukset saavat tämän layout-polun front matteriin.",
+          hint_defaultLayout: "Valinnainen fallback muille sisältötyypeille kuin pages/posts.",
           hint_authMode: "Useimmiten julkiselle datalle riittää none.",
           hint_localProjectFolder: "Tähän paikalliseen projektikansioon migroitu sisältö tuodaan jatkotyöstöä varten.",
           option_keep_html: "keep-html",
@@ -1095,6 +1125,7 @@
           toggle_downloadMedia: "Lataa mediaviittaukset paikallisesti.",
           toggle_createRedirects: "Luo redirects.csv vanhoista URL:eista.",
           toggle_dryRun: "Dry-run: raportti ilman tiedostojen kirjoitusta.",
+          toggle_useNunjucksLayouts: "Lisää front matteriin Nunjucks-layoutit valinnaisena.",
           toggle_useGitHubActions: "Käytä GitHub Actionsia buildiin ja julkaisuun automaattisesti.",
           toggle_publishOnPush: "Julkaise aina pushin jälkeen oletusbranchista.",
           toggle_useCustomDomain: "Ota mukaan oman domainin hankinta tai olemassa olevan domainin ohjaus.",
@@ -1131,6 +1162,9 @@
           placeholder_wpBaseUrl: "https://example.com",
           placeholder_contentTypes: "posts,pages",
           placeholder_permalink: "/{type}/{slug}/",
+          placeholder_pageLayout: "layouts/page.njk",
+          placeholder_postLayout: "layouts/post.njk",
+          placeholder_defaultLayout: "layouts/default.njk",
           placeholder_localProjectFolder: "/Users/name/Documents/site-project",
           placeholder_githubOwner: "username tai organisaatio",
           placeholder_githubRepo: "site-repo",
@@ -1211,6 +1245,9 @@
           field_contentTypes: "Content types",
           field_htmlMode: "HTML mode",
           field_permalink: "Permalink pattern",
+          field_pageLayout: "Page layout",
+          field_postLayout: "Post layout",
+          field_defaultLayout: "Default layout for other types",
           field_authMode: "Auth mode",
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
@@ -1236,6 +1273,9 @@
           hint_contentTypes: "Comma-separated list, for example posts,pages.",
           hint_htmlMode: "Keep HTML or perform a light Markdown conversion.",
           hint_permalink: "Applies to non-page content.",
+          hint_pageLayout: "Added to front matter only when the Nunjucks toggle is enabled.",
+          hint_postLayout: "Posts will receive this layout path in front matter.",
+          hint_defaultLayout: "Optional fallback for content types other than pages/posts.",
           hint_authMode: "For public content, none is usually enough.",
           hint_localProjectFolder: "This is the local project folder where the migrated content will be brought for further work.",
           option_keep_html: "keep-html",
@@ -1249,6 +1289,7 @@
           toggle_downloadMedia: "Download referenced media locally.",
           toggle_createRedirects: "Generate redirects.csv from old URLs.",
           toggle_dryRun: "Dry-run: report only, no file writes.",
+          toggle_useNunjucksLayouts: "Optionally add Nunjucks layouts to front matter.",
           toggle_useGitHubActions: "Use GitHub Actions for automated build and deployment.",
           toggle_publishOnPush: "Publish automatically on every push to the default branch.",
           toggle_useCustomDomain: "Include either buying a new domain or pointing an existing domain.",
@@ -1285,6 +1326,9 @@
           placeholder_wpBaseUrl: "https://example.com",
           placeholder_contentTypes: "posts,pages",
           placeholder_permalink: "/{type}/{slug}/",
+          placeholder_pageLayout: "layouts/page.njk",
+          placeholder_postLayout: "layouts/post.njk",
+          placeholder_defaultLayout: "layouts/default.njk",
           placeholder_localProjectFolder: "/Users/name/Documents/site-project",
           placeholder_githubOwner: "username or organization",
           placeholder_githubRepo: "site-repo",
@@ -1582,6 +1626,22 @@
           fi: { title: "Dry-run", body: "<p>Turvallinen ensimmäinen ajo: raportti syntyy, mutta sisältötiedostoja ei kirjoiteta.</p>" },
           en: { title: "Dry-run", body: "<p>A safe first run: you get the report, but no content files are written.</p>" }
         },
+        useNunjucksLayouts: {
+          fi: { title: "Nunjucks-layoutit", body: "<p>Kun tämä on päällä, migrattori lisää <code>layout</code>-kentän front matteriin. Sisältö pysyy silti Markdownina tai HTML:nä kuten ennenkin.</p>" },
+          en: { title: "Nunjucks layouts", body: "<p>When enabled, the migrator adds a <code>layout</code> field to front matter. The content itself still stays as Markdown or HTML just like before.</p>" }
+        },
+        pageLayout: {
+          fi: { title: "Sivujen layout", body: "<p>Tätä layout-polku käytetään <code>pages</code>-sisällölle, esimerkiksi <code>layouts/page.njk</code>.</p>" },
+          en: { title: "Page layout", body: "<p>This layout path is used for <code>pages</code> content, for example <code>layouts/page.njk</code>.</p>" }
+        },
+        postLayout: {
+          fi: { title: "Postausten layout", body: "<p>Tätä layout-polku käytetään <code>posts</code>-sisällölle.</p>" },
+          en: { title: "Post layout", body: "<p>This layout path is used for <code>posts</code> content.</p>" }
+        },
+        defaultLayout: {
+          fi: { title: "Oletuslayout", body: "<p>Valinnainen fallback-layout muille sisältötyypeille kuin <code>pages</code> ja <code>posts</code>.</p>" },
+          en: { title: "Default layout", body: "<p>An optional fallback layout for content types other than <code>pages</code> and <code>posts</code>.</p>" }
+        },
         "auth-overview": {
           fi: { title: "Autentikointi", body: "<p>Tarvitaan vain jos REST API ei ole julkinen tai mukaan halutaan julkaisematon sisältö.</p>" },
           en: { title: "Authentication", body: "<p>Only needed if the REST API is not public or you want unpublished content included.</p>" }
@@ -1815,6 +1875,10 @@
         domainFields.hidden = !useCustomDomain.checked;
       }
 
+      function updateNunjucksVisibility() {
+        nunjucksFields.hidden = !useNunjucksLayouts.checked;
+      }
+
       function suggestConfigPath(outputRoot) {
         const base = String(outputRoot || "").replace(/\/+$/, "");
         return base ? `${base}/migration-config.json` : "./migrations/wp-to-eleventy/migration-config.json";
@@ -1845,6 +1909,10 @@
           wpAppPassword: data.get("wpAppPassword"),
           wpBearerToken: data.get("wpBearerToken"),
           dryRun: data.get("dryRun") === "on",
+          useNunjucksLayouts: data.get("useNunjucksLayouts") === "on",
+          pageLayout: data.get("pageLayout"),
+          postLayout: data.get("postLayout"),
+          defaultLayout: data.get("defaultLayout"),
           outputRoot: data.get("outputRoot"),
           contentDir: data.get("contentDir"),
           mediaDir: data.get("mediaDir"),
@@ -1940,6 +2008,10 @@
           useGitHubActions: true,
           publishOnPush: true,
           useCustomDomain: false,
+          useNunjucksLayouts: false,
+          pageLayout: "layouts/page.njk",
+          postLayout: "layouts/post.njk",
+          defaultLayout: "",
           domainAction: "buy-new",
           desiredDomain: "",
           registrar: "",
@@ -1956,6 +2028,7 @@
         lastSuggestedConfigPath = configPathField.value;
         updateAuthVisibility();
         updateDomainVisibility();
+        updateNunjucksVisibility();
         renderPlan();
       }
 
@@ -2010,6 +2083,7 @@
       });
 
       authMode.addEventListener("change", updateAuthVisibility);
+      useNunjucksLayouts.addEventListener("change", updateNunjucksVisibility);
       useCustomDomain.addEventListener("change", () => {
         updateDomainVisibility();
         renderPlan();

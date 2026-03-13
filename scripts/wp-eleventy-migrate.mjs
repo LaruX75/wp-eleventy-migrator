@@ -333,6 +333,13 @@ function buildTargetPermalink(type, slug, config) {
   return tpl.replaceAll("{type}", slugify(type)).replaceAll("{slug}", slugify(slug));
 }
 
+function resolveLayoutForType(type, config) {
+  if (!config.useNunjucksLayouts) return "";
+  if (type === "pages") return String(config.pageLayout || "").trim();
+  if (type === "posts") return String(config.postLayout || "").trim();
+  return String(config.defaultLayout || "").trim();
+}
+
 function itemToDoc(item, type, config, categoryMap, tagMap) {
   const title = decodeHtml(item?.title?.rendered || item?.title || `Untitled ${item?.id || ""}`.trim());
   const slug = slugify(item?.slug || title);
@@ -342,24 +349,27 @@ function itemToDoc(item, type, config, categoryMap, tagMap) {
   const rawHtml = item?.content?.rendered || item?.content || "";
   const body = config.htmlMode === "basic-markdown" ? basicHtmlToMarkdown(rawHtml) : rawHtml.trim();
   const permalink = buildTargetPermalink(type, slug, config);
+  const layout = resolveLayoutForType(type, config);
+  const frontMatter = {
+    title,
+    date: item?.date || "",
+    updated: item?.modified || "",
+    slug,
+    status: item?.status || "publish",
+    sourceType: type,
+    sourceId: item?.id || "",
+    sourceUrl: item?.link || "",
+    excerpt,
+    categories,
+    tags
+  };
+  if (layout) frontMatter.layout = layout;
 
   return {
     title,
     slug,
     permalink,
-    frontMatter: {
-      title,
-      date: item?.date || "",
-      updated: item?.modified || "",
-      slug,
-      status: item?.status || "publish",
-      sourceType: type,
-      sourceId: item?.id || "",
-      sourceUrl: item?.link || "",
-      excerpt,
-      categories,
-      tags
-    },
+    frontMatter,
     body
   };
 }
@@ -500,6 +510,10 @@ async function createConfigFromInput(raw = {}) {
     wpAppPassword: String(raw.wpAppPassword || ""),
     wpBearerToken: String(raw.wpBearerToken || ""),
     dryRun: Boolean(raw.dryRun ?? true),
+    useNunjucksLayouts: Boolean(raw.useNunjucksLayouts),
+    pageLayout: String(raw.pageLayout || "layouts/page.njk").trim() || "layouts/page.njk",
+    postLayout: String(raw.postLayout || "layouts/post.njk").trim() || "layouts/post.njk",
+    defaultLayout: String(raw.defaultLayout || "").trim(),
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
     mediaDir: String(raw.mediaDir || "media").trim() || "media",
@@ -568,6 +582,10 @@ async function serveUi(port = 4173) {
           wpAppPassword: "",
           wpBearerToken: "",
           dryRun: true,
+          useNunjucksLayouts: false,
+          pageLayout: "layouts/page.njk",
+          postLayout: "layouts/post.njk",
+          defaultLayout: "",
           outputRoot,
           contentDir: "content",
           mediaDir: "media",
@@ -639,6 +657,10 @@ async function runWizard() {
     }
 
     const dryRun = await askYesNo(rl, "Dry run (no files written)", true);
+    const useNunjucksLayouts = await askYesNo(rl, "Add Nunjucks layout fields to front matter", false);
+    const pageLayout = await ask(rl, "Page layout path", "layouts/page.njk");
+    const postLayout = await ask(rl, "Post layout path", "layouts/post.njk");
+    const defaultLayout = await ask(rl, "Default layout path for other content types (optional)", "");
     const stamp = nowStamp();
     const outputRoot = await ask(rl, "Output root", `./migrations/wp-to-eleventy-${stamp}`);
     const contentDir = await ask(rl, "Content subdirectory", "content");
@@ -662,6 +684,10 @@ async function runWizard() {
       wpAppPassword,
       wpBearerToken,
       dryRun,
+      useNunjucksLayouts,
+      pageLayout,
+      postLayout,
+      defaultLayout,
       outputRoot,
       contentDir,
       mediaDir,
