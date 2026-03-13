@@ -35,6 +35,61 @@ const SUPPORTED_KADENCE_BLOCKS = [
   "testimonial",
   "form"
 ];
+// Maps each block shortName to:
+//   wrap  — Kadence's own kb-* wrapper class (what site CSS targets most)
+//   uid   — CSS class prefix for uniqueID-scoped rules, e.g. kb-row-layout-id_<id>
+// wp-block-kadence-{name} is always added (WordPress block class convention).
+const KADENCE_BLOCK_CSS = {
+  advancedheading:      { wrap: "kb-adv-heading",           uid: "kt-adv-heading" },
+  advancedbtn:          { wrap: "kb-btn-align-wrap" },
+  rowlayout:            { wrap: "kb-row-layout-wrap",        uid: "kb-row-layout-id" },
+  column:               { wrap: "kb-section-container",     uid: "kb-section" },
+  image:                { wrap: "kb-image-wrap" },
+  gallery:              { wrap: "kb-gallery-wrap",           uid: "kb-gallery-id" },
+  tabs:                 { wrap: "kb-tabs",                   uid: "kb-tabs-id" },
+  tab:                  { wrap: "kb-tab-panel" },
+  accordion:            { wrap: "kb-accordion",              uid: "kb-accordion-id" },
+  pane:                 { wrap: "kb-accordion-pane" },
+  infobox:              { wrap: "kt-blocks-info-box-wrap",   uid: "kt-info-box" },
+  icon:                 { wrap: "kb-svg-icon-wrap" },
+  iconlist:             { wrap: "kb-icon-list",              uid: "kb-icon-list-id" },
+  listitem:             { wrap: "kb-icon-list-item" },
+  spacer:               { wrap: "kt-block-spacer",           uid: "kt-block-spacer-id" },
+  testimonials:         { wrap: "kb-testimonial-wrap",       uid: "kb-testimonial-id" },
+  testimonial:          { wrap: "kb-testimonial-bg-wrap" },
+  form:                 { wrap: "kb-form",                   uid: "kb-form-id" },
+  countdown:            { wrap: "kb-countdown-wrap",         uid: "kb-countdown-id" },
+  videopopup:           { wrap: "kb-video-pop-wrap" },
+  lottie:               { wrap: "kb-lottie-wrap" },
+  modal:                { wrap: "kb-modal-wrap",             uid: "kb-modal-id" },
+  navigation:           { wrap: "kb-navigation",             uid: "kb-navigation-id" },
+  "off-canvas":         { wrap: "kb-off-canvas-wrap" },
+  "show-more":          { wrap: "kb-show-more-wrap" },
+  dynamichtml:          { wrap: "kb-dynamic-html" },
+  identity:             { wrap: "kb-identity" },
+  contentwidget:        { wrap: "kb-widget-area" },
+  splitcontent:         { wrap: "kb-split-content" },
+  "table-of-contents":  { wrap: "kb-toc-wrap",               uid: "kb-toc-id" },
+  postcarousel:         { wrap: "kb-post-carousel",          uid: "kb-post-carousel-id" },
+  portfoliogrid:        { wrap: "kb-portfolio-grid" }
+};
+
+const SUPPORTED_KADENCE_PRO_BLOCKS = [
+  "countdown",
+  "videopopup",
+  "lottie",
+  "modal",
+  "navigation",
+  "off-canvas",
+  "show-more",
+  "dynamichtml",
+  "identity",
+  "contentwidget",
+  "splitcontent",
+  "table-of-contents",
+  "postcarousel",
+  "portfoliogrid"
+];
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
@@ -114,6 +169,9 @@ function basicHtmlToMarkdown(html) {
   out = out.replace(/<h1[^>]*>(.*?)<\/h1>/gis, "# $1\n\n");
   out = out.replace(/<h2[^>]*>(.*?)<\/h2>/gis, "## $1\n\n");
   out = out.replace(/<h3[^>]*>(.*?)<\/h3>/gis, "### $1\n\n");
+  out = out.replace(/<h4[^>]*>(.*?)<\/h4>/gis, "#### $1\n\n");
+  out = out.replace(/<h5[^>]*>(.*?)<\/h5>/gis, "##### $1\n\n");
+  out = out.replace(/<h6[^>]*>(.*?)<\/h6>/gis, "###### $1\n\n");
   out = out.replace(/<strong[^>]*>(.*?)<\/strong>/gis, "**$1**");
   out = out.replace(/<em[^>]*>(.*?)<\/em>/gis, "*$1*");
   out = out.replace(/<a[^>]*href=\"([^\"]+)\"[^>]*>(.*?)<\/a>/gis, "[$2]($1)");
@@ -199,13 +257,21 @@ async function fetchJson(url, headers = {}) {
 
 function extractMediaUrls(html, wpBaseUrl) {
   const urls = new Set();
-  const srcMatches = String(html || "").matchAll(/\bsrc=["']([^"']+)["']/gi);
-  for (const m of srcMatches) {
-    const u = m[1];
-    if (!u) continue;
+  const source = String(html || "");
+  const addUrl = (u) => {
+    if (!u) return;
     if (u.startsWith("http://") || u.startsWith("https://")) {
       if (!wpBaseUrl || u.startsWith(wpBaseUrl)) urls.add(u);
     }
+  };
+  for (const m of source.matchAll(/\bsrc=["']([^"']+)["']/gi)) addUrl(m[1]);
+  for (const m of source.matchAll(/\bsrcset=["']([^"']+)["']/gi)) {
+    for (const part of m[1].split(",")) addUrl(part.trim().split(/\s+/)[0]);
+  }
+  // Lazy-loaded images: data-src, data-lazy-src, data-original, data-lazy
+  for (const m of source.matchAll(/\bdata-(?:src|lazy-src|original|lazy)=["']([^"']+)["']/gi)) addUrl(m[1]);
+  for (const m of source.matchAll(/\bdata-srcset=["']([^"']+)["']/gi)) {
+    for (const part of m[1].split(",")) addUrl(part.trim().split(/\s+/)[0]);
   }
   return [...urls];
 }
@@ -241,8 +307,16 @@ function normalizeMenuItems(items = []) {
     objectId: item?.object_id || item?.objectId || "",
     classes: Array.isArray(item?.classes) ? item.classes.filter(Boolean) : [],
     target: item?.target || "",
+    rel: item?.xfn || item?.rel || "",
     description: decodeHtml(item?.description || ""),
-    order: menuItemOrder(item)
+    order: menuItemOrder(item),
+    // Kadence megamenu meta (available when fetched with context=edit)
+    megamenu:        !!(item?.meta?._kad_menu_item_megamenu || item?.meta?.kad_menu_item_megamenu),
+    megamenuColumns: item?.meta?._kad_menu_item_columns  ?? item?.meta?.kad_menu_item_columns  ?? [],
+    megamenuRows:    item?.meta?._kad_menu_item_rows     ?? item?.meta?.kad_menu_item_rows     ?? [],
+    megamenuStyle:   item?.meta?._kad_menu_item_style    ?? item?.meta?.kad_menu_item_style    ?? {},
+    megamenuWidth:   item?.meta?._kad_menu_item_mega_width ?? "",
+    megamenuBackground: item?.meta?._kad_menu_item_mega_background ?? {},
   })).filter((item) => item.title || item.url);
 }
 
@@ -311,7 +385,7 @@ async function tryFetchMenusFromWpApiMenusV2(wpBaseUrl, headers) {
 
 async function tryFetchMenusFromWpV2(wpBaseUrl, headers) {
   const menusUrl = joinUrl(wpBaseUrl, "/wp-json/wp/v2/menus");
-  const itemsUrl = joinUrl(wpBaseUrl, "/wp-json/wp/v2/menu-items");
+  const itemsUrl = joinUrl(wpBaseUrl, "/wp-json/wp/v2/menu-items?context=edit");
   const [menus, items] = await Promise.all([
     fetchAllPages(menusUrl, headers),
     fetchAllPages(itemsUrl, headers)
@@ -381,47 +455,249 @@ function extractCssVariables(css) {
   return vars;
 }
 
+function extractCssImports(css, baseUrl) {
+  const urls = [];
+  for (const match of String(css || "").matchAll(/@import\s+(?:url\(["']?([^"')]+)["']?\)|["']([^"']+)["'])/gi)) {
+    const rel = (match[1] || match[2] || "").trim();
+    if (!rel) continue;
+    try { urls.push(new URL(rel, baseUrl).toString()); } catch {}
+  }
+  return urls;
+}
+
+function extractCssMediaUrls(css, baseUrl) {
+  const urls = new Set();
+  for (const match of String(css || "").matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/gi)) {
+    const rel = match[1].trim();
+    if (!rel || rel.startsWith("data:") || rel.startsWith("#")) continue;
+    try { urls.add(new URL(rel, baseUrl).toString()); } catch {}
+  }
+  return [...urls];
+}
+
+function extractInlineStyles(html) {
+  const styles = [];
+  for (const match of String(html || "").matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)) {
+    const content = match[1].trim();
+    if (content) styles.push(content);
+  }
+  return styles;
+}
+
+function detectShortcodes(content) {
+  const found = new Set();
+  for (const m of String(content || "").matchAll(/\[([a-z_][a-z0-9_-]*)(?:\s[^\]]*)?]/gi)) {
+    found.add(m[1]);
+  }
+  return [...found];
+}
+
+function rewriteCssUrls(css, wpOrigin, mediaPathPrefix) {
+  return String(css || "").replace(/url\(\s*["']?([^"')]+)["']?\s*\)/gi, (match, rawUrl) => {
+    const url = rawUrl.trim();
+    if (url.startsWith("data:") || url.startsWith("#")) return match;
+    try {
+      const absolute = new URL(url, wpOrigin).toString();
+      if (absolute.startsWith(wpOrigin)) {
+        const pathname = new URL(absolute).pathname;
+        return `url("${mediaPathPrefix}${pathname}")`;
+      }
+    } catch {}
+    return match;
+  });
+}
+
+/**
+ * Parse megamenu structure from rendered page HTML.
+ * Used as a fallback when REST API does not return Kadence menu meta.
+ * Returns an array of top-level nav items, each with children and megamenu info.
+ */
+function extractNavFromHtml(html, baseUrl) {
+  const navs = [];
+  // Find all <nav> elements (Kadence navigation has class kb-navigation or wp-block-kadence-navigation)
+  for (const navMatch of html.matchAll(/<nav([^>]*)>([\s\S]*?)<\/nav>/gi)) {
+    const navAttrs = navMatch[1];
+    const navBody  = navMatch[2];
+    const navId      = navAttrs.match(/\bid=["']([^"']+)["']/i)?.[1] ?? "";
+    const navClasses = (navAttrs.match(/class=["']([^"']+)["']/i)?.[1] ?? "").split(/\s+/).filter(Boolean);
+    const ariaLabel  = navAttrs.match(/aria-label=["']([^"']+)["']/i)?.[1] ?? "";
+
+    // Find top-level <li> items
+    const items = [];
+    // Match <li> elements (non-greedy, handles nesting crudely via depth tracking)
+    for (const liMatch of navBody.matchAll(/<li([^>]*)>([\s\S]*?)<\/li>/gi)) {
+      const liAttrs = liMatch[1];
+      const liBody  = liMatch[2];
+      const liClasses = (liAttrs.match(/class=["']([^"']+)["']/i)?.[1] ?? "").split(/\s+/).filter(Boolean);
+      const isMega  = liClasses.some((c) => c.includes("mega") || c.includes("kadence-menu-mega"));
+
+      // Extract anchor
+      const aMatch = liBody.match(/<a([^>]*)>([^<]*)<\/a>/i);
+      if (!aMatch) continue;
+      const aAttrs = aMatch[1];
+      const title  = aMatch[2].trim();
+      const href   = aAttrs.match(/href=["']([^"']+)["']/i)?.[1] ?? "";
+      let url = href;
+      try { url = new URL(href, baseUrl).href; } catch { /* keep as-is */ }
+
+      // Extract submenu children
+      const children = [];
+      for (const subLi of liBody.matchAll(/<li[^>]*>[\s\S]*?<a([^>]*)>([^<]*)<\/a>/gi)) {
+        const subHref  = subLi[1].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
+        const subTitle = subLi[2].trim();
+        if (subTitle) children.push({ title: subTitle, url: subHref });
+      }
+
+      // Extract megamenu columns (divs with mega-column classes)
+      const megaColumns = [];
+      if (isMega) {
+        for (const colMatch of liBody.matchAll(/<(?:div|ul)[^>]+class=["'][^"']*(?:mega-?col|kb-nav-mega)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|ul)>/gi)) {
+          const colItems = [];
+          for (const colA of colMatch[1].matchAll(/<a([^>]*)>([^<]*)<\/a>/gi)) {
+            const colHref  = colA[1].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
+            const colTitle = colA[2].trim();
+            if (colTitle) colItems.push({ title: colTitle, url: colHref });
+          }
+          if (colItems.length) megaColumns.push({ items: colItems });
+        }
+      }
+
+      if (title) items.push({ title, url, classes: liClasses, megamenu: isMega, megamenuColumns: megaColumns, children });
+    }
+
+    if (items.length) {
+      navs.push({ id: navId, classes: navClasses, ariaLabel, items });
+    }
+  }
+  return navs;
+}
+
 async function migrateStyles(config, root, report, headers) {
   const stylesDir = path.join(root, config.stylesDir || DEFAULT_STYLES_DIR);
+  const mediaRoot = path.join(root, config.mediaDir || "media");
+  const dataRoot = path.join(root, config.dataDir || DEFAULT_DATA_DIR);
+  const mediaPathPrefix = `/${config.mediaDir || "media"}`;
+  let wpOrigin;
+  try { wpOrigin = new URL(config.wpBaseUrl).origin; } catch { wpOrigin = config.wpBaseUrl; }
+
   const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
-  const urls = extractStylesheetUrls(homepageHtml, config.wpBaseUrl);
-  const sameOriginUrls = urls.filter((url) => {
-    try {
-      return new URL(url).origin === new URL(config.wpBaseUrl).origin;
-    } catch {
-      return false;
-    }
+  // Extract megamenu structure from rendered homepage HTML (fallback)
+  const parsedNavs = extractNavFromHtml(homepageHtml, config.wpBaseUrl);
+  const seedUrls = extractStylesheetUrls(homepageHtml, config.wpBaseUrl);
+  const sameOriginSeed = seedUrls.filter((url) => {
+    try { return new URL(url).origin === wpOrigin; } catch { return false; }
   });
-  const filteredUrls = (config.preset === "kadence" || config.preset === "kadence-pro")
-    ? sameOriginUrls.filter((url) => {
-      const pattern = config.preset === "kadence-pro"
-        ? /kadence|kadence-pro|pro|global-styles|blocks?|theme|style/i
-        : /kadence|global-styles|blocks?|theme|style/i;
-      return pattern.test(url);
-    })
-    : sameOriginUrls;
+  // External font CDN stylesheets: fetch as-is, do not follow their @imports
+  const fontCdnPattern = /fonts\.googleapis\.com|fonts\.bunny\.net|use\.typekit\.net|use\.fontawesome\.com|kit\.fontawesome\.com/i;
+  const externalFontUrls = seedUrls.filter((url) => {
+    try { return new URL(url).origin !== wpOrigin && fontCdnPattern.test(url); } catch { return false; }
+  });
+  const filteredSeed = (config.preset === "kadence" || config.preset === "kadence-pro")
+    ? sameOriginSeed.filter((url) => {
+        const pattern = config.preset === "kadence-pro"
+          ? /kadence|kadence-pro|pro|global-styles|blocks?|theme|style/i
+          : /kadence|global-styles|blocks?|theme|style/i;
+        return pattern.test(url);
+      })
+    : sameOriginSeed;
+
+  // BFS: fetch all CSS and follow @import rules
+  const cssCache = new Map();
+  const queue = [...filteredSeed];
+  const visited = new Set();
+
+  while (queue.length > 0) {
+    const cssUrl = queue.shift();
+    if (visited.has(cssUrl)) continue;
+    visited.add(cssUrl);
+    try {
+      const rawCss = await fetchText(cssUrl, headers);
+      cssCache.set(cssUrl, rawCss);
+      for (const importUrl of extractCssImports(rawCss, cssUrl)) {
+        try {
+          if (new URL(importUrl).origin === wpOrigin && !visited.has(importUrl)) queue.push(importUrl);
+        } catch {}
+      }
+    } catch (err) {
+      report.warnings.push(`Stylesheet fetch failed for ${cssUrl}: ${String(err.message || err)}`);
+    }
+  }
+
+  // Fetch external font CDN stylesheets (no @import following)
+  for (const fontUrl of externalFontUrls) {
+    if (visited.has(fontUrl)) continue;
+    visited.add(fontUrl);
+    try {
+      const rawCss = await fetchText(fontUrl);
+      cssCache.set(fontUrl, rawCss);
+    } catch (err) {
+      report.warnings.push(`Font CDN stylesheet fetch failed for ${fontUrl}: ${String(err.message || err)}`);
+    }
+  }
+
+  // Capture homepage inline <style> blocks as a synthetic entry
+  const inlineStyleContent = extractInlineStyles(homepageHtml).join("\n\n");
+  if (inlineStyleContent) cssCache.set("__inline__", inlineStyleContent);
+
+  // Assign unique local filenames
+  const usedNames = new Set();
+  const urlToFilename = new Map();
+  let idx = 0;
+  for (const cssUrl of cssCache.keys()) {
+    let fileName;
+    if (cssUrl === "__inline__") {
+      fileName = "inline-styles.css";
+    } else {
+      let urlObj;
+      try { urlObj = new URL(cssUrl); } catch { urlObj = null; }
+      const base = sanitizeFileSegment((urlObj ? path.basename(urlObj.pathname) : "") || `style-${idx + 1}.css`);
+      fileName = base.endsWith(".css") ? base : `${base}.css`;
+    }
+    if (usedNames.has(fileName)) {
+      const stem = fileName.slice(0, -4);
+      let c = 1;
+      while (usedNames.has(`${stem}-${c}.css`)) c++;
+      fileName = `${stem}-${c}.css`;
+    }
+    usedNames.add(fileName);
+    urlToFilename.set(cssUrl, fileName);
+    idx++;
+  }
 
   const stylesheets = [];
   const tokenMap = {};
   await fs.mkdir(stylesDir, { recursive: true });
 
-  for (const [index, stylesheetUrl] of filteredUrls.entries()) {
-    try {
-      const css = await fetchText(stylesheetUrl, headers);
-      const urlObj = new URL(stylesheetUrl);
-      const baseName = sanitizeFileSegment(path.basename(urlObj.pathname) || `style-${index + 1}.css`);
-      const fileName = baseName.endsWith(".css") ? baseName : `${baseName}.css`;
-      const outPath = path.join(stylesDir, fileName);
-      if (!config.dryRun) await fs.writeFile(outPath, css, "utf8");
-      Object.assign(tokenMap, extractCssVariables(css));
-      stylesheets.push({
-        sourceUrl: stylesheetUrl,
-        outputPath: outPath,
-        size: css.length
-      });
-    } catch (err) {
-      report.warnings.push(`Stylesheet fetch failed for ${stylesheetUrl}: ${String(err.message || err)}`);
+  for (const [cssUrl, rawCss] of cssCache) {
+    const fileName = urlToFilename.get(cssUrl);
+    const isSameOrigin = cssUrl !== "__inline__" && (() => {
+      try { return new URL(cssUrl).origin === wpOrigin; } catch { return false; }
+    })();
+    // Strip @import rules — imported files are saved as separate stylesheet entries
+    let css = rawCss.replace(/@import\s+(?:url\(["']?[^"')]+["']?\)|["'][^"']*["'])[^;]*;/gi, "");
+    // Rewrite url() references to local media paths (same-origin only)
+    if (isSameOrigin) css = rewriteCssUrls(css, wpOrigin, mediaPathPrefix);
+
+    // Download CSS-referenced media (background images, fonts) when downloadMedia is on (same-origin only)
+    if (isSameOrigin && config.downloadMedia && !config.dryRun) {
+      for (const mediaUrl of extractCssMediaUrls(rawCss, cssUrl)) {
+        try {
+          if (!mediaUrl.startsWith(wpOrigin)) continue;
+          const mUrlObj = new URL(mediaUrl);
+          const relPath = mUrlObj.pathname.replace(/^\/+/, "");
+          const outMediaPath = path.join(mediaRoot, ...relPath.split("/").map(sanitizeFileSegment));
+          if (!(await fileExists(outMediaPath))) await downloadFile(mediaUrl, outMediaPath, headers);
+        } catch (err) {
+          report.warnings.push(`CSS media download failed for ${mediaUrl}: ${String(err.message || err)}`);
+        }
+      }
     }
+
+    Object.assign(tokenMap, extractCssVariables(css));
+    const outPath = path.join(stylesDir, fileName);
+    if (!config.dryRun) await fs.writeFile(outPath, css, "utf8");
+    const sourceUrl = cssUrl === "__inline__" ? `${ensureTrailingSlash(config.wpBaseUrl)}(inline)` : cssUrl;
+    stylesheets.push({ sourceUrl, outputPath: outPath, size: rawCss.length });
   }
 
   const manifestPath = path.join(stylesDir, "styles-manifest.json");
@@ -431,19 +707,129 @@ async function migrateStyles(config, root, report, headers) {
     await fs.writeFile(tokensPath, `${JSON.stringify(tokenMap, null, 2)}\n`, "utf8");
   }
 
+  // Generate _includes/legacy-styles.njk so layouts can {% include "legacy-styles.njk" %} in <head>
+  const includesDir = path.join(root, "_includes");
+  const legacyStylesIncludePath = path.join(includesDir, "legacy-styles.njk");
+  const linkTags = stylesheets
+    .map((s) => `<link rel="stylesheet" href="/${path.relative(root, s.outputPath).replace(/\\/g, "/")}">`)
+    .join("\n");
+  const includeContent = [
+    `{# Generated by wp-eleventy-migrator — migrated WordPress stylesheets. #}`,
+    `{# Add to your layout's <head>: {% include "legacy-styles.njk" %} #}`,
+    linkTags,
+    ""
+  ].join("\n");
+  if (!config.dryRun) {
+    await fs.mkdir(includesDir, { recursive: true });
+    await fs.writeFile(legacyStylesIncludePath, includeContent, "utf8");
+  }
+
   report.styles = {
     migrated: stylesheets.length,
     stylesDir,
     manifestPath,
     tokensPath,
-    stylesheetUrls: filteredUrls
+    legacyStylesInclude: legacyStylesIncludePath,
+    stylesheetUrls: [...cssCache.keys()].filter((u) => u !== "__inline__")
   };
+
+  if (parsedNavs.length) {
+    report.styles.parsedNavs = parsedNavs.length;
+    if (!config.dryRun) {
+      const parsedNavPath = path.join(dataRoot, "navigation-parsed.json");
+      // Wrap in same shape as navigation.json so templates work identically
+      const parsedNavRecord = parsedNavs.map((nav, i) => ({
+        id: nav.id || `parsed-nav-${i}`,
+        slug: nav.id || `parsed-nav-${i}`,
+        title: nav.ariaLabel || `Navigation ${i + 1}`,
+        location: "",
+        items: nav.items,
+      }));
+      await fs.writeFile(parsedNavPath, `${JSON.stringify(parsedNavRecord, null, 2)}\n`, "utf8");
+      report.styles.parsedNavPath = parsedNavPath;
+    }
+  }
 }
 
 function buildTargetPermalink(type, slug, config) {
   if (type === "pages") return `/${slug}/`;
   const tpl = config.targetPermalinkPattern || "/{type}/{slug}/";
   return tpl.replaceAll("{type}", slugify(type)).replaceAll("{slug}", slugify(slug));
+}
+
+async function generateLayouts(config, root) {
+  const includesDir = path.join(root, "_includes");
+  const layoutDir = path.dirname(config.pageLayout || "layouts/page.njk");
+  const baseLayoutName = `${layoutDir}/base.njk`;
+  const baseLayoutPath = path.join(includesDir, baseLayoutName);
+  const pageLayoutPath = path.join(includesDir, config.pageLayout || "layouts/page.njk");
+  const postLayoutPath = path.join(includesDir, config.postLayout || "layouts/post.njk");
+  const stylesLine = config.migrateStyles ? `  {% include "legacy-styles.njk" %}\n` : "";
+
+  const base = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if seoTitle %}{{ seoTitle }}{% elif title %}{{ title }}{% else %}Site{% endif %}</title>
+  {% if seoDescription %}<meta name="description" content="{{ seoDescription }}">{% endif %}
+  {% if ogTitle %}<meta property="og:title" content="{{ ogTitle }}">{% endif %}
+  {% if ogDescription %}<meta property="og:description" content="{{ ogDescription }}">{% endif %}
+  {% if ogImage %}<meta property="og:image" content="{{ ogImage }}">{% endif %}
+  {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+  {% if noindex %}<meta name="robots" content="noindex">{% endif %}
+${stylesLine}</head>
+<body>
+  {{ content | safe }}
+</body>
+</html>
+`;
+
+  const page = `---
+layout: ${baseLayoutName}
+---
+<main class="page">
+  <header class="page-header"><h1>{{ title }}</h1></header>
+  <div class="page-content">{{ content | safe }}</div>
+</main>
+`;
+
+  const post = `---
+layout: ${baseLayoutName}
+---
+<main class="post">
+  <header class="post-header">
+    <h1>{{ title }}</h1>
+    {% if date %}<time class="post-date" datetime="{{ date }}">{{ date }}</time>{% endif %}
+    {% if author %}<span class="post-author">{{ author }}</span>{% endif %}
+    {% if featuredImage %}<img class="post-featured-image" src="{{ featuredImage }}" alt="{{ title }}">{% endif %}
+    {% if categories and categories.length %}<div class="post-categories">{% for c in categories %}<span>{{ c }}</span>{% endfor %}</div>{% endif %}
+  </header>
+  <div class="post-content">{{ content | safe }}</div>
+  {% if tags and tags.length %}<footer class="post-footer"><div class="post-tags">{% for tag in tags %}<span>{{ tag }}</span>{% endfor %}</div></footer>{% endif %}
+</main>
+`;
+
+  const writes = [
+    [baseLayoutPath, base],
+    [pageLayoutPath, page],
+    [postLayoutPath, post]
+  ];
+
+  if (config.defaultLayout && config.defaultLayout !== config.pageLayout && config.defaultLayout !== config.postLayout) {
+    const defaultLayoutPath = path.join(includesDir, config.defaultLayout);
+    writes.push([defaultLayoutPath, `---\nlayout: ${baseLayoutName}\n---\n<main class="content">{{ content | safe }}</main>\n`]);
+  }
+
+  const generated = [];
+  for (const [filePath, content] of writes) {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    if (!(await fileExists(filePath))) {
+      await fs.writeFile(filePath, content, "utf8");
+      generated.push(filePath);
+    }
+  }
+  return generated;
 }
 
 function safeJsonForNunjucks(value) {
@@ -519,13 +905,71 @@ function parseWpBlocks(content) {
   return root.children;
 }
 
+function kadenceSupportedBlocks(config) {
+  return config.preset === "kadence-pro"
+    ? [...SUPPORTED_KADENCE_BLOCKS, ...SUPPORTED_KADENCE_PRO_BLOCKS]
+    : SUPPORTED_KADENCE_BLOCKS;
+}
+
+function extractSeoPluginMeta(item) {
+  // Yoast SEO: structured JSON field (most complete)
+  const yoastJson = item?.yoast_head_json;
+  if (yoastJson && typeof yoastJson === "object") {
+    const meta = {};
+    if (yoastJson.title) meta.seoTitle = decodeHtml(yoastJson.title);
+    if (yoastJson.description) meta.seoDescription = decodeHtml(yoastJson.description);
+    if (yoastJson.og_title) meta.ogTitle = decodeHtml(yoastJson.og_title);
+    if (yoastJson.og_description) meta.ogDescription = decodeHtml(yoastJson.og_description);
+    if (yoastJson.og_image?.[0]?.url) meta.ogImage = yoastJson.og_image[0].url;
+    if (yoastJson.canonical) meta.canonical = yoastJson.canonical;
+    if (yoastJson.robots?.index === "noindex") meta.noindex = true;
+    return meta;
+  }
+
+  // AIOSEO (aioseo_head) or Yoast fallback (yoast_head): parse rendered HTML
+  const head = String(item?.aioseo_head || item?.yoast_head || "");
+  if (!head) return {};
+
+  const meta = {};
+  const getAttr = (str, attr) => {
+    const m = str.match(new RegExp(`\\b${attr}=["']([^"']+)["']`, "i"));
+    return m ? m[1] : "";
+  };
+
+  const titleM = head.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleM) meta.seoTitle = decodeHtml(titleM[1].trim());
+
+  for (const metaM of head.matchAll(/<meta\s([^>]+?)(?:\s*\/)?>/gi)) {
+    const attrs = metaM[1];
+    const name = getAttr(attrs, "name") || getAttr(attrs, "property");
+    const content = getAttr(attrs, "content");
+    if (!name || !content) continue;
+    switch (name.toLowerCase()) {
+      case "description": meta.seoDescription = decodeHtml(content); break;
+      case "robots": if (/noindex/.test(content)) meta.noindex = true; break;
+      case "og:title": meta.ogTitle = decodeHtml(content); break;
+      case "og:description": meta.ogDescription = decodeHtml(content); break;
+      case "og:image": meta.ogImage = content; break;
+      case "twitter:title": if (!meta.ogTitle) meta.ogTitle = decodeHtml(content); break;
+      case "twitter:description": if (!meta.ogDescription) meta.ogDescription = decodeHtml(content); break;
+      case "twitter:image": if (!meta.ogImage) meta.ogImage = content; break;
+    }
+  }
+
+  const canonM = head.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)
+    || head.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i);
+  if (canonM) meta.canonical = canonM[1];
+
+  return meta;
+}
+
 function renderBlockTree(nodes, config, warnings, state) {
   return nodes.map((node) => {
     if (node.type === "html") return node.value;
 
     const innerHtml = renderBlockTree(node.children || [], config, warnings, state);
     const [namespace, shortName] = String(node.name || "").split("/");
-    if (config.convertKadenceBlocks && namespace === "kadence" && shortName && SUPPORTED_KADENCE_BLOCKS.includes(shortName)) {
+    if (config.convertKadenceBlocks && namespace === "kadence" && shortName && kadenceSupportedBlocks(config).includes(shortName)) {
       state.convertedCount += 1;
       state.seenBlocks.add(shortName);
       return [
@@ -538,6 +982,20 @@ function renderBlockTree(nodes, config, warnings, state) {
       if (!state.unknownBlocks.has(shortName)) {
         warnings.push(`Unsupported Kadence block '${shortName}' left as inner HTML fallback.`);
         state.unknownBlocks.add(shortName);
+      }
+    }
+
+    // Core block self-closing / semantic fallbacks
+    if (namespace === "core") {
+      switch (shortName) {
+        case "separator": return "<hr>\n";
+        case "spacer": {
+          const h = node.attrs?.height;
+          return `<div class="wp-block-spacer"${h ? ` style="height:${h}px"` : ""}></div>\n`;
+        }
+        case "more": return "<!-- more -->\n";
+        case "nextpage": return "<!-- nextpage -->\n";
+        default: break;
       }
     }
 
@@ -567,43 +1025,605 @@ function convertKadenceBlocksToNunjucks(rawContent, config, warnings) {
   };
 }
 
-function kadencePartialTemplate(name) {
-  const wrappers = {
-    advancedheading: "div",
-    advancedbtn: "div",
-    rowlayout: "section",
-    column: "div",
-    image: "figure",
-    gallery: "section",
-    tabs: "section",
-    tab: "section",
-    accordion: "section",
-    pane: "section",
-    infobox: "article",
-    icon: "div",
-    iconlist: "ul",
-    listitem: "li",
-    spacer: "div",
-    testimonials: "section",
-    testimonial: "blockquote",
-    form: "section"
-  };
-  const wrapper = wrappers[name] || "div";
-  return `{# Generated by wp-eleventy-migrator. Customize this partial to replace the original Kadence markup with project-specific Nunjucks output. #}
-<${wrapper}
-  class="kadence-block kadence-${name}{% if kadenceBlock.attrs.className %} {{ kadenceBlock.attrs.className }}{% endif %}"
-  data-kadence-block="{{ kadenceBlock.name }}"
-  {% if kadenceBlock.attrs.uniqueID %}data-kadence-id="{{ kadenceBlock.attrs.uniqueID }}"{% endif %}
+const KADENCE_PARTIAL_TEMPLATES = {
+  advancedheading: `{# kadence/advancedheading — Heading with configurable tag level, alignment and color #}
+{% set b = kadenceBlock.attrs %}
+{% set tag = "h" ~ (b.level if b.level else 2) %}
+<{{ tag }}
+  class="kadence-block kadence-advancedheading{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}id="kt-adv-heading_{{ b.uniqueID }}"{% endif %}
+  {% if b.align or b.color %}style="{% if b.align %}text-align:{{ b.align }};{% endif %}{% if b.color %} color:{{ b.color }};{% endif %}"{% endif %}
+>{{ kadenceBlock.innerHtml | safe }}</{{ tag }}>
+`,
+
+  advancedbtn: `{# kadence/advancedbtn — Button group; innerHtml contains individual button elements #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-advancedbtn{% if b.hAlign %} kadence-btn-align-{{ b.hAlign }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
   {{ kadenceBlock.innerHtml | safe }}
-</${wrapper}>
-`;
+</div>
+`,
+
+  rowlayout: `{# kadence/rowlayout — Multi-column section; columns are nested kadence/column blocks #}
+{% set b = kadenceBlock.attrs %}
+<section
+  class="kadence-block kadence-rowlayout{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  {% if b.background or (b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg) %}style="{% if b.background %}background-color:{{ b.background }};{% endif %}{% if b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg %} background-image:url('{{ b.backgroundImg[0].bgImg }}');{% endif %}"{% endif %}
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</section>
+`,
+
+  column: `{# kadence/column — Single column within a rowlayout #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-column{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</div>
+`,
+
+  image: `{# kadence/image — Image with optional link, alt text and caption #}
+{% set b = kadenceBlock.attrs %}
+<figure
+  class="kadence-block kadence-image{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if b.link %}<a href="{{ b.link }}"{% if b.linkTarget %} target="{{ b.linkTarget }}"{% endif %}>{% endif %}
+  {% if b.url %}
+    <img
+      src="{{ b.url }}"
+      alt="{{ b.alt if b.alt else "" }}"
+      {% if b.width %}width="{{ b.width }}"{% endif %}
+      {% if b.height %}height="{{ b.height }}"{% endif %}
+    >
+  {% else %}
+    {{ kadenceBlock.innerHtml | safe }}
+  {% endif %}
+  {% if b.link %}</a>{% endif %}
+  {% if b.caption %}<figcaption>{{ b.caption }}</figcaption>{% endif %}
+</figure>
+`,
+
+  gallery: `{# kadence/gallery — Image grid gallery; images array in attrs #}
+{% set b = kadenceBlock.attrs %}
+<figure
+  class="kadence-block kadence-gallery{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if b.images and b.images | length %}
+    <ul class="kadence-gallery-grid kadence-gallery-columns-{{ b.columns if b.columns else 3 }}">
+      {% for img in b.images %}
+        <li class="kadence-gallery-item">
+          <figure>
+            <img src="{{ img.url }}" alt="{{ img.alt if img.alt else "" }}"{% if img.width %} width="{{ img.width }}"{% endif %}{% if img.height %} height="{{ img.height }}"{% endif %}>
+            {% if img.caption %}<figcaption>{{ img.caption }}</figcaption>{% endif %}
+          </figure>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {{ kadenceBlock.innerHtml | safe }}
+  {% endif %}
+</figure>
+`,
+
+  tabs: `{# kadence/tabs — Tab group container; tab titles and panels in innerHtml; add JS for interactivity #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-tabs{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  role="tablist"
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</div>
+`,
+
+  tab: `{# kadence/tab — Single tab panel #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-tab{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}id="kt-tab_{{ b.uniqueID }}"{% endif %}
+  role="tabpanel"
+>
+  {% if b.title %}<div class="kadence-tab-title">{{ b.title }}</div>{% endif %}
+  {{ kadenceBlock.innerHtml | safe }}
+</div>
+`,
+
+  accordion: `{# kadence/accordion — Accordion wrapper; panes use native <details>/<summary> #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-accordion{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</div>
+`,
+
+  pane: `{# kadence/pane — Accordion pane; uses <details>/<summary> for native expand/collapse #}
+{% set b = kadenceBlock.attrs %}
+<details
+  class="kadence-block kadence-pane{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}id="kt-accordion-pane_{{ b.uniqueID }}"{% endif %}
+  {% if b.startOpen %}open{% endif %}
+>
+  {% if b.title %}
+    <summary class="kadence-pane-title">{{ b.title }}</summary>
+  {% endif %}
+  <div class="kadence-pane-content">
+    {{ kadenceBlock.innerHtml | safe }}
+  </div>
+</details>
+`,
+
+  infobox: `{# kadence/infobox — Info card with optional icon, title and body text #}
+{% set b = kadenceBlock.attrs %}
+<article
+  class="kadence-block kadence-infobox{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if b.title %}
+    <h3 class="kadence-infobox-title">{{ b.title }}</h3>
+  {% endif %}
+  <div class="kadence-infobox-content">
+    {{ kadenceBlock.innerHtml | safe }}
+  </div>
+</article>
+`,
+
+  icon: `{# kadence/icon — Single icon; innerHtml contains the rendered SVG or icon font markup #}
+{% set b = kadenceBlock.attrs %}
+<span
+  class="kadence-block kadence-icon{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  aria-hidden="true"
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</span>
+`,
+
+  iconlist: `{# kadence/iconlist — List with icon bullets; items are kadence/listitem blocks #}
+{% set b = kadenceBlock.attrs %}
+<ul
+  class="kadence-block kadence-iconlist{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</ul>
+`,
+
+  listitem: `{# kadence/listitem — Single icon list item #}
+{% set b = kadenceBlock.attrs %}
+<li class="kadence-block kadence-listitem{% if b.className %} {{ b.className }}{% endif %}">
+  {% if b.icon %}
+    <span class="kadence-listitem-icon" aria-hidden="true">{{ b.icon }}</span>
+  {% endif %}
+  <span class="kadence-listitem-text">{{ kadenceBlock.innerHtml | safe }}</span>
+</li>
+`,
+
+  spacer: `{# kadence/spacer — Vertical spacer with optional horizontal rule #}
+{% set b = kadenceBlock.attrs %}
+{% set h = b.spacerHeight[0] if (b.spacerHeight and b.spacerHeight[0]) else 60 %}
+<div
+  class="kadence-block kadence-spacer{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  style="height:{{ h }}px;"
+  aria-hidden="true"
+>
+  {% if b.dividerEnable %}
+    <hr
+      class="kadence-spacer-divider"
+      style="{% if b.dividerStyle %}border-style:{{ b.dividerStyle }};{% endif %}{% if b.dividerColor %} border-color:{{ b.dividerColor }};{% endif %}{% if b.dividerWidth %} width:{{ b.dividerWidth }}%;{% endif %}"
+    >
+  {% endif %}
+</div>
+`,
+
+  testimonials: `{# kadence/testimonials — Testimonials grid; items are kadence/testimonial blocks #}
+{% set b = kadenceBlock.attrs %}
+<section
+  class="kadence-block kadence-testimonials{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</section>
+`,
+
+  testimonial: `{# kadence/testimonial — Single testimonial with star rating, quote and attribution #}
+{% set b = kadenceBlock.attrs %}
+{% set stars = b.rating | int if b.rating else 0 %}
+<figure
+  class="kadence-block kadence-testimonial{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if stars %}
+    <div class="kadence-testimonial-rating" aria-label="Rating: {{ stars }} out of 5">
+      {% for i in range(stars) %}<span aria-hidden="true">★</span>{% endfor %}
+      {% for i in range(5 - stars) %}<span aria-hidden="true">☆</span>{% endfor %}
+    </div>
+  {% endif %}
+  <blockquote class="kadence-testimonial-content">
+    {{ kadenceBlock.innerHtml | safe }}
+  </blockquote>
+  <figcaption class="kadence-testimonial-author">
+    {% if b.url %}
+      <img class="kadence-testimonial-avatar" src="{{ b.url }}" alt="{{ b.name if b.name else "" }}" width="60" height="60">
+    {% endif %}
+    {% if b.name %}<strong class="kadence-testimonial-name">{{ b.name }}</strong>{% endif %}
+    {% if b.occupation %}<span class="kadence-testimonial-occupation">{{ b.occupation }}</span>{% endif %}
+  </figcaption>
+</figure>
+`,
+
+  form: `{# kadence/form — Contact form. Replace <form> action with your static host's handler (Netlify, Formspree…). #}
+{% set b = kadenceBlock.attrs %}
+<section
+  class="kadence-block kadence-form{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if b.formTitle %}<h2 class="kadence-form-title">{{ b.formTitle }}</h2>{% endif %}
+  {# TODO: set action/method/data-netlify for your static site form handler #}
+  <form method="post" data-netlify="true">
+    {{ kadenceBlock.innerHtml | safe }}
+    <button type="submit">{{ b.submitLabel if b.submitLabel else "Submit" }}</button>
+  </form>
+</section>
+`,
+
+  // ── Kadence PRO blocks ────────────────────────────────────────────────────
+
+  countdown: `{# kadence/countdown (PRO) — Countdown timer; requires JS to tick. Read data-countdown-date. #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-countdown{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  {% if b.date %}data-countdown-date="{{ b.date }}"{% endif %}
+  {% if b.timezone %}data-countdown-timezone="{{ b.timezone }}"{% endif %}
+>
+  <div class="kadence-countdown-display" aria-live="polite">
+    <span class="kadence-countdown-days">--</span><span class="kadence-countdown-label">d</span>
+    <span class="kadence-countdown-hours">--</span><span class="kadence-countdown-label">h</span>
+    <span class="kadence-countdown-minutes">--</span><span class="kadence-countdown-label">m</span>
+    <span class="kadence-countdown-seconds">--</span><span class="kadence-countdown-label">s</span>
+  </div>
+  {{ kadenceBlock.innerHtml | safe }}
+</div>
+`,
+
+  videopopup: `{# kadence/videopopup (PRO) — Video popup trigger; add JS lightbox to handle .kadence-videopopup-trigger clicks #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-videopopup{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if b.url %}
+    <a
+      class="kadence-videopopup-trigger"
+      href="{{ b.url }}"
+      {% if b.type %}data-video-type="{{ b.type }}"{% endif %}
+      aria-label="Play video"
+    >
+      {{ kadenceBlock.innerHtml | safe }}
+    </a>
+  {% else %}
+    {{ kadenceBlock.innerHtml | safe }}
+  {% endif %}
+</div>
+`,
+
+  lottie: `{# kadence/lottie (PRO) — Lottie animation; requires @lottiefiles/lottie-player script #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-lottie{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if b.fileUrl %}
+    <lottie-player
+      src="{{ b.fileUrl }}"
+      {% if b.loop %}loop{% endif %}
+      {% if b.autoplay %}autoplay{% endif %}
+      style="width:100%"
+    ></lottie-player>
+  {% else %}
+    {{ kadenceBlock.innerHtml | safe }}
+  {% endif %}
+</div>
+`,
+
+  modal: `{# kadence/modal (PRO) — Modal dialog using native <dialog>; wire JS for browsers lacking showModal() #}
+{% set b = kadenceBlock.attrs %}
+{% set modalId = "kadence-modal-" ~ (b.uniqueID if b.uniqueID else "1") %}
+<div
+  class="kadence-block kadence-modal{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  <button
+    class="kadence-modal-trigger"
+    type="button"
+    aria-haspopup="dialog"
+    aria-controls="{{ modalId }}"
+  >{{ b.trigger if b.trigger else "Open" }}</button>
+  <dialog id="{{ modalId }}" class="kadence-modal-dialog">
+    {% if b.title %}<h2 class="kadence-modal-title">{{ b.title }}</h2>{% endif %}
+    <form method="dialog">
+      <button class="kadence-modal-close" aria-label="Close">×</button>
+    </form>
+    <div class="kadence-modal-content">
+      {{ kadenceBlock.innerHtml | safe }}
+    </div>
+  </dialog>
+</div>
+`,
+
+  navigation: `{# kadence/navigation (PRO) — Megamenu-aware site navigation
+     Data sources (in priority order):
+       1. kadenceBlock.attrs.menuSlug   → finds menu in navigation data by slug
+       2. navigation (global _data/navigation.json first menu)
+       3. navigation-parsed (global _data/navigation-parsed.json first nav)
+     Megamenu columns are rendered when item.megamenu == true.
+  #}
+{% set b = kadenceBlock.attrs %}
+{% set menuSlug = b.menuSlug if b.menuSlug else "" %}
+
+{# Resolve menu items — navigation.json uses field "items" #}
+{% if menuSlug and navigation %}
+  {% for m in navigation %}
+    {% if m.slug == menuSlug %}{% set menuItems = m.items %}{% endif %}
+  {% endfor %}
+{% endif %}
+{% if not menuItems and navigation and navigation.length %}
+  {% set menuItems = navigation[0].items %}
+{% endif %}
+
+<nav
+  class="wp-block-kadence-navigation kb-navigation kadence-block kadence-navigation{% if b.uniqueID %} kb-navigation-id_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  aria-label="{{ b.ariaLabel if b.ariaLabel else "Site navigation" }}"
+>
+  <button class="kb-nav-toggle" aria-expanded="false" aria-controls="kb-nav-menu-{{ b.uniqueID if b.uniqueID else "main" }}">
+    <span class="screen-reader-text">Menu</span>
+    <span class="kb-nav-toggle-icon" aria-hidden="true">&#9776;</span>
+  </button>
+
+  <ul id="kb-nav-menu-{{ b.uniqueID if b.uniqueID else "main" }}" class="menu kb-nav-menu">
+    {% if menuItems %}
+      {% for item in menuItems %}
+        <li class="menu-item kb-nav-item{% for cls in item.classes %} {{ cls }}{% endfor %}{% if item.children and item.children.length %} menu-item-has-children{% endif %}{% if item.megamenu %} kb-nav-mega-menu-item{% endif %}">
+
+          <a href="{{ item.url }}"
+            {% if item.target %} target="{{ item.target }}"{% endif %}
+            {% if item.rel %} rel="{{ item.rel }}"{% endif %}
+            class="kb-nav-link{% if item.current %} current-menu-item{% endif %}"
+          >{{ item.title }}</a>
+
+          {# ── Megamenu ────────────────────────────────────────── #}
+          {% if item.megamenu and item.megamenuColumns and item.megamenuColumns.length %}
+            <div class="kb-mega-menu"
+              {% if item.megamenuWidth %} style="max-width:{{ item.megamenuWidth }}"{% endif %}
+              role="region"
+              aria-label="{{ item.title }} megamenu"
+            >
+              <ul class="kb-mega-menu-cols">
+                {% for col in item.megamenuColumns %}
+                  <li class="kb-mega-menu-col">
+                    {% if col.heading %}<p class="kb-mega-col-heading">{{ col.heading }}</p>{% endif %}
+                    {% if col.items and col.items.length %}
+                      <ul class="kb-mega-col-items">
+                        {% for sub in col.items %}
+                          <li class="menu-item">
+                            <a href="{{ sub.url }}" class="kb-mega-link">
+                              {% if sub.icon %}<span class="kb-mega-icon" aria-hidden="true">{{ sub.icon | safe }}</span>{% endif %}
+                              {{ sub.title }}
+                              {% if sub.description %}<span class="kb-mega-desc">{{ sub.description }}</span>{% endif %}
+                            </a>
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+
+          {# ── Normal dropdown ─────────────────────────────────── #}
+          {% elif item.children and item.children.length %}
+            <ul class="sub-menu kb-nav-sub-menu">
+              {% for child in item.children %}
+                <li class="menu-item kb-nav-item{% if child.children and child.children.length %} menu-item-has-children{% endif %}">
+                  <a href="{{ child.url }}"
+                    {% if child.target %} target="{{ child.target }}"{% endif %}
+                    {% if child.rel %} rel="{{ child.rel }}"{% endif %}
+                    class="kb-nav-link"
+                  >{{ child.title }}</a>
+                  {% if child.children and child.children.length %}
+                    <ul class="sub-menu kb-nav-sub-menu kb-nav-sub-menu--level2">
+                      {% for grandchild in child.children %}
+                        <li class="menu-item kb-nav-item">
+                          <a href="{{ grandchild.url }}"
+                            {% if grandchild.target %} target="{{ grandchild.target }}"{% endif %}
+                            class="kb-nav-link"
+                          >{{ grandchild.title }}</a>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+
+        </li>
+      {% endfor %}
+    {% else %}
+      {# Fallback: raw inner HTML from block (WP rendered output) #}
+      {{ kadenceBlock.rawHtml | safe }}
+    {% endif %}
+  </ul>
+</nav>
+`,
+
+  "off-canvas": `{# kadence/off-canvas (PRO) — Off-canvas drawer; JS must toggle aria-expanded and hidden on the drawer #}
+{% set b = kadenceBlock.attrs %}
+{% set drawerId = "kadence-offcanvas-" ~ (b.uniqueID if b.uniqueID else "1") %}
+<div
+  class="kadence-block kadence-off-canvas{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  <button
+    class="kadence-off-canvas-trigger"
+    type="button"
+    aria-expanded="false"
+    aria-controls="{{ drawerId }}"
+    aria-label="Open menu"
+  >☰</button>
+  <div id="{{ drawerId }}" class="kadence-off-canvas-drawer" hidden>
+    <button class="kadence-off-canvas-close" type="button" aria-label="Close menu">×</button>
+    {{ kadenceBlock.innerHtml | safe }}
+  </div>
+</div>
+`,
+
+  "show-more": `{# kadence/show-more (PRO) — Expandable content using native <details>/<summary>; no JS needed #}
+{% set b = kadenceBlock.attrs %}
+<details
+  class="kadence-block kadence-show-more{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  <summary class="kadence-show-more-toggle">
+    {{ b.showHideMore if b.showHideMore else "Show more" }}
+  </summary>
+  {{ kadenceBlock.innerHtml | safe }}
+</details>
+`,
+
+  dynamichtml: `{# kadence/dynamichtml (PRO) — Dynamic query block; replace with an Eleventy collection loop #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-dynamichtml{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {# TODO: replace with Eleventy collection loop — e.g. {% for post in collections.posts %} #}
+  {{ kadenceBlock.innerHtml | safe }}
+</div>
+`,
+
+  identity: `{# kadence/identity (PRO) — Site logo, name and tagline from _data/site.json #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-identity{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {% if b.showLogo !== false %}
+    <a class="kadence-identity-logo" href="/">
+      {% if site.logo %}
+        <img src="{{ site.logo }}" alt="{{ site.name if site.name else "Home" }}" height="40">
+      {% else %}
+        {# Add logo path to _data/site.json: { "logo": "/img/logo.svg", "name": "Site Name" } #}
+      {% endif %}
+    </a>
+  {% endif %}
+  {% if b.showTitle !== false %}
+    <span class="kadence-identity-title">{{ site.name if site.name else "Site Name" }}</span>
+  {% endif %}
+  {% if b.showTagline !== false and site.tagline %}
+    <span class="kadence-identity-tagline">{{ site.tagline }}</span>
+  {% endif %}
+</div>
+`,
+
+  contentwidget: `{# kadence/contentwidget (PRO) — Widget area; replace with your Eleventy sidebar include #}
+{% set b = kadenceBlock.attrs %}
+<aside
+  class="kadence-block kadence-contentwidget{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {# TODO: replace with your sidebar partial — {% include "partials/sidebar.njk" %} #}
+  {{ kadenceBlock.innerHtml | safe }}
+</aside>
+`,
+
+  splitcontent: `{# kadence/splitcontent (PRO) — Two-column split layout (e.g. media + text) #}
+{% set b = kadenceBlock.attrs %}
+<section
+  class="kadence-block kadence-splitcontent{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</section>
+`,
+
+  "table-of-contents": `{# kadence/table-of-contents (PRO) — Auto-generated TOC; replace with eleventy-plugin-toc or a macro #}
+{% set b = kadenceBlock.attrs %}
+<nav
+  class="kadence-block kadence-toc{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  aria-label="Table of contents"
+>
+  {# TODO: generate with eleventy-plugin-toc or a custom Nunjucks macro #}
+  {{ kadenceBlock.innerHtml | safe }}
+</nav>
+`,
+
+  postcarousel: `{# kadence/postcarousel (PRO) — Post loop/carousel; replace with an Eleventy collection loop #}
+{% set b = kadenceBlock.attrs %}
+<section
+  class="kadence-block kadence-postcarousel{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {# TODO: replace with Eleventy loop:
+     {% for post in collections.posts | reverse | limit(b.postsToShow | default(3)) %}
+       <article><a href="{{ post.url }}">{{ post.data.title }}</a></article>
+     {% endfor %} #}
+  {{ kadenceBlock.innerHtml | safe }}
+</section>
+`,
+
+  portfoliogrid: `{# kadence/portfoliogrid (PRO) — Portfolio grid; replace with an Eleventy collection loop #}
+{% set b = kadenceBlock.attrs %}
+<section
+  class="kadence-block kadence-portfoliogrid{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+>
+  {# TODO: replace with Eleventy portfolio collection loop #}
+  {{ kadenceBlock.innerHtml | safe }}
+</section>
+`
+};
+
+function kadencePartialTemplate(name) {
+  const raw = Object.prototype.hasOwnProperty.call(KADENCE_PARTIAL_TEMPLATES, name)
+    ? KADENCE_PARTIAL_TEMPLATES[name]
+    : `{# kadence/${name} — Generic fallback. Customize this partial. #}\n{% set b = kadenceBlock.attrs %}\n<div\n  class="kadence-block kadence-${name}{% if b.className %} {{ b.className }}{% endif %}"\n  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}\n>\n  {{ kadenceBlock.innerHtml | safe }}\n</div>\n`;
+
+  // Inject standard WordPress block class, Kadence kb-* class and uniqueID-scoped class.
+  // All three together ensure that CSS downloaded from the WordPress site still applies.
+  const css = KADENCE_BLOCK_CSS[name] || {};
+  const wpClass = `wp-block-kadence-${name}`;
+  const kbClass = css.wrap ? ` ${css.wrap}` : "";
+  const uidFrag = css.uid ? `{% if b.uniqueID %} ${css.uid}_{{ b.uniqueID }}{% endif %}` : "";
+
+  // The templates open with: class="kadence-block kadence-{name} (or kadence-toc for table-of-contents)
+  // Find whichever variant is present and prepend the Kadence CSS classes.
+  const needle = raw.includes(`class="kadence-block kadence-${name}`)
+    ? `class="kadence-block kadence-${name}`
+    : `class="kadence-block kadence-toc`; // table-of-contents uses kadence-toc shorthand
+  const replacement = `class="${wpClass}${kbClass} kadence-block kadence-${name}${uidFrag}`;
+  return raw.replace(needle, replacement);
 }
 
-async function writeKadencePartials(outputRoot, blocksDir) {
+async function writeKadencePartials(outputRoot, blocksDir, preset) {
   const absoluteDir = path.join(outputRoot, blocksDir);
   await fs.mkdir(absoluteDir, { recursive: true });
-  await Promise.all(SUPPORTED_KADENCE_BLOCKS.map((name) => {
+  const blocks = preset === "kadence-pro"
+    ? [...SUPPORTED_KADENCE_BLOCKS, ...SUPPORTED_KADENCE_PRO_BLOCKS]
+    : SUPPORTED_KADENCE_BLOCKS;
+  await Promise.all(blocks.map((name) => {
     const filePath = path.join(absoluteDir, `${name}.njk`);
     return fs.writeFile(filePath, kadencePartialTemplate(name), "utf8");
   }));
@@ -646,6 +1666,23 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
     }
   }
 
+  const shortcodes = detectShortcodes(body);
+  if (shortcodes.length) {
+    warnings.push(`Possible unrendered shortcodes in '${type}/${slug}': ${shortcodes.map((s) => `[${s}]`).join(", ")}`);
+  }
+
+  const embedded = item?._embedded || {};
+  const featuredImageUrl = embedded["wp:featuredmedia"]?.[0]?.source_url || "";
+  const authorName = decodeHtml(embedded["author"]?.[0]?.name || "");
+  const customTaxonomies = {};
+  for (const termGroup of (embedded["wp:term"] || [])) {
+    if (!Array.isArray(termGroup) || !termGroup.length) continue;
+    const taxonomy = termGroup[0].taxonomy;
+    if (taxonomy === "category" || taxonomy === "post_tag") continue;
+    const names = termGroup.map((t) => t.name).filter(Boolean);
+    if (names.length) customTaxonomies[slugify(taxonomy)] = names;
+  }
+
   const frontMatter = {
     title,
     date: item?.date || "",
@@ -659,8 +1696,22 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
     categories,
     tags
   };
+  if (authorName) frontMatter.author = authorName;
+  if (featuredImageUrl) frontMatter.featuredImage = featuredImageUrl;
+  if (item?.sticky === true) frontMatter.sticky = true;
+  if (item?.format && item.format !== "standard") frontMatter.format = item.format;
+  for (const [key, val] of Object.entries(customTaxonomies)) frontMatter[key] = val;
   if (layout) frontMatter.layout = layout;
   if (convertedKadenceBlocks) frontMatter.kadenceBlocks = kadenceBlocks;
+
+  const seoMeta = extractSeoPluginMeta(item);
+  if (seoMeta.seoTitle) frontMatter.seoTitle = seoMeta.seoTitle;
+  if (seoMeta.seoDescription) frontMatter.seoDescription = seoMeta.seoDescription;
+  if (seoMeta.ogTitle) frontMatter.ogTitle = seoMeta.ogTitle;
+  if (seoMeta.ogDescription) frontMatter.ogDescription = seoMeta.ogDescription;
+  if (seoMeta.ogImage) frontMatter.ogImage = seoMeta.ogImage;
+  if (seoMeta.canonical) frontMatter.canonical = seoMeta.canonical;
+  if (seoMeta.noindex) frontMatter.noindex = true;
 
   return {
     title,
@@ -698,15 +1749,32 @@ async function runMigration(configPath, explicitConfig) {
   if (config.downloadMedia) await fs.mkdir(mediaRoot, { recursive: true });
   if (config.importMenus) await fs.mkdir(dataRoot, { recursive: true });
   if (config.convertKadenceBlocks) {
+    const allKadenceBlocks = config.preset === "kadence-pro"
+      ? [...SUPPORTED_KADENCE_BLOCKS, ...SUPPORTED_KADENCE_PRO_BLOCKS]
+      : SUPPORTED_KADENCE_BLOCKS;
     report.kadenceBlocks = {
       partialsPath: kadencePartialsPath,
-      supportedBlocks: [...SUPPORTED_KADENCE_BLOCKS]
+      supportedBlocks: allKadenceBlocks,
+      proBlocks: config.preset === "kadence-pro"
     };
-    if (!config.dryRun) await writeKadencePartials(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR);
+    if (!config.dryRun) await writeKadencePartials(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR, config.preset);
   }
 
   if (config.convertKadenceBlocks && config.htmlMode === "basic-markdown") {
     report.warnings.push("Kadence block conversion uses raw block content and writes Nunjucks templates. HTML mode 'basic-markdown' is ignored for converted Kadence documents.");
+  }
+
+  if (config.useNunjucksLayouts) {
+    if (!config.dryRun) {
+      try {
+        const generatedLayouts = await generateLayouts(config, root);
+        report.layouts = { generated: generatedLayouts };
+      } catch (err) {
+        report.warnings.push(`Layout generation failed: ${String(err.message || err)}`);
+      }
+    } else {
+      report.layouts = { generated: [], note: "Layout files will be generated on non-dry-run" };
+    }
   }
 
   const headers = {};
@@ -753,18 +1821,19 @@ async function runMigration(configPath, explicitConfig) {
 
   for (const type of config.contentTypes) {
     const typeSlug = slugify(type);
-    const endpointBase = `${baseApi}/${typeSlug}`;
-    const endpoint = config.convertKadenceBlocks && config.authMode !== "none"
-      ? `${endpointBase}?context=edit`
-      : endpointBase;
+    const endpointBase = `${baseApi}/${type}`;
+    const baseWithEmbed = `${endpointBase}?_embed=1`;
+    const endpoint = config.authMode !== "none"
+      ? `${endpointBase}?context=edit&_embed=1`
+      : baseWithEmbed;
     printStep("fetch", `${type} -> ${endpoint}`);
     let items;
     try {
       items = await fetchAllPages(endpoint, headers);
     } catch (err) {
-      if (endpoint !== endpointBase) {
+      if (endpoint !== baseWithEmbed) {
         report.warnings.push(`Falling back to rendered content for ${type}: ${String(err.message || err)}`);
-        items = await fetchAllPages(endpointBase, headers);
+        items = await fetchAllPages(baseWithEmbed, headers);
       } else {
         throw err;
       }
@@ -788,12 +1857,13 @@ async function runMigration(configPath, explicitConfig) {
       if (config.createRedirects && item?.link) report.redirects.push({ from: item.link, to: doc.permalink });
 
       if (config.downloadMedia && !config.dryRun) {
-        const mediaUrls = extractMediaUrls(item?.content?.rendered || "", ensureTrailingSlash(config.wpBaseUrl));
-        for (const mediaUrl of mediaUrls) {
+        const allMediaUrls = extractMediaUrls(item?.content?.rendered || "", ensureTrailingSlash(config.wpBaseUrl));
+        if (doc.frontMatter.featuredImage) allMediaUrls.push(doc.frontMatter.featuredImage);
+        for (const mediaUrl of allMediaUrls) {
           try {
             const urlObj = new URL(mediaUrl);
             const relPath = urlObj.pathname.replace(/^\/+/, "");
-            const outPath = path.join(mediaRoot, sanitizeFileSegment(relPath));
+            const outPath = path.join(mediaRoot, ...relPath.split("/").map(sanitizeFileSegment));
             if (!(await fileExists(outPath))) await downloadFile(mediaUrl, outPath, headers);
           } catch (err) {
             report.warnings.push(`Media failed for ${item?.id || "?"}: ${String(err.message || err)}`);
@@ -806,7 +1876,7 @@ async function runMigration(configPath, explicitConfig) {
 
   if (config.createRedirects) {
     const redirectsPath = path.join(root, "redirects.csv");
-    const csv = ["from,to", ...report.redirects.map((r) => `${JSON.stringify(r.from)},${JSON.stringify(r.to)}`)].join("\n");
+    const csv = ["source,destination,status", ...report.redirects.map((r) => `${JSON.stringify(r.from)},${JSON.stringify(r.to)},301`)].join("\n");
     if (!config.dryRun) await fs.writeFile(redirectsPath, `${csv}\n`, "utf8");
     report.redirectsPath = redirectsPath;
   }
@@ -902,9 +1972,22 @@ function sendJson(res, status, payload) {
   res.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
+function extractDeploymentPlan(body) {
+  const keys = [
+    "localProjectFolder", "localDevCommand", "localSiteUrl",
+    "githubOwner", "githubRepo", "pagesUrl", "buildCommand",
+    "useGitHubActions", "publishOnPush",
+    "useCustomDomain", "domainAction", "desiredDomain", "registrar", "dnsNotes"
+  ];
+  const plan = {};
+  for (const k of keys) if (body[k] !== undefined) plan[k] = body[k];
+  return plan;
+}
+
 async function serveUi(port = 4173) {
   const indexPath = path.join(UI_ROOT, "index.html");
   const html = await fs.readFile(indexPath, "utf8");
+  const jobs = new Map();
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -961,8 +2044,13 @@ async function serveUi(port = 4173) {
       if (req.method === "POST" && url.pathname === "/api/save-config") {
         const body = await readJsonBody(req);
         const config = await createConfigFromInput(body);
+        const deploymentPlan = extractDeploymentPlan(body);
         const configPath = String(body.configPath || defaultConfigPathFor(config.outputRoot));
         const absolutePath = await saveConfig(config, configPath);
+        if (Object.keys(deploymentPlan).length) {
+          const planPath = path.join(path.dirname(absolutePath), "deployment-plan.json");
+          await fs.writeFile(planPath, `${JSON.stringify(deploymentPlan, null, 2)}\n`, "utf8");
+        }
         sendJson(res, 200, { ok: true, config, configPath: absolutePath });
         return;
       }
@@ -970,10 +2058,29 @@ async function serveUi(port = 4173) {
       if (req.method === "POST" && url.pathname === "/api/run") {
         const body = await readJsonBody(req);
         const config = await createConfigFromInput(body);
+        const deploymentPlan = extractDeploymentPlan(body);
         const configPath = String(body.configPath || defaultConfigPathFor(config.outputRoot));
         const absolutePath = await saveConfig(config, configPath);
-        const report = await runMigration(absolutePath, config);
-        sendJson(res, 200, { ok: true, configPath: absolutePath, report });
+        if (!config.dryRun && Object.keys(deploymentPlan).length) {
+          const planPath = path.join(path.dirname(absolutePath), "deployment-plan.json");
+          await fs.writeFile(planPath, `${JSON.stringify(deploymentPlan, null, 2)}\n`, "utf8");
+        }
+        const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        jobs.set(jobId, { status: "running" });
+        runMigration(absolutePath, config).then((report) => {
+          jobs.set(jobId, { status: "done", configPath: absolutePath, report });
+        }).catch((err) => {
+          jobs.set(jobId, { status: "error", error: String(err?.message || err) });
+        });
+        sendJson(res, 202, { ok: true, jobId, configPath: absolutePath });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname.startsWith("/api/run/")) {
+        const jobId = url.pathname.slice("/api/run/".length);
+        const job = jobs.get(jobId);
+        if (!job) { sendJson(res, 404, { error: "Job not found" }); return; }
+        sendJson(res, 200, job);
         return;
       }
 
@@ -1021,14 +2128,19 @@ async function runWizard() {
     }
 
     const dryRun = await askYesNo(rl, "Dry run (no files written)", true);
-    const useNunjucksLayouts = await askYesNo(rl, "Add Nunjucks layout fields to front matter", false);
-    const convertKadenceBlocks = await askYesNo(rl, "Convert supported Kadence blocks into Nunjucks includes", false);
-    const migrateStyles = await askYesNo(rl, "Download site stylesheets and extract CSS design tokens", false);
+    const isKadencePreset = preset === "kadence" || preset === "kadence-pro";
+    if (isKadencePreset) {
+      output.write(`  Preset '${preset}': enables Nunjucks layouts, Kadence block conversion, and style migration.\n`);
+    }
+    const useNunjucksLayouts = isKadencePreset ? true : await askYesNo(rl, "Add Nunjucks layout fields to front matter", false);
+    const convertKadenceBlocks = isKadencePreset ? true : await askYesNo(rl, "Convert supported Kadence blocks into Nunjucks includes", false);
+    const migrateStyles = isKadencePreset ? true : await askYesNo(rl, "Download site stylesheets and extract CSS design tokens", false);
     const pageLayout = await ask(rl, "Page layout path", "layouts/page.njk");
     const postLayout = await ask(rl, "Post layout path", "layouts/post.njk");
     const defaultLayout = await ask(rl, "Default layout path for other content types (optional)", "");
     const kadenceBlocksDir = await ask(rl, "Kadence partial output directory", DEFAULT_KADENCE_BLOCKS_DIR);
-    const stylesDir = await ask(rl, "Styles output directory", DEFAULT_STYLES_DIR);
+    const defaultStylesDir = preset === "kadence-pro" ? DEFAULT_KADENCE_PRO_STYLES_DIR : isKadencePreset ? DEFAULT_KADENCE_STYLES_DIR : DEFAULT_STYLES_DIR;
+    const stylesDir = await ask(rl, "Styles output directory", defaultStylesDir);
     const stamp = nowStamp();
     const outputRoot = await ask(rl, "Output root", `./migrations/wp-to-eleventy-${stamp}`);
     const contentDir = await ask(rl, "Content subdirectory", "content");
