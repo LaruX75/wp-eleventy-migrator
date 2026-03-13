@@ -11,8 +11,10 @@ Wizard asks:
 7. Best-effort menu import
 8. Media download
 9. Auth mode (`none`, `app-password`, `bearer`)
-10. Output paths
-11. Dry-run mode
+10. Optional Nunjucks layout mapping
+11. Optional Kadence block conversion and partial output directory
+12. Output paths
+13. Dry-run mode
 
 Recommended workflow:
 
@@ -21,7 +23,8 @@ Recommended workflow:
 3. Validate `redirects.csv`
 4. Re-run with `dryRun=false`
 5. Inspect `_data/navigation.json` if menu import succeeded
-6. Build your Eleventy project and run link checks
+6. If Kadence conversion is enabled, review generated `_includes/blocks/kadence/*.njk` partials
+7. Build your Eleventy project and run link checks
 
 HTML5 GUI:
 

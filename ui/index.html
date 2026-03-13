@@ -738,6 +738,10 @@
                     <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts">
                     <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
                   </label>
+                  <label class="toggle">
+                    <input name="convertKadenceBlocks" type="checkbox" id="convertKadenceBlocks">
+                    <span data-i18n="toggle_convertKadenceBlocks"></span> <button type="button" class="help-button" data-help-topic="convertKadenceBlocks">?</button>
+                  </label>
                 </div>
                 <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
                   <label>
@@ -754,6 +758,11 @@
                     <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
                     <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout">
                     <span data-i18n="hint_defaultLayout"></span>
+                  </label>
+                  <label>
+                    <span class="field-head"><span data-i18n="field_kadenceBlocksDir"></span> <button type="button" class="help-button" data-help-topic="kadenceBlocksDir">?</button></span>
+                    <input name="kadenceBlocksDir" data-i18n-placeholder="placeholder_kadenceBlocksDir">
+                    <span data-i18n="hint_kadenceBlocksDir"></span>
                   </label>
                 </div>
 
@@ -1011,6 +1020,7 @@
       const useCustomDomain = document.getElementById("useCustomDomain");
       const domainFields = document.getElementById("domain-fields");
       const useNunjucksLayouts = document.getElementById("useNunjucksLayouts");
+      const convertKadenceBlocks = document.getElementById("convertKadenceBlocks");
       const nunjucksFields = document.getElementById("nunjucks-fields");
       const saveButton = document.getElementById("save-config");
       const runButton = document.getElementById("run-migration");
@@ -1084,6 +1094,7 @@
           field_pageLayout: "Sivujen layout",
           field_postLayout: "Postausten layout",
           field_defaultLayout: "Oletuslayout muille tyypeille",
+          field_kadenceBlocksDir: "Kadence-partialien hakemisto",
           field_authMode: "Auth mode",
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
@@ -1112,6 +1123,7 @@
           hint_pageLayout: "Lisätään front matteriin vain jos Nunjucks-vipu on päällä.",
           hint_postLayout: "Postaukset saavat tämän layout-polun front matteriin.",
           hint_defaultLayout: "Valinnainen fallback muille sisältötyypeille kuin pages/posts.",
+          hint_kadenceBlocksDir: "Hakemisto, johon generoidut Kadence Nunjucks -partialit kirjoitetaan.",
           hint_authMode: "Useimmiten julkiselle datalle riittää none.",
           hint_localProjectFolder: "Tähän paikalliseen projektikansioon migroitu sisältö tuodaan jatkotyöstöä varten.",
           option_keep_html: "keep-html",
@@ -1126,6 +1138,7 @@
           toggle_createRedirects: "Luo redirects.csv vanhoista URL:eista.",
           toggle_dryRun: "Dry-run: raportti ilman tiedostojen kirjoitusta.",
           toggle_useNunjucksLayouts: "Lisää front matteriin Nunjucks-layoutit valinnaisena.",
+          toggle_convertKadenceBlocks: "Muunna tuetut Kadence-lohkot Nunjucks-includeiksi.",
           toggle_useGitHubActions: "Käytä GitHub Actionsia buildiin ja julkaisuun automaattisesti.",
           toggle_publishOnPush: "Julkaise aina pushin jälkeen oletusbranchista.",
           toggle_useCustomDomain: "Ota mukaan oman domainin hankinta tai olemassa olevan domainin ohjaus.",
@@ -1165,6 +1178,7 @@
           placeholder_pageLayout: "layouts/page.njk",
           placeholder_postLayout: "layouts/post.njk",
           placeholder_defaultLayout: "layouts/default.njk",
+          placeholder_kadenceBlocksDir: "_includes/blocks/kadence",
           placeholder_localProjectFolder: "/Users/name/Documents/site-project",
           placeholder_githubOwner: "username tai organisaatio",
           placeholder_githubRepo: "site-repo",
@@ -1248,6 +1262,7 @@
           field_pageLayout: "Page layout",
           field_postLayout: "Post layout",
           field_defaultLayout: "Default layout for other types",
+          field_kadenceBlocksDir: "Kadence partial directory",
           field_authMode: "Auth mode",
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
@@ -1276,6 +1291,7 @@
           hint_pageLayout: "Added to front matter only when the Nunjucks toggle is enabled.",
           hint_postLayout: "Posts will receive this layout path in front matter.",
           hint_defaultLayout: "Optional fallback for content types other than pages/posts.",
+          hint_kadenceBlocksDir: "Directory where generated Kadence Nunjucks partials are written.",
           hint_authMode: "For public content, none is usually enough.",
           hint_localProjectFolder: "This is the local project folder where the migrated content will be brought for further work.",
           option_keep_html: "keep-html",
@@ -1290,6 +1306,7 @@
           toggle_createRedirects: "Generate redirects.csv from old URLs.",
           toggle_dryRun: "Dry-run: report only, no file writes.",
           toggle_useNunjucksLayouts: "Optionally add Nunjucks layouts to front matter.",
+          toggle_convertKadenceBlocks: "Convert supported Kadence blocks into Nunjucks includes.",
           toggle_useGitHubActions: "Use GitHub Actions for automated build and deployment.",
           toggle_publishOnPush: "Publish automatically on every push to the default branch.",
           toggle_useCustomDomain: "Include either buying a new domain or pointing an existing domain.",
@@ -1329,6 +1346,7 @@
           placeholder_pageLayout: "layouts/page.njk",
           placeholder_postLayout: "layouts/post.njk",
           placeholder_defaultLayout: "layouts/default.njk",
+          placeholder_kadenceBlocksDir: "_includes/blocks/kadence",
           placeholder_localProjectFolder: "/Users/name/Documents/site-project",
           placeholder_githubOwner: "username or organization",
           placeholder_githubRepo: "site-repo",
@@ -1630,6 +1648,10 @@
           fi: { title: "Nunjucks-layoutit", body: "<p>Kun tämä on päällä, migrattori lisää <code>layout</code>-kentän front matteriin. Sisältö pysyy silti Markdownina tai HTML:nä kuten ennenkin.</p>" },
           en: { title: "Nunjucks layouts", body: "<p>When enabled, the migrator adds a <code>layout</code> field to front matter. The content itself still stays as Markdown or HTML just like before.</p>" }
         },
+        convertKadenceBlocks: {
+          fi: { title: "Kadence-lohkojen muunnos", body: "<p>Best-effort-muunnos 18 yleiseen Kadence-lohkoon. Muunnos tarvitsee mieluiten WordPressin raw block -sisällön, joten autentikoitu REST-haku <code>context=edit</code>-tilassa toimii parhaiten.</p>" },
+          en: { title: "Kadence block conversion", body: "<p>A best-effort conversion for 18 common Kadence blocks. It works best with raw WordPress block content, so authenticated REST access with <code>context=edit</code> is preferred.</p>" }
+        },
         pageLayout: {
           fi: { title: "Sivujen layout", body: "<p>Tätä layout-polku käytetään <code>pages</code>-sisällölle, esimerkiksi <code>layouts/page.njk</code>.</p>" },
           en: { title: "Page layout", body: "<p>This layout path is used for <code>pages</code> content, for example <code>layouts/page.njk</code>.</p>" }
@@ -1641,6 +1663,10 @@
         defaultLayout: {
           fi: { title: "Oletuslayout", body: "<p>Valinnainen fallback-layout muille sisältötyypeille kuin <code>pages</code> ja <code>posts</code>.</p>" },
           en: { title: "Default layout", body: "<p>An optional fallback layout for content types other than <code>pages</code> and <code>posts</code>.</p>" }
+        },
+        kadenceBlocksDir: {
+          fi: { title: "Kadence-partialien hakemisto", body: "<p>Hakemisto, johon generoidut <code>.njk</code>-partialit kirjoitetaan, esimerkiksi <code>_includes/blocks/kadence</code>.</p>" },
+          en: { title: "Kadence partial directory", body: "<p>The directory where generated <code>.njk</code> partials are written, for example <code>_includes/blocks/kadence</code>.</p>" }
         },
         "auth-overview": {
           fi: { title: "Autentikointi", body: "<p>Tarvitaan vain jos REST API ei ole julkinen tai mukaan halutaan julkaisematon sisältö.</p>" },
@@ -1876,7 +1902,7 @@
       }
 
       function updateNunjucksVisibility() {
-        nunjucksFields.hidden = !useNunjucksLayouts.checked;
+        nunjucksFields.hidden = !(useNunjucksLayouts.checked || convertKadenceBlocks.checked);
       }
 
       function suggestConfigPath(outputRoot) {
@@ -1910,9 +1936,11 @@
           wpBearerToken: data.get("wpBearerToken"),
           dryRun: data.get("dryRun") === "on",
           useNunjucksLayouts: data.get("useNunjucksLayouts") === "on",
+          convertKadenceBlocks: data.get("convertKadenceBlocks") === "on",
           pageLayout: data.get("pageLayout"),
           postLayout: data.get("postLayout"),
           defaultLayout: data.get("defaultLayout"),
+          kadenceBlocksDir: data.get("kadenceBlocksDir"),
           outputRoot: data.get("outputRoot"),
           contentDir: data.get("contentDir"),
           mediaDir: data.get("mediaDir"),
@@ -2009,9 +2037,11 @@
           publishOnPush: true,
           useCustomDomain: false,
           useNunjucksLayouts: false,
+          convertKadenceBlocks: false,
           pageLayout: "layouts/page.njk",
           postLayout: "layouts/post.njk",
           defaultLayout: "",
+          kadenceBlocksDir: "_includes/blocks/kadence",
           domainAction: "buy-new",
           desiredDomain: "",
           registrar: "",
@@ -2084,6 +2114,7 @@
 
       authMode.addEventListener("change", updateAuthVisibility);
       useNunjucksLayouts.addEventListener("change", updateNunjucksVisibility);
+      convertKadenceBlocks.addEventListener("change", updateNunjucksVisibility);
       useCustomDomain.addEventListener("change", () => {
         updateDomainVisibility();
         renderPlan();

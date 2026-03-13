@@ -11,6 +11,27 @@ import { fileURLToPath } from "node:url";
 const DEFAULT_TYPES = ["posts", "pages"];
 const DEFAULT_NAMESPACE = "/wp-json/wp/v2";
 const DEFAULT_DATA_DIR = "_data";
+const DEFAULT_KADENCE_BLOCKS_DIR = "_includes/blocks/kadence";
+const SUPPORTED_KADENCE_BLOCKS = [
+  "advancedheading",
+  "advancedbtn",
+  "rowlayout",
+  "column",
+  "image",
+  "gallery",
+  "tabs",
+  "tab",
+  "accordion",
+  "pane",
+  "infobox",
+  "icon",
+  "iconlist",
+  "listitem",
+  "spacer",
+  "testimonials",
+  "testimonial",
+  "form"
+];
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
@@ -333,6 +354,170 @@ function buildTargetPermalink(type, slug, config) {
   return tpl.replaceAll("{type}", slugify(type)).replaceAll("{slug}", slugify(slug));
 }
 
+function safeJsonForNunjucks(value) {
+  return JSON.stringify(value, null, 2).replace(/</g, "\\u003c");
+}
+
+function parseBlockAttrs(rawAttrs) {
+  if (!rawAttrs) return {};
+  try {
+    return JSON.parse(rawAttrs);
+  } catch {
+    return {};
+  }
+}
+
+function parseOpeningBlockComment(rawComment) {
+  let value = String(rawComment || "").trim();
+  let selfClosing = false;
+  if (value.endsWith("/")) {
+    selfClosing = true;
+    value = value.slice(0, -1).trim();
+  }
+
+  const spaceIndex = value.indexOf(" ");
+  if (spaceIndex === -1) return { blockName: value, attrs: {}, selfClosing };
+  return {
+    blockName: value.slice(0, spaceIndex).trim(),
+    attrs: parseBlockAttrs(value.slice(spaceIndex + 1).trim()),
+    selfClosing
+  };
+}
+
+function parseWpBlocks(content) {
+  const source = String(content || "");
+  const root = { children: [] };
+  const stack = [root];
+  const pattern = /<!--\s*(\/?)wp:([\s\S]*?)-->/g;
+  let lastIndex = 0;
+
+  for (const match of source.matchAll(pattern)) {
+    const [full, closingSlash, rawBody] = match;
+    const index = match.index ?? 0;
+    if (index > lastIndex) {
+      stack[stack.length - 1].children.push({ type: "html", value: source.slice(lastIndex, index) });
+    }
+
+    if (closingSlash) {
+      const blockName = String(rawBody || "").trim();
+      if (stack.length > 1 && stack[stack.length - 1].name === blockName) {
+        stack.pop();
+      }
+      lastIndex = index + full.length;
+      continue;
+    }
+
+    const { blockName, attrs, selfClosing } = parseOpeningBlockComment(rawBody);
+    const node = {
+      type: "block",
+      name: blockName,
+      attrs,
+      children: []
+    };
+    stack[stack.length - 1].children.push(node);
+
+    if (!selfClosing) stack.push(node);
+    lastIndex = index + full.length;
+  }
+
+  if (lastIndex < source.length) {
+    stack[stack.length - 1].children.push({ type: "html", value: source.slice(lastIndex) });
+  }
+
+  return root.children;
+}
+
+function renderBlockTree(nodes, config, warnings, state) {
+  return nodes.map((node) => {
+    if (node.type === "html") return node.value;
+
+    const innerHtml = renderBlockTree(node.children || [], config, warnings, state);
+    const [namespace, shortName] = String(node.name || "").split("/");
+    if (config.convertKadenceBlocks && namespace === "kadence" && shortName && SUPPORTED_KADENCE_BLOCKS.includes(shortName)) {
+      state.convertedCount += 1;
+      state.seenBlocks.add(shortName);
+      return [
+        `{% set kadenceBlock = ${safeJsonForNunjucks({ name: node.name, shortName, attrs: node.attrs || {}, innerHtml })} %}`,
+        `{% include "blocks/kadence/${shortName}.njk" %}`
+      ].join("\n");
+    }
+
+    if (config.convertKadenceBlocks && namespace === "kadence" && shortName) {
+      if (!state.unknownBlocks.has(shortName)) {
+        warnings.push(`Unsupported Kadence block '${shortName}' left as inner HTML fallback.`);
+        state.unknownBlocks.add(shortName);
+      }
+    }
+
+    return innerHtml;
+  }).join("");
+}
+
+function convertKadenceBlocksToNunjucks(rawContent, config, warnings) {
+  const source = String(rawContent || "");
+  if (!source.includes("<!-- wp:kadence/")) {
+    return { body: source, usedNunjucks: false, convertedCount: 0, seenBlocks: [], unknownBlocks: [] };
+  }
+
+  const tree = parseWpBlocks(source);
+  const state = {
+    convertedCount: 0,
+    seenBlocks: new Set(),
+    unknownBlocks: new Set()
+  };
+  const body = renderBlockTree(tree, config, warnings, state).trim();
+  return {
+    body,
+    usedNunjucks: state.convertedCount > 0,
+    convertedCount: state.convertedCount,
+    seenBlocks: [...state.seenBlocks],
+    unknownBlocks: [...state.unknownBlocks]
+  };
+}
+
+function kadencePartialTemplate(name) {
+  const wrappers = {
+    advancedheading: "div",
+    advancedbtn: "div",
+    rowlayout: "section",
+    column: "div",
+    image: "figure",
+    gallery: "section",
+    tabs: "section",
+    tab: "section",
+    accordion: "section",
+    pane: "section",
+    infobox: "article",
+    icon: "div",
+    iconlist: "ul",
+    listitem: "li",
+    spacer: "div",
+    testimonials: "section",
+    testimonial: "blockquote",
+    form: "section"
+  };
+  const wrapper = wrappers[name] || "div";
+  return `{# Generated by wp-eleventy-migrator. Customize this partial to replace the original Kadence markup with project-specific Nunjucks output. #}
+<${wrapper}
+  class="kadence-block kadence-${name}{% if kadenceBlock.attrs.className %} {{ kadenceBlock.attrs.className }}{% endif %}"
+  data-kadence-block="{{ kadenceBlock.name }}"
+  {% if kadenceBlock.attrs.uniqueID %}data-kadence-id="{{ kadenceBlock.attrs.uniqueID }}"{% endif %}
+>
+  {{ kadenceBlock.innerHtml | safe }}
+</${wrapper}>
+`;
+}
+
+async function writeKadencePartials(outputRoot, blocksDir) {
+  const absoluteDir = path.join(outputRoot, blocksDir);
+  await fs.mkdir(absoluteDir, { recursive: true });
+  await Promise.all(SUPPORTED_KADENCE_BLOCKS.map((name) => {
+    const filePath = path.join(absoluteDir, `${name}.njk`);
+    return fs.writeFile(filePath, kadencePartialTemplate(name), "utf8");
+  }));
+  return absoluteDir;
+}
+
 function resolveLayoutForType(type, config) {
   if (!config.useNunjucksLayouts) return "";
   if (type === "pages") return String(config.pageLayout || "").trim();
@@ -340,16 +525,35 @@ function resolveLayoutForType(type, config) {
   return String(config.defaultLayout || "").trim();
 }
 
-function itemToDoc(item, type, config, categoryMap, tagMap) {
+function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   const title = decodeHtml(item?.title?.rendered || item?.title || `Untitled ${item?.id || ""}`.trim());
   const slug = slugify(item?.slug || title);
   const excerpt = stripHtml(item?.excerpt?.rendered || item?.excerpt || "");
   const categories = Array.isArray(item?.categories) ? item.categories.map((id) => categoryMap.get(id)).filter(Boolean) : [];
   const tags = Array.isArray(item?.tags) ? item.tags.map((id) => tagMap.get(id)).filter(Boolean) : [];
-  const rawHtml = item?.content?.rendered || item?.content || "";
-  const body = config.htmlMode === "basic-markdown" ? basicHtmlToMarkdown(rawHtml) : rawHtml.trim();
+  const rawBlockContent = item?.content?.raw || "";
+  const renderedHtml = item?.content?.rendered || item?.content || "";
   const permalink = buildTargetPermalink(type, slug, config);
   const layout = resolveLayoutForType(type, config);
+  let body = config.htmlMode === "basic-markdown" ? basicHtmlToMarkdown(renderedHtml) : String(renderedHtml).trim();
+  let fileExtension = "md";
+  let kadenceBlocks = [];
+  let convertedKadenceBlocks = false;
+
+  if (config.convertKadenceBlocks) {
+    if (rawBlockContent) {
+      const converted = convertKadenceBlocksToNunjucks(rawBlockContent, config, warnings);
+      if (converted.usedNunjucks) {
+        body = converted.body;
+        fileExtension = "njk";
+        kadenceBlocks = converted.seenBlocks;
+        convertedKadenceBlocks = true;
+      }
+    } else {
+      warnings.push(`Kadence conversion requested for '${type}/${slug}', but raw block content was unavailable. Use authenticated REST access with context=edit if possible.`);
+    }
+  }
+
   const frontMatter = {
     title,
     date: item?.date || "",
@@ -364,13 +568,16 @@ function itemToDoc(item, type, config, categoryMap, tagMap) {
     tags
   };
   if (layout) frontMatter.layout = layout;
+  if (convertedKadenceBlocks) frontMatter.kadenceBlocks = kadenceBlocks;
 
   return {
     title,
     slug,
     permalink,
     frontMatter,
-    body
+    body,
+    fileExtension,
+    convertedKadenceBlocks
   };
 }
 
@@ -394,9 +601,21 @@ async function runMigration(configPath, explicitConfig) {
   const contentRoot = path.join(root, config.contentDir);
   const mediaRoot = path.join(root, config.mediaDir);
   const dataRoot = path.join(root, config.dataDir || DEFAULT_DATA_DIR);
+  const kadencePartialsPath = path.join(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR);
   await fs.mkdir(contentRoot, { recursive: true });
   if (config.downloadMedia) await fs.mkdir(mediaRoot, { recursive: true });
   if (config.importMenus) await fs.mkdir(dataRoot, { recursive: true });
+  if (config.convertKadenceBlocks) {
+    report.kadenceBlocks = {
+      partialsPath: kadencePartialsPath,
+      supportedBlocks: [...SUPPORTED_KADENCE_BLOCKS]
+    };
+    if (!config.dryRun) await writeKadencePartials(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR);
+  }
+
+  if (config.convertKadenceBlocks && config.htmlMode === "basic-markdown") {
+    report.warnings.push("Kadence block conversion uses raw block content and writes Nunjucks templates. HTML mode 'basic-markdown' is ignored for converted Kadence documents.");
+  }
 
   const headers = {};
   if (config.authMode === "app-password" && config.wpUser && config.wpAppPassword) {
@@ -433,9 +652,22 @@ async function runMigration(configPath, explicitConfig) {
 
   for (const type of config.contentTypes) {
     const typeSlug = slugify(type);
-    const endpoint = `${baseApi}/${typeSlug}`;
+    const endpointBase = `${baseApi}/${typeSlug}`;
+    const endpoint = config.convertKadenceBlocks && config.authMode !== "none"
+      ? `${endpointBase}?context=edit`
+      : endpointBase;
     printStep("fetch", `${type} -> ${endpoint}`);
-    let items = await fetchAllPages(endpoint, headers);
+    let items;
+    try {
+      items = await fetchAllPages(endpoint, headers);
+    } catch (err) {
+      if (endpoint !== endpointBase) {
+        report.warnings.push(`Falling back to rendered content for ${type}: ${String(err.message || err)}`);
+        items = await fetchAllPages(endpointBase, headers);
+      } else {
+        throw err;
+      }
+    }
     if (!config.includeDrafts) items = items.filter((i) => i?.status === "publish");
 
     const outTypeDir = path.join(contentRoot, typeSlug);
@@ -443,9 +675,9 @@ async function runMigration(configPath, explicitConfig) {
 
     let written = 0;
     for (const item of items) {
-      const doc = itemToDoc(item, typeSlug, config, categoryMap, tagMap);
+      const doc = itemToDoc(item, typeSlug, config, categoryMap, tagMap, report.warnings);
       const datePart = typeSlug === "posts" ? `${toIsoDay(item?.date)}-` : "";
-      const fileName = `${datePart}${doc.slug}.md`;
+      const fileName = `${datePart}${doc.slug}.${doc.fileExtension}`;
       const filePath = path.join(outTypeDir, fileName);
       const frontMatter = toFrontMatter(doc.frontMatter);
       const content = `${frontMatter}\n${doc.body}\n`;
@@ -514,6 +746,8 @@ async function createConfigFromInput(raw = {}) {
     pageLayout: String(raw.pageLayout || "layouts/page.njk").trim() || "layouts/page.njk",
     postLayout: String(raw.postLayout || "layouts/post.njk").trim() || "layouts/post.njk",
     defaultLayout: String(raw.defaultLayout || "").trim(),
+    convertKadenceBlocks: Boolean(raw.convertKadenceBlocks),
+    kadenceBlocksDir: String(raw.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR).trim() || DEFAULT_KADENCE_BLOCKS_DIR,
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
     mediaDir: String(raw.mediaDir || "media").trim() || "media",
@@ -586,6 +820,8 @@ async function serveUi(port = 4173) {
           pageLayout: "layouts/page.njk",
           postLayout: "layouts/post.njk",
           defaultLayout: "",
+          convertKadenceBlocks: false,
+          kadenceBlocksDir: DEFAULT_KADENCE_BLOCKS_DIR,
           outputRoot,
           contentDir: "content",
           mediaDir: "media",
@@ -658,9 +894,11 @@ async function runWizard() {
 
     const dryRun = await askYesNo(rl, "Dry run (no files written)", true);
     const useNunjucksLayouts = await askYesNo(rl, "Add Nunjucks layout fields to front matter", false);
+    const convertKadenceBlocks = await askYesNo(rl, "Convert supported Kadence blocks into Nunjucks includes", false);
     const pageLayout = await ask(rl, "Page layout path", "layouts/page.njk");
     const postLayout = await ask(rl, "Post layout path", "layouts/post.njk");
     const defaultLayout = await ask(rl, "Default layout path for other content types (optional)", "");
+    const kadenceBlocksDir = await ask(rl, "Kadence partial output directory", DEFAULT_KADENCE_BLOCKS_DIR);
     const stamp = nowStamp();
     const outputRoot = await ask(rl, "Output root", `./migrations/wp-to-eleventy-${stamp}`);
     const contentDir = await ask(rl, "Content subdirectory", "content");
@@ -685,9 +923,11 @@ async function runWizard() {
       wpBearerToken,
       dryRun,
       useNunjucksLayouts,
+      convertKadenceBlocks,
       pageLayout,
       postLayout,
       defaultLayout,
+      kadenceBlocksDir,
       outputRoot,
       contentDir,
       mediaDir,

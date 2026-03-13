@@ -8,6 +8,8 @@ Generic, project-independent CLI for migrating content from WordPress to Elevent
 - Config-file based runs
 - WordPress REST API source support
 - Output as Markdown files with Eleventy-compatible front matter
+- Optional Nunjucks layout mapping for pages/posts
+- Best-effort Kadence block conversion for 18 common blocks
 - Best-effort navigation/menu export to Eleventy data JSON
 - Optional redirect CSV generation
 - Optional media download
@@ -42,6 +44,8 @@ npm run migrate:wp:run -- ./configs/generation-ai-stn.fi.json
 The tool writes (under outputRoot):
 
 - `content/<type>/*.md`
+- `content/<type>/*.njk` for documents converted from raw Kadence blocks
+- `_includes/blocks/kadence/*.njk` when Kadence block conversion is enabled
 - `_data/navigation.json` (best effort, if WordPress menu endpoints are available)
 - `redirects.csv` (optional)
 - `migration-report.json`
