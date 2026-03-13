@@ -8,10 +8,11 @@ Wizard asks:
 4. Draft/private inclusion
 5. HTML mode (`keep-html` or `basic-markdown`)
 6. Redirect map generation
-7. Media download
-8. Auth mode (`none`, `app-password`, `bearer`)
-9. Output paths
-10. Dry-run mode
+7. Best-effort menu import
+8. Media download
+9. Auth mode (`none`, `app-password`, `bearer`)
+10. Output paths
+11. Dry-run mode
 
 Recommended workflow:
 
@@ -19,7 +20,8 @@ Recommended workflow:
 2. Inspect `migration-report.json`
 3. Validate `redirects.csv`
 4. Re-run with `dryRun=false`
-5. Build your Eleventy project and run link checks
+5. Inspect `_data/navigation.json` if menu import succeeded
+6. Build your Eleventy project and run link checks
 
 HTML5 GUI:
 

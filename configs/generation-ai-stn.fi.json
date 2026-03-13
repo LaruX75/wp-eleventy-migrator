@@ -1,0 +1,24 @@
+{
+  "sourceType": "rest",
+  "wpBaseUrl": "https://www.generation-ai-stn.fi",
+  "restNamespace": "/wp-json/wp/v2",
+  "contentTypes": [
+    "posts",
+    "pages"
+  ],
+  "includeDrafts": false,
+  "downloadMedia": false,
+  "createRedirects": true,
+  "importMenus": true,
+  "htmlMode": "keep-html",
+  "targetPermalinkPattern": "/{type}/{slug}/",
+  "authMode": "none",
+  "wpUser": "",
+  "wpAppPassword": "",
+  "wpBearerToken": "",
+  "dryRun": true,
+  "outputRoot": "./migrations/generation-ai-stn.fi",
+  "contentDir": "content",
+  "mediaDir": "media",
+  "dataDir": "_data"
+}

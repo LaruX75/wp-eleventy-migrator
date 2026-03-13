@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_TYPES = ["posts", "pages"];
 const DEFAULT_NAMESPACE = "/wp-json/wp/v2";
+const DEFAULT_DATA_DIR = "_data";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
@@ -163,6 +164,15 @@ async function fetchAllPages(url, headers = {}) {
   return all;
 }
 
+async function fetchJson(url, headers = {}) {
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} for ${url}\n${body.slice(0, 300)}`);
+  }
+  return res.json();
+}
+
 function extractMediaUrls(html, wpBaseUrl) {
   const urls = new Set();
   const srcMatches = String(html || "").matchAll(/\bsrc=["']([^"']+)["']/gi);
@@ -178,6 +188,135 @@ function extractMediaUrls(html, wpBaseUrl) {
 
 function sanitizeFileSegment(v) {
   return String(v || "").replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+function menuItemLabel(item) {
+  return decodeHtml(item?.title?.rendered || item?.title || item?.label || item?.name || "");
+}
+
+function menuItemUrl(item) {
+  return item?.url || item?.link || item?.href || "";
+}
+
+function menuItemParent(item) {
+  return item?.parent ?? item?.parent_id ?? item?.menu_item_parent ?? 0;
+}
+
+function menuItemOrder(item) {
+  return item?.menu_order ?? item?.order ?? item?.position ?? 0;
+}
+
+function normalizeMenuItems(items = []) {
+  return items.map((item) => ({
+    id: item?.id ?? item?.ID ?? `${menuItemOrder(item)}-${slugify(menuItemLabel(item))}`,
+    parent: menuItemParent(item),
+    title: menuItemLabel(item),
+    url: menuItemUrl(item),
+    type: item?.type || item?.object || "",
+    object: item?.object || "",
+    objectId: item?.object_id || item?.objectId || "",
+    classes: Array.isArray(item?.classes) ? item.classes.filter(Boolean) : [],
+    target: item?.target || "",
+    description: decodeHtml(item?.description || ""),
+    order: menuItemOrder(item)
+  })).filter((item) => item.title || item.url);
+}
+
+function buildMenuTree(items = []) {
+  const sorted = [...items].sort((a, b) => a.order - b.order);
+  const byId = new Map();
+  for (const item of sorted) byId.set(item.id, { ...item, children: [] });
+
+  const roots = [];
+  for (const item of sorted) {
+    const node = byId.get(item.id);
+    const parentId = item.parent;
+    if (parentId && byId.has(parentId)) byId.get(parentId).children.push(node);
+    else roots.push(node);
+  }
+  return roots;
+}
+
+function normalizeMenuRecord(menu, items) {
+  const title = decodeHtml(menu?.name || menu?.title?.rendered || menu?.title || menu?.slug || "menu");
+  const slug = slugify(menu?.slug || menu?.name || menu?.title?.rendered || menu?.title || "menu");
+  const normalizedItems = normalizeMenuItems(items);
+  return {
+    id: menu?.id || slug,
+    slug,
+    title,
+    location: menu?.location || menu?.theme_location || "",
+    items: buildMenuTree(normalizedItems)
+  };
+}
+
+async function tryFetchMenusFromMenusV1(wpBaseUrl, headers) {
+  const listUrl = joinUrl(wpBaseUrl, "/wp-json/menus/v1/menus");
+  const menus = await fetchJson(listUrl, headers);
+  if (!Array.isArray(menus) || menus.length === 0) return [];
+
+  const resolved = [];
+  for (const menu of menus) {
+    const detailUrl = joinUrl(wpBaseUrl, `/wp-json/menus/v1/menus/${menu.id}`);
+    const detail = await fetchJson(detailUrl, headers);
+    const items = Array.isArray(detail?.items) ? detail.items : [];
+    resolved.push(normalizeMenuRecord(detail, items));
+  }
+  return resolved;
+}
+
+async function tryFetchMenusFromWpApiMenusV2(wpBaseUrl, headers) {
+  const listUrl = joinUrl(wpBaseUrl, "/wp-json/wp-api-menus/v2/menus");
+  const menus = await fetchJson(listUrl, headers);
+  const menuList = Array.isArray(menus) ? menus : Array.isArray(menus?.menus) ? menus.menus : [];
+  if (!menuList.length) return [];
+
+  const resolved = [];
+  for (const menu of menuList) {
+    const items = Array.isArray(menu?.items) ? menu.items : [];
+    if (items.length) {
+      resolved.push(normalizeMenuRecord(menu, items));
+      continue;
+    }
+    const detailUrl = joinUrl(wpBaseUrl, `/wp-json/wp-api-menus/v2/menus/${menu.id}`);
+    const detail = await fetchJson(detailUrl, headers);
+    resolved.push(normalizeMenuRecord(detail, Array.isArray(detail?.items) ? detail.items : []));
+  }
+  return resolved;
+}
+
+async function tryFetchMenusFromWpV2(wpBaseUrl, headers) {
+  const menusUrl = joinUrl(wpBaseUrl, "/wp-json/wp/v2/menus");
+  const itemsUrl = joinUrl(wpBaseUrl, "/wp-json/wp/v2/menu-items");
+  const [menus, items] = await Promise.all([
+    fetchAllPages(menusUrl, headers),
+    fetchAllPages(itemsUrl, headers)
+  ]);
+  if (!Array.isArray(menus) || !menus.length || !Array.isArray(items) || !items.length) return [];
+
+  return menus.map((menu) => {
+    const menuId = menu?.id;
+    const menuItems = items.filter((item) => (item?.menus || []).includes(menuId) || item?.menus === menuId || item?.menu === menuId);
+    return normalizeMenuRecord(menu, menuItems);
+  }).filter((menu) => menu.items.length > 0);
+}
+
+async function fetchMenus(wpBaseUrl, headers = {}, warnings = []) {
+  const attempts = [
+    { name: "menus/v1", run: () => tryFetchMenusFromMenusV1(wpBaseUrl, headers) },
+    { name: "wp-api-menus/v2", run: () => tryFetchMenusFromWpApiMenusV2(wpBaseUrl, headers) },
+    { name: "wp/v2 menus", run: () => tryFetchMenusFromWpV2(wpBaseUrl, headers) }
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const menus = await attempt.run();
+      if (menus.length) return { source: attempt.name, menus };
+    } catch (err) {
+      warnings.push(`Menu fetch via ${attempt.name} failed: ${String(err.message || err)}`);
+    }
+  }
+  return { source: "", menus: [] };
 }
 
 async function downloadFile(url, outPath, headers = {}) {
@@ -244,8 +383,10 @@ async function runMigration(configPath, explicitConfig) {
   const root = path.resolve(process.cwd(), config.outputRoot);
   const contentRoot = path.join(root, config.contentDir);
   const mediaRoot = path.join(root, config.mediaDir);
+  const dataRoot = path.join(root, config.dataDir || DEFAULT_DATA_DIR);
   await fs.mkdir(contentRoot, { recursive: true });
   if (config.downloadMedia) await fs.mkdir(mediaRoot, { recursive: true });
+  if (config.importMenus) await fs.mkdir(dataRoot, { recursive: true });
 
   const headers = {};
   if (config.authMode === "app-password" && config.wpUser && config.wpAppPassword) {
@@ -263,6 +404,22 @@ async function runMigration(configPath, explicitConfig) {
   ]);
   const categoryMap = new Map(cats.map((c) => [c.id, c.name]));
   const tagMap = new Map(tags.map((t) => [t.id, t.name]));
+
+  if (config.importMenus) {
+    printStep("fetch", "Menus (best effort)");
+    const menuResult = await fetchMenus(config.wpBaseUrl, headers, report.warnings);
+    report.menus = {
+      imported: menuResult.menus.length,
+      source: menuResult.source || "none"
+    };
+    if (menuResult.menus.length) {
+      const navigationPath = path.join(dataRoot, "navigation.json");
+      report.menus.outputPath = navigationPath;
+      if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(menuResult.menus, null, 2)}\n`, "utf8");
+    } else {
+      report.warnings.push("No menu structure was imported. WordPress menus often need a dedicated menu REST endpoint or plugin.");
+    }
+  }
 
   for (const type of config.contentTypes) {
     const typeSlug = slugify(type);
@@ -335,6 +492,7 @@ async function createConfigFromInput(raw = {}) {
     includeDrafts: Boolean(raw.includeDrafts),
     downloadMedia: Boolean(raw.downloadMedia),
     createRedirects: Boolean(raw.createRedirects ?? true),
+    importMenus: Boolean(raw.importMenus ?? true),
     htmlMode,
     targetPermalinkPattern: String(raw.targetPermalinkPattern || "/{type}/{slug}/").trim() || "/{type}/{slug}/",
     authMode,
@@ -344,7 +502,8 @@ async function createConfigFromInput(raw = {}) {
     dryRun: Boolean(raw.dryRun ?? true),
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
-    mediaDir: String(raw.mediaDir || "media").trim() || "media"
+    mediaDir: String(raw.mediaDir || "media").trim() || "media",
+    dataDir: String(raw.dataDir || DEFAULT_DATA_DIR).trim() || DEFAULT_DATA_DIR
   };
 }
 
@@ -401,6 +560,7 @@ async function serveUi(port = 4173) {
           includeDrafts: false,
           downloadMedia: false,
           createRedirects: true,
+          importMenus: true,
           htmlMode: "keep-html",
           targetPermalinkPattern: "/{type}/{slug}/",
           authMode: "none",
@@ -411,6 +571,7 @@ async function serveUi(port = 4173) {
           outputRoot,
           contentDir: "content",
           mediaDir: "media",
+          dataDir: DEFAULT_DATA_DIR,
           configPath: defaultConfigPathFor(outputRoot)
         });
         return;
@@ -462,6 +623,7 @@ async function runWizard() {
     const includeDrafts = await askYesNo(rl, "Include drafts and private posts", false);
     const downloadMedia = await askYesNo(rl, "Download media files locally", false);
     const createRedirects = await askYesNo(rl, "Generate redirects CSV", true);
+    const importMenus = await askYesNo(rl, "Attempt WordPress menu import", true);
     const htmlMode = (await ask(rl, "Content conversion mode (keep-html/basic-markdown)", "keep-html")).toLowerCase();
     const targetPermalinkPattern = await ask(rl, "Target permalink pattern for non-pages", "/{type}/{slug}/");
     const authMode = (await ask(rl, "Auth mode (none/app-password/bearer)", "none")).toLowerCase();
@@ -481,6 +643,7 @@ async function runWizard() {
     const outputRoot = await ask(rl, "Output root", `./migrations/wp-to-eleventy-${stamp}`);
     const contentDir = await ask(rl, "Content subdirectory", "content");
     const mediaDir = await ask(rl, "Media subdirectory", "media");
+    const dataDir = await ask(rl, "Data subdirectory for navigation/menu JSON", DEFAULT_DATA_DIR);
     const configPath = await ask(rl, "Config file path", path.join(outputRoot, "migration-config.json"));
 
     const config = await createConfigFromInput({
@@ -491,6 +654,7 @@ async function runWizard() {
       includeDrafts,
       downloadMedia,
       createRedirects,
+      importMenus,
       htmlMode,
       targetPermalinkPattern,
       authMode,
@@ -500,7 +664,8 @@ async function runWizard() {
       dryRun,
       outputRoot,
       contentDir,
-      mediaDir
+      mediaDir,
+      dataDir
     });
 
     await saveConfig(config, configPath);

@@ -191,6 +191,27 @@
         gap: 20px;
       }
 
+      .tabs {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .tab-button {
+        background: var(--secondary-bg);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .tab-button.is-active {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .tab-panel[hidden] {
+        display: none;
+      }
+
       .panel {
         padding: 24px;
       }
@@ -423,6 +444,55 @@
         background: var(--panel-strong);
       }
 
+      .plugin-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .plugin-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: var(--panel-strong);
+        display: grid;
+        gap: 10px;
+      }
+
+      .plugin-card h3 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .plugin-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .plugin-badge {
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 0.8rem;
+        border: 1px solid var(--line);
+        background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
+        color: var(--accent-strong);
+      }
+
+      .plugin-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .plugin-list {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        display: grid;
+        gap: 8px;
+      }
+
       .plan-list strong,
       .check-list strong {
         display: block;
@@ -511,7 +581,8 @@
         .hero,
         .layout,
         .grid,
-        .topbar {
+        .topbar,
+        .plugin-grid {
           grid-template-columns: 1fr;
         }
 
@@ -570,6 +641,15 @@
       </section>
 
       <section class="layout">
+        <div class="panel">
+          <div class="tabs">
+            <button type="button" class="tab-button is-active" data-tab-target="workflow-tab" id="workflow-tab-button" data-i18n="tab_workflow"></button>
+            <button type="button" class="tab-button" data-tab-target="plugins-tab" id="plugins-tab-button" data-i18n="tab_plugins"></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout tab-panel" id="workflow-tab">
         <div class="panel">
           <form id="migration-form">
             <details class="step" open>
@@ -847,6 +927,31 @@
           </section>
         </aside>
       </section>
+
+      <section class="layout tab-panel" id="plugins-tab" hidden>
+        <div class="panel">
+          <div class="section-head">
+            <h2 class="section-title" data-i18n="plugin_audit_title"></h2>
+            <button type="button" class="help-button" data-help-topic="plugin-audit-overview">?</button>
+          </div>
+          <p class="hint" data-i18n="plugin_audit_intro"></p>
+          <div class="plugin-grid" id="plugin-grid"></div>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel">
+            <h2 class="side-title" data-i18n="plugin_summary_title"></h2>
+            <p class="hint" data-i18n="plugin_summary_hint"></p>
+            <ul class="check-list" id="plugin-summary"></ul>
+          </section>
+
+          <section class="panel">
+            <h2 class="side-title" data-i18n="plugin_risks_title"></h2>
+            <p class="hint" data-i18n="plugin_risks_hint"></p>
+            <ul class="plugin-list" id="plugin-risks"></ul>
+          </section>
+        </aside>
+      </section>
     </main>
 
     <dialog id="help-dialog" class="help-dialog">
@@ -883,10 +988,17 @@
       const helpClose = document.getElementById("help-close");
       const languageSelect = document.getElementById("language-select");
       const themeSelect = document.getElementById("theme-select");
+      const tabButtons = document.querySelectorAll("[data-tab-target]");
+      const workflowTab = document.getElementById("workflow-tab");
+      const pluginsTab = document.getElementById("plugins-tab");
+      const pluginGrid = document.getElementById("plugin-grid");
+      const pluginSummary = document.getElementById("plugin-summary");
+      const pluginRisks = document.getElementById("plugin-risks");
 
       let lastSuggestedConfigPath = "";
       let currentLang = "fi";
       let currentTheme = "light";
+      let currentTab = "workflow-tab";
 
       const translations = {
         fi: {
@@ -895,6 +1007,8 @@
           hero_lede: "Käyttöliittymä jakaa työn kahteen osaan: ensin WordPress-sisältö omalle koneelle ja paikallinen tarkistus, sitten julkaisu GitHub Pagesiin ja halutessa omaan domainiin.",
           ui_language: "Kieli",
           ui_theme: "Teema",
+          tab_workflow: "Migraatiotyönkulku",
+          tab_plugins: "Plugin-analyysi",
           chip_1: "Vaihe 1. Migroi omalle koneelle",
           chip_2: "WordPress-lähde",
           chip_3: "Migraatio ja output",
@@ -974,6 +1088,13 @@
           checklist_title: "Työnkulun tarkistuslista",
           output_title: "Tuloste",
           output_hint: "API-vastaukset ja migraation raportti näkyvät tässä.",
+          plugin_audit_title: "WordPress-pluginien korvaavuus",
+          plugin_audit_intro: "Tämä näkymä kokoaa julkisista jäljistä havaitut todennäköiset WordPress-lisäosat ja ehdottaa niille korvaajia Eleventy + GitHub Pages -mallissa.",
+          plugin_replacement_label: "Korvaaja",
+          plugin_summary_title: "Korvausstrategia",
+          plugin_summary_hint: "Nopea yhteenveto siitä, mitkä osat voidaan poistaa, korvata tai vaativat erillisselvitystä.",
+          plugin_risks_title: "Suurimmat migraatioriskit",
+          plugin_risks_hint: "Nämä kohdat vaativat todennäköisimmin erillistä suunnittelua ennen lopullista siirtoa.",
           help_eyebrow: "Kenttäohje",
           status_defaults_loaded: "Oletusarvot ladattu.",
           status_saving: "Tallennetaan konfiguraatio...",
@@ -1015,7 +1136,18 @@
             actionsDisabled: "Actions ei ole valittuna",
             deployPush: "deploy jokaisesta pushista",
             deployManual: "deploy käynnistetään hallitusti"
-          }
+          },
+          plugin_summary_items: [
+            ["Poista kokonaan", "SSL- ja suuri osa WordPress-kohtaisesta analytiikka- ja cookie-logiikasta voidaan usein jättää pois tai korvata kevyemmällä palvelulla."],
+            ["Korvaa Eleventyllä", "SEO-meta, navigaatio, sisältökokoelmat, embed-komponentit ja dokumentaatiorakenne voidaan rakentaa staattisesti."],
+            ["Vaatii erillisselvityksen", "WPML, Kadence-rakenne, BetterDocs ja mahdolliset custom-endpointit tarvitsevat erillisen migraatiosuunnitelman."]
+          ],
+          plugin_risk_items: [
+            "WPML-monikielisyys vaikuttaa sekä sivurakenteeseen että navigaatioon.",
+            "Kadence-teema ja siihen liittyvä nav/rakenne voivat vaatia käyttöliittymän osittaista uudelleensuunnittelua.",
+            "BetterDocs voi tarkoittaa erillistä dokumentaatiohierarkiaa, jota ei kannata siirtää 1:1 ilman arviointia.",
+            "Custom-nimialueet kuten ktp/v1 tai wp-abilities/v1 voivat sisältää liiketoimintalogiikkaa, jota ei näe pelkästä sisällöstä."
+          ]
         },
         en: {
           hero_eyebrow: "Step-by-step migration flow",
@@ -1023,6 +1155,8 @@
           hero_lede: "The interface splits the work into two parts: first bring WordPress content to your machine and verify it locally, then publish to GitHub Pages and optionally connect a custom domain.",
           ui_language: "Language",
           ui_theme: "Theme",
+          tab_workflow: "Migration workflow",
+          tab_plugins: "Plugin audit",
           chip_1: "Step 1. Migrate locally",
           chip_2: "WordPress source",
           chip_3: "Migration and output",
@@ -1102,6 +1236,13 @@
           checklist_title: "Workflow checklist",
           output_title: "Output",
           output_hint: "API responses and the migration report appear here.",
+          plugin_audit_title: "WordPress plugin replacement audit",
+          plugin_audit_intro: "This view summarizes the likely WordPress plugins visible from public traces and suggests replacements for an Eleventy + GitHub Pages setup.",
+          plugin_replacement_label: "Replacement",
+          plugin_summary_title: "Replacement strategy",
+          plugin_summary_hint: "A quick summary of what can be removed, replaced, or needs separate investigation.",
+          plugin_risks_title: "Main migration risks",
+          plugin_risks_hint: "These areas most likely need separate planning before the final migration.",
           help_eyebrow: "Field help",
           status_defaults_loaded: "Defaults loaded.",
           status_saving: "Saving configuration...",
@@ -1143,8 +1284,166 @@
             actionsDisabled: "Actions not enabled",
             deployPush: "deploy on every push",
             deployManual: "deploy triggered in a controlled way"
-          }
+          },
+          plugin_summary_items: [
+            ["Remove entirely", "SSL handling and a large part of WordPress-specific analytics or cookie logic can often be dropped or replaced with lighter services."],
+            ["Replace with Eleventy", "SEO meta, navigation, content collections, embed components, and documentation structure can be built statically."],
+            ["Needs separate investigation", "WPML, Kadence structure, BetterDocs, and custom endpoints need a dedicated migration plan."]
+          ],
+          plugin_risk_items: [
+            "WPML multilingual behavior affects both page structure and navigation.",
+            "The Kadence theme stack and related navigation structure may require partial UI redesign rather than direct migration.",
+            "BetterDocs may indicate a dedicated documentation hierarchy that should not be migrated 1:1 without review.",
+            "Custom namespaces such as ktp/v1 or wp-abilities/v1 may contain business logic that is not visible from content alone."
+          ]
         }
+      };
+
+      const pluginAuditData = {
+        fi: [
+          {
+            name: "WPML",
+            category: "Monikielisyys",
+            replacement: "Eleventy-kielikokoelmat, kielihakemistot ja oma language switcher",
+            effort: "Vaatii suunnittelua",
+            note: "Tärkein korvattava kerros. Vaikuttaa sisältöihin, URL-rakenteeseen ja usein myös valikkoihin."
+          },
+          {
+            name: "All in One SEO",
+            category: "SEO",
+            replacement: "Front matter + metat templaateissa + sitemap/robots staattisesti",
+            effort: "Helppo korvata",
+            note: "Staattisessa Eleventy-sivussa perus-SEO voidaan yleensä toteuttaa ilman raskasta pluginia."
+          },
+          {
+            name: "Kadence / Kadence Blocks",
+            category: "Teema ja layout",
+            replacement: "Omat Eleventy-layoutit, komponentit ja _data-pohjainen navigaatio",
+            effort: "Keskivaikea",
+            note: "Tämä ohjaa paljon sivun rakennetta. Sisältö voidaan siirtää, mutta UI kannattaa usein rakentaa uudelleen."
+          },
+          {
+            name: "BetterDocs / BetterDocs Pro",
+            category: "Dokumentaatio",
+            replacement: "Eleventy collections tai erillinen docs-ratkaisu kuten Docusaurus/Nextra",
+            effort: "Vaatii arviointia",
+            note: "Jos docs-osio on laaja, sille kannattaa tehdä oma rakenneratkaisu eikä vain kopioida WordPress-mallia."
+          },
+          {
+            name: "EmbedPress",
+            category: "Upotukset",
+            replacement: "Suorat iframe-upotukset tai Eleventy shortcodet",
+            effort: "Helppo korvata",
+            note: "Useimmat embed-tarpeet hoituvat kevyesti ilman WordPress-riippuvuutta."
+          },
+          {
+            name: "Complianz",
+            category: "Cookie consent",
+            replacement: "Minimoitu tracking tai erillinen palvelu kuten Cookiebot",
+            effort: "Tapauskohtainen",
+            note: "Tarve riippuu analytiikasta, ulkoisista upotuksista ja juridisesta mallista."
+          },
+          {
+            name: "Newsletter / Mailer integrations",
+            category: "Uutiskirjeet",
+            replacement: "Yhden palvelun embed-lomake, esimerkiksi MailerLite tai Brevo",
+            effort: "Helppo korvata",
+            note: "Usein riittää että säilytetään vain aktiivisesti käytetty uutiskirjepalvelu."
+          },
+          {
+            name: "Independent Analytics",
+            category: "Analytiikka",
+            replacement: "Plausible, Umami tai Cloudflare Web Analytics",
+            effort: "Helppo korvata",
+            note: "Staattiselle sivustolle kevyt ulkoinen analytiikka on usein parempi kuin WP-pohjainen analytiikka."
+          },
+          {
+            name: "Really Simple SSL",
+            category: "HTTPS",
+            replacement: "Ei yleensä tarvita GitHub Pages -julkaisussa",
+            effort: "Poistuu kokonaan",
+            note: "HTTPS tulee yleensä julkaisualustan mukana eikä vaadi WordPress-lisäosaa."
+          },
+          {
+            name: "Custom endpoints (ktp/v1, wp-abilities/v1)",
+            category: "Custom-logiikka",
+            replacement: "Selvitettävä erikseen ennen migraatiota",
+            effort: "Korkea riski",
+            note: "Nämä voivat sisältää sisältöä, liiketoimintalogiikkaa tai toiminnallisuutta, jota ei näe suoraan sivun HTML:stä."
+          }
+        ],
+        en: [
+          {
+            name: "WPML",
+            category: "Multilingual",
+            replacement: "Eleventy language collections, language folders, and a custom language switcher",
+            effort: "Needs planning",
+            note: "This is the most important replacement layer. It affects content, URL structure, and often menus as well."
+          },
+          {
+            name: "All in One SEO",
+            category: "SEO",
+            replacement: "Front matter + template meta + static sitemap/robots",
+            effort: "Easy replacement",
+            note: "In a static Eleventy site, core SEO can usually be handled without a heavy plugin."
+          },
+          {
+            name: "Kadence / Kadence Blocks",
+            category: "Theme and layout",
+            replacement: "Custom Eleventy layouts, components, and _data-driven navigation",
+            effort: "Medium",
+            note: "This controls a large part of the site structure. Content can move, but the UI should often be rebuilt."
+          },
+          {
+            name: "BetterDocs / BetterDocs Pro",
+            category: "Documentation",
+            replacement: "Eleventy collections or a dedicated docs tool like Docusaurus/Nextra",
+            effort: "Needs review",
+            note: "If the docs area is large, it deserves its own information architecture instead of a straight WordPress copy."
+          },
+          {
+            name: "EmbedPress",
+            category: "Embeds",
+            replacement: "Direct iframe embeds or Eleventy shortcodes",
+            effort: "Easy replacement",
+            note: "Most embed requirements can be handled lightly without a WordPress dependency."
+          },
+          {
+            name: "Complianz",
+            category: "Cookie consent",
+            replacement: "Minimal tracking or a separate service such as Cookiebot",
+            effort: "Case by case",
+            note: "The real need depends on analytics, external embeds, and the legal setup."
+          },
+          {
+            name: "Newsletter / Mailer integrations",
+            category: "Newsletters",
+            replacement: "A single service embed form, for example MailerLite or Brevo",
+            effort: "Easy replacement",
+            note: "In many cases it is enough to keep only the one newsletter service that is actually in use."
+          },
+          {
+            name: "Independent Analytics",
+            category: "Analytics",
+            replacement: "Plausible, Umami, or Cloudflare Web Analytics",
+            effort: "Easy replacement",
+            note: "For a static site, lightweight external analytics is often better than WordPress-based analytics."
+          },
+          {
+            name: "Really Simple SSL",
+            category: "HTTPS",
+            replacement: "Usually unnecessary on GitHub Pages",
+            effort: "Removed entirely",
+            note: "HTTPS is typically handled by the hosting platform and does not need a WordPress plugin."
+          },
+          {
+            name: "Custom endpoints (ktp/v1, wp-abilities/v1)",
+            category: "Custom logic",
+            replacement: "Must be investigated separately before migration",
+            effort: "High risk",
+            note: "These may contain content, business logic, or functionality that is not visible from the page HTML alone."
+          }
+        ]
       };
 
       const helpContent = {
@@ -1284,6 +1583,10 @@
           fi: { title: "Domain-optio", body: "<p>Valinnainen vaihe omalle domainille. Sisältää joko uuden domainin hankinnan tai olemassa olevan domainin ohjauksen tähän sivustoon.</p>" },
           en: { title: "Domain option", body: "<p>An optional phase for a custom domain. It covers either buying a new domain or pointing an existing domain to this site.</p>" }
         },
+        "plugin-audit-overview": {
+          fi: { title: "Plugin-analyysi", body: "<p>Tähän välilehteen on koottu sivustolta julkisesti havaittavat todennäköiset WordPress-lisäosat sekä ehdotus siitä, kannattaako ne poistaa, korvata Eleventy-ratkaisulla vai selvittää erikseen ennen migraatiota.</p>" },
+          en: { title: "Plugin audit", body: "<p>This tab summarizes the likely WordPress plugins visible from the public site and suggests whether they should be removed, replaced with an Eleventy solution, or investigated separately before migration.</p>" }
+        },
         useCustomDomain: {
           fi: { title: "Use custom domain", body: "<p>Aktivoi domain-vaiheen suunnitelmaan. Muuten sivusto voi jäädä GitHub Pages -osoitteeseen.</p>" },
           en: { title: "Use custom domain", body: "<p>Adds the domain phase to the plan. Otherwise the site can stay on the GitHub Pages URL.</p>" }
@@ -1321,6 +1624,7 @@
         document.title = t("hero_title");
         renderChecklist();
         renderPlan();
+        renderPluginAudit();
       }
 
       function renderChecklist() {
@@ -1330,6 +1634,41 @@
             <span class="meta">${body}</span>
           </li>
         `).join("");
+      }
+
+      function renderPluginAudit() {
+        const items = pluginAuditData[currentLang];
+        pluginGrid.innerHTML = items.map((item) => `
+          <article class="plugin-card">
+            <div>
+              <h3>${item.name}</h3>
+            </div>
+            <div class="plugin-meta">
+              <span class="plugin-badge">${item.category}</span>
+              <span class="plugin-badge">${item.effort}</span>
+            </div>
+            <p><strong>${t("plugin_replacement_label")}:</strong> ${item.replacement}</p>
+            <p>${item.note}</p>
+          </article>
+        `).join("");
+
+        pluginSummary.innerHTML = translations[currentLang].plugin_summary_items.map(([title, body]) => `
+          <li>
+            <strong>${title}</strong>
+            <span class="meta">${body}</span>
+          </li>
+        `).join("");
+
+        pluginRisks.innerHTML = translations[currentLang].plugin_risk_items.map((item) => `<li>${item}</li>`).join("");
+      }
+
+      function setActiveTab(tabId) {
+        currentTab = tabId;
+        workflowTab.hidden = tabId !== "workflow-tab";
+        pluginsTab.hidden = tabId !== "plugins-tab";
+        tabButtons.forEach((button) => {
+          button.classList.toggle("is-active", button.dataset.tabTarget === tabId);
+        });
       }
 
       function setTheme(theme) {
@@ -1529,6 +1868,10 @@
         setTheme(themeSelect.value);
       });
 
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget));
+      });
+
       authMode.addEventListener("change", updateAuthVisibility);
       useCustomDomain.addEventListener("change", () => {
         updateDomainVisibility();
@@ -1593,6 +1936,7 @@
       });
 
       applyTranslations();
+      setActiveTab("workflow-tab");
       loadDefaults().catch((error) => {
         setStatus(error.message, true);
         resultNode.textContent = error.stack || String(error);
