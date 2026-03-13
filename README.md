@@ -18,6 +18,12 @@ Generic, project-independent CLI for migrating content from WordPress to Elevent
 npm run migrate:wp
 ```
 
+Run the HTML5 GUI:
+
+```bash
+npm run migrate:wp:gui
+```
+
 Run from an existing config:
 
 ```bash
@@ -31,4 +37,3 @@ The tool writes (under outputRoot):
 - `content/<type>/*.md`
 - `redirects.csv` (optional)
 - `migration-report.json`
-

@@ -3,11 +3,16 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import http from "node:http";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_TYPES = ["posts", "pages"];
 const DEFAULT_NAMESPACE = "/wp-json/wp/v2";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const UI_ROOT = path.resolve(__dirname, "../ui");
 
 function nowStamp() {
   const d = new Date();
@@ -313,6 +318,137 @@ async function runMigration(configPath, explicitConfig) {
   return report;
 }
 
+async function createConfigFromInput(raw = {}) {
+  const stamp = nowStamp();
+  const authMode = ["none", "app-password", "bearer"].includes(String(raw.authMode || "none"))
+    ? String(raw.authMode || "none")
+    : "none";
+  const htmlMode = String(raw.htmlMode || "keep-html") === "basic-markdown" ? "basic-markdown" : "keep-html";
+  const outputRoot = String(raw.outputRoot || `./migrations/wp-to-eleventy-${stamp}`).trim() || `./migrations/wp-to-eleventy-${stamp}`;
+  const contentTypes = parseCsvList(raw.contentTypes || DEFAULT_TYPES.join(","));
+
+  return {
+    sourceType: String(raw.sourceType || "rest").toLowerCase(),
+    wpBaseUrl: String(raw.wpBaseUrl || "").trim().replace(/\/+$/, ""),
+    restNamespace: String(raw.restNamespace || DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE,
+    contentTypes: contentTypes.length ? contentTypes : [...DEFAULT_TYPES],
+    includeDrafts: Boolean(raw.includeDrafts),
+    downloadMedia: Boolean(raw.downloadMedia),
+    createRedirects: Boolean(raw.createRedirects ?? true),
+    htmlMode,
+    targetPermalinkPattern: String(raw.targetPermalinkPattern || "/{type}/{slug}/").trim() || "/{type}/{slug}/",
+    authMode,
+    wpUser: String(raw.wpUser || ""),
+    wpAppPassword: String(raw.wpAppPassword || ""),
+    wpBearerToken: String(raw.wpBearerToken || ""),
+    dryRun: Boolean(raw.dryRun ?? true),
+    outputRoot,
+    contentDir: String(raw.contentDir || "content").trim() || "content",
+    mediaDir: String(raw.mediaDir || "media").trim() || "media"
+  };
+}
+
+async function saveConfig(config, configPath) {
+  const absolute = path.resolve(process.cwd(), configPath);
+  await fs.mkdir(path.dirname(absolute), { recursive: true });
+  await fs.writeFile(absolute, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  return absolute;
+}
+
+function defaultConfigPathFor(outputRoot) {
+  return path.join(outputRoot, "migration-config.json");
+}
+
+async function readJsonBody(req) {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  const raw = Buffer.concat(chunks).toString("utf8");
+  return raw ? JSON.parse(raw) : {};
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+  res.end(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+async function serveUi(port = 4173) {
+  const indexPath = path.join(UI_ROOT, "index.html");
+  const html = await fs.readFile(indexPath, "utf8");
+
+  const server = http.createServer(async (req, res) => {
+    try {
+      if (!req.url) {
+        sendJson(res, 400, { error: "Missing URL" });
+        return;
+      }
+
+      const url = new URL(req.url, `http://127.0.0.1:${port}`);
+
+      if (req.method === "GET" && url.pathname === "/") {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(html);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/defaults") {
+        const stamp = nowStamp();
+        const outputRoot = `./migrations/wp-to-eleventy-${stamp}`;
+        sendJson(res, 200, {
+          sourceType: "rest",
+          wpBaseUrl: "",
+          restNamespace: DEFAULT_NAMESPACE,
+          contentTypes: DEFAULT_TYPES.join(","),
+          includeDrafts: false,
+          downloadMedia: false,
+          createRedirects: true,
+          htmlMode: "keep-html",
+          targetPermalinkPattern: "/{type}/{slug}/",
+          authMode: "none",
+          wpUser: "",
+          wpAppPassword: "",
+          wpBearerToken: "",
+          dryRun: true,
+          outputRoot,
+          contentDir: "content",
+          mediaDir: "media",
+          configPath: defaultConfigPathFor(outputRoot)
+        });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/save-config") {
+        const body = await readJsonBody(req);
+        const config = await createConfigFromInput(body);
+        const configPath = String(body.configPath || defaultConfigPathFor(config.outputRoot));
+        const absolutePath = await saveConfig(config, configPath);
+        sendJson(res, 200, { ok: true, config, configPath: absolutePath });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/run") {
+        const body = await readJsonBody(req);
+        const config = await createConfigFromInput(body);
+        const configPath = String(body.configPath || defaultConfigPathFor(config.outputRoot));
+        const absolutePath = await saveConfig(config, configPath);
+        const report = await runMigration(absolutePath, config);
+        sendJson(res, 200, { ok: true, configPath: absolutePath, report });
+        return;
+      }
+
+      sendJson(res, 404, { error: "Not found" });
+    } catch (err) {
+      sendJson(res, 500, { error: String(err?.message || err) });
+    }
+  });
+
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", resolve);
+  });
+
+  output.write(`GUI available at http://127.0.0.1:${port}\n`);
+}
+
 async function runWizard() {
   const rl = readline.createInterface({ input, output });
   try {
@@ -347,17 +483,17 @@ async function runWizard() {
     const mediaDir = await ask(rl, "Media subdirectory", "media");
     const configPath = await ask(rl, "Config file path", path.join(outputRoot, "migration-config.json"));
 
-    const config = {
+    const config = await createConfigFromInput({
       sourceType,
-      wpBaseUrl: wpBaseUrl.replace(/\/+$/, ""),
+      wpBaseUrl,
       restNamespace,
-      contentTypes: contentTypes.length ? contentTypes : [...DEFAULT_TYPES],
+      contentTypes: contentTypes.join(","),
       includeDrafts,
       downloadMedia,
       createRedirects,
-      htmlMode: htmlMode === "basic-markdown" ? "basic-markdown" : "keep-html",
+      htmlMode,
       targetPermalinkPattern,
-      authMode: ["none", "app-password", "bearer"].includes(authMode) ? authMode : "none",
+      authMode,
       wpUser,
       wpAppPassword,
       wpBearerToken,
@@ -365,10 +501,9 @@ async function runWizard() {
       outputRoot,
       contentDir,
       mediaDir
-    };
+    });
 
-    await fs.mkdir(path.dirname(path.resolve(process.cwd(), configPath)), { recursive: true });
-    await fs.writeFile(path.resolve(process.cwd(), configPath), `${JSON.stringify(config, null, 2)}\n`, "utf8");
+    await saveConfig(config, configPath);
     output.write(`\nConfig saved: ${configPath}\n`);
 
     output.write("\nRecommended flow:\n");
@@ -408,9 +543,15 @@ async function main() {
     await runFromConfig(arg);
     return;
   }
+  if (cmd === "serve") {
+    const port = arg ? Number.parseInt(arg, 10) : 4173;
+    await serveUi(Number.isFinite(port) ? port : 4173);
+    return;
+  }
   output.write("Usage:\n");
   output.write("  node scripts/wp-eleventy-migrate.mjs wizard\n");
   output.write("  node scripts/wp-eleventy-migrate.mjs run <config.json>\n");
+  output.write("  node scripts/wp-eleventy-migrate.mjs serve [port]\n");
 }
 
 main().catch((err) => {

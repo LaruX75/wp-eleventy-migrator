@@ -20,3 +20,10 @@ Recommended workflow:
 3. Validate `redirects.csv`
 4. Re-run with `dryRun=false`
 5. Build your Eleventy project and run link checks
+
+HTML5 GUI:
+
+1. Start with `npm run migrate:wp:gui`
+2. Open the local browser URL printed by the command
+3. Fill the same migration fields as the CLI wizard
+4. Save config or run migration directly from the page

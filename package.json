@@ -6,6 +6,7 @@
   "description": "Generic WordPress to Eleventy migration wizard",
   "scripts": {
     "migrate:wp": "node scripts/wp-eleventy-migrate.mjs wizard",
-    "migrate:wp:run": "node scripts/wp-eleventy-migrate.mjs run"
+    "migrate:wp:run": "node scripts/wp-eleventy-migrate.mjs run",
+    "migrate:wp:gui": "node scripts/wp-eleventy-migrate.mjs serve"
   }
 }

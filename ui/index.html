@@ -1,0 +1,1321 @@
+<!doctype html>
+<html lang="fi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WP -> Eleventy Migrator</title>
+    <style>
+      :root {
+        --bg: #efe6d8;
+        --panel: rgba(255, 251, 244, 0.92);
+        --panel-strong: #fffdf8;
+        --ink: #1b1a18;
+        --muted: #685f55;
+        --line: rgba(27, 26, 24, 0.12);
+        --accent: #0f766e;
+        --accent-strong: #115e59;
+        --accent-soft: rgba(15, 118, 110, 0.1);
+        --danger: #b91c1c;
+        --shadow: 0 26px 80px rgba(83, 59, 22, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 34%),
+          radial-gradient(circle at right center, rgba(217, 119, 6, 0.12), transparent 28%),
+          linear-gradient(180deg, #f7f2e9 0%, var(--bg) 100%);
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      .shell {
+        width: min(1260px, calc(100vw - 28px));
+        margin: 24px auto 40px;
+        display: grid;
+        gap: 20px;
+      }
+
+      .hero,
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 28px;
+        display: grid;
+        grid-template-columns: 1.7fr 1fr;
+        gap: 22px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent-strong);
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2.2rem, 5vw, 4.1rem);
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+      }
+
+      .lede,
+      .step-lede,
+      .hint,
+      .status,
+      .meta,
+      .card p,
+      label span {
+        color: var(--muted);
+      }
+
+      .lede {
+        max-width: 60ch;
+        line-height: 1.65;
+      }
+
+      .hero-side {
+        display: grid;
+        gap: 14px;
+      }
+
+      .card {
+        background: var(--panel-strong);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 16px 18px;
+      }
+
+      .card strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .chip {
+        border: 1px solid rgba(15, 118, 110, 0.2);
+        background: rgba(255, 255, 255, 0.58);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 0.92rem;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.45fr 0.92fr;
+        gap: 20px;
+      }
+
+      .panel {
+        padding: 24px;
+      }
+
+      form {
+        display: grid;
+        gap: 14px;
+      }
+
+      .step {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(255, 253, 248, 0.92);
+        overflow: hidden;
+      }
+
+      .step[open] {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      }
+
+      .step summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 18px 20px;
+      }
+
+      .step summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .step-head {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 14px;
+        align-items: center;
+      }
+
+      .step-number {
+        width: 38px;
+        height: 38px;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-weight: 800;
+      }
+
+      .step-title {
+        margin: 0;
+        font-size: 1.08rem;
+      }
+
+      .step-lede {
+        margin: 4px 0 0;
+        font-size: 0.95rem;
+      }
+
+      .step-toggle {
+        color: var(--accent-strong);
+        font-weight: 700;
+      }
+
+      .step-body {
+        padding: 0 20px 20px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .section-title {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-1 {
+        grid-template-columns: 1fr;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .field-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid rgba(27, 26, 24, 0.14);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: #fffdfa;
+        color: var(--ink);
+      }
+
+      textarea {
+        min-height: 110px;
+        resize: vertical;
+      }
+
+      .toggle-row {
+        display: grid;
+        gap: 12px;
+      }
+
+      .toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--panel-strong);
+      }
+
+      .toggle input {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+      }
+
+      .subtle-box {
+        border: 1px dashed rgba(15, 118, 110, 0.28);
+        border-radius: 16px;
+        padding: 16px;
+        background: rgba(15, 118, 110, 0.05);
+      }
+
+      .subtle-box p {
+        margin: 0;
+        line-height: 1.6;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 4px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 18px;
+        cursor: pointer;
+        transition: transform 120ms ease, opacity 120ms ease, background 120ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: wait;
+        transform: none;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .secondary {
+        background: #ebe4d7;
+        color: var(--ink);
+      }
+
+      .help-button {
+        display: inline-grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid rgba(15, 118, 110, 0.22);
+        background: rgba(15, 118, 110, 0.08);
+        color: var(--accent-strong);
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .help-button:hover {
+        background: rgba(15, 118, 110, 0.14);
+      }
+
+      .status {
+        min-height: 24px;
+        font-size: 0.96rem;
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .side-stack {
+        display: grid;
+        gap: 20px;
+        align-content: start;
+      }
+
+      .side-title {
+        margin: 0 0 8px;
+        font-size: 1rem;
+      }
+
+      .plan-list,
+      .check-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 12px;
+      }
+
+      .plan-list li,
+      .check-list li {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 16px;
+        background: var(--panel-strong);
+      }
+
+      .plan-list strong,
+      .check-list strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .result {
+        background: #101411;
+        color: #d7fce7;
+        border-radius: 18px;
+        padding: 18px;
+        overflow: auto;
+        min-height: 320px;
+      }
+
+      .result pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: "SFMono-Regular", "Menlo", monospace;
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+
+      .auth-fields[hidden],
+      .domain-fields[hidden] {
+        display: none;
+      }
+
+      dialog.help-dialog {
+        width: min(640px, calc(100vw - 24px));
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 0;
+        background: #fffdf8;
+        box-shadow: var(--shadow);
+      }
+
+      dialog.help-dialog::backdrop {
+        background: rgba(27, 26, 24, 0.48);
+        backdrop-filter: blur(4px);
+      }
+
+      .help-shell {
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .help-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 12px;
+      }
+
+      .help-topbar h3 {
+        margin: 0;
+        font-size: 1.35rem;
+      }
+
+      .help-close {
+        min-width: 42px;
+        height: 42px;
+        padding: 0;
+        background: #efe7da;
+        color: var(--ink);
+      }
+
+      .help-body {
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .help-body p,
+      .help-body ul {
+        margin: 0 0 12px;
+      }
+
+      .help-body ul {
+        padding-left: 18px;
+      }
+
+      @media (max-width: 980px) {
+        .hero,
+        .layout,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Step-by-step migration flow</p>
+          <h1>WordPress -> Eleventy -> GitHub Pages</h1>
+          <p class="lede">
+            Kayttoliittyma ohjaa sisallon siirrosta julkaisuun asti: WordPress-lahde, sisaltomigraatio,
+            GitHub Pages, Actions-julkaisu ja halutessa oma domain. Migraation ajo kayttaa samaa backendia kuin CLI.
+          </p>
+          <div class="chip-row">
+            <div class="chip">1. WordPress source</div>
+            <div class="chip">2. Migration settings</div>
+            <div class="chip">3. Auth</div>
+            <div class="chip">4. Output</div>
+            <div class="chip">5. GitHub Pages</div>
+            <div class="chip">6. Optional domain</div>
+          </div>
+        </div>
+        <div class="hero-side">
+          <div class="card">
+            <strong>Suositeltu kulku</strong>
+            <p>Aja ensin dry-run, tarkista raportti, sitten tee varsinainen migraatio ja vasta sen jalkeen ota GitHub Pages -julkaisu kayttoon.</p>
+          </div>
+          <div class="card">
+            <strong>Julkaisumalli</strong>
+            <p>UI olettaa, etta Eleventy buildataan GitHub Actionsissa ja julkaistaan automaattisesti GitHub Pagesiin aina pushin yhteydessa.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="panel">
+          <form id="migration-form">
+            <details class="step" open>
+              <summary>
+                <div class="step-head">
+                  <div class="step-number">1</div>
+                  <div>
+                    <h2 class="step-title">WordPress source</h2>
+                    <p class="step-lede">Mista sisalto haetaan ja mita endpointteja kaytetaan.</p>
+                  </div>
+                  <div class="step-toggle">Avaa / sulje</div>
+                </div>
+              </summary>
+              <div class="step-body">
+                <div class="section-head">
+                  <h3 class="section-title">Lahdeasetukset</h3>
+                  <button type="button" class="help-button" data-help-topic="source-overview" aria-label="Ohje: lahde">?</button>
+                </div>
+                <div class="grid">
+                  <label>
+                    <span class="field-head">Source type <button type="button" class="help-button" data-help-topic="sourceType" aria-label="Ohje: source type">?</button></span>
+                    <select name="sourceType">
+                      <option value="rest">rest</option>
+                      <option value="xml">xml</option>
+                      <option value="json">json</option>
+                    </select>
+                    <span>Nykyinen toteutus tukee REST-lahdetta.</span>
+                  </label>
+                  <label>
+                    <span class="field-head">REST namespace <button type="button" class="help-button" data-help-topic="restNamespace" aria-label="Ohje: REST namespace">?</button></span>
+                    <input name="restNamespace" required>
+                    <span>Oletus on WordPressin vakiopolku.</span>
+                  </label>
+                </div>
+                <div class="grid grid-1">
+                  <label>
+                    <span class="field-head">WordPress base URL <button type="button" class="help-button" data-help-topic="wpBaseUrl" aria-label="Ohje: WordPress base URL">?</button></span>
+                    <input name="wpBaseUrl" type="url" placeholder="https://example.com" required>
+                    <span>Esimerkiksi sivuston juuri ilman paattyvaa kauttaviivaa.</span>
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <details class="step">
+              <summary>
+                <div class="step-head">
+                  <div class="step-number">2</div>
+                  <div>
+                    <h2 class="step-title">Migration settings</h2>
+                    <p class="step-lede">Valitse sisaltotyypit, muunnos ja turvallinen dry-run-virta.</p>
+                  </div>
+                  <div class="step-toggle">Avaa / sulje</div>
+                </div>
+              </summary>
+              <div class="step-body">
+                <div class="section-head">
+                  <h3 class="section-title">Sisalto ja muunnos</h3>
+                  <button type="button" class="help-button" data-help-topic="content-overview" aria-label="Ohje: sisalto ja muunnos">?</button>
+                </div>
+                <div class="grid">
+                  <label>
+                    <span class="field-head">Content types <button type="button" class="help-button" data-help-topic="contentTypes" aria-label="Ohje: content types">?</button></span>
+                    <input name="contentTypes" placeholder="posts,pages">
+                    <span>Pilkulla eroteltu lista, esim. <code>posts,pages</code>.</span>
+                  </label>
+                  <label>
+                    <span class="field-head">HTML mode <button type="button" class="help-button" data-help-topic="htmlMode" aria-label="Ohje: HTML mode">?</button></span>
+                    <select name="htmlMode">
+                      <option value="keep-html">keep-html</option>
+                      <option value="basic-markdown">basic-markdown</option>
+                    </select>
+                    <span>Pidetaan HTML tai tehdaan kevyt Markdown-muunnos.</span>
+                  </label>
+                  <label>
+                    <span class="field-head">Permalink pattern <button type="button" class="help-button" data-help-topic="targetPermalinkPattern" aria-label="Ohje: permalink pattern">?</button></span>
+                    <input name="targetPermalinkPattern" placeholder="/{type}/{slug}/">
+                    <span>Koskee muita kuin sivuja.</span>
+                  </label>
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle">
+                    <input name="includeDrafts" type="checkbox">
+                    <span>Sisallyta draftit ja private-sisallot. <button type="button" class="help-button" data-help-topic="includeDrafts" aria-label="Ohje: include drafts">?</button></span>
+                  </label>
+                  <label class="toggle">
+                    <input name="downloadMedia" type="checkbox">
+                    <span>Lataa mediaviittaukset paikallisesti. <button type="button" class="help-button" data-help-topic="downloadMedia" aria-label="Ohje: download media">?</button></span>
+                  </label>
+                  <label class="toggle">
+                    <input name="createRedirects" type="checkbox">
+                    <span>Luo <code>redirects.csv</code> vanhoista URL:eista. <button type="button" class="help-button" data-help-topic="createRedirects" aria-label="Ohje: redirects">?</button></span>
+                  </label>
+                  <label class="toggle">
+                    <input name="dryRun" type="checkbox">
+                    <span>Dry-run: raportti ilman tiedostojen kirjoitusta. <button type="button" class="help-button" data-help-topic="dryRun" aria-label="Ohje: dry-run">?</button></span>
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <details class="step">
+              <summary>
+                <div class="step-head">
+                  <div class="step-number">3</div>
+                  <div>
+                    <h2 class="step-title">Authentication</h2>
+                    <p class="step-lede">Tarvitaan jos REST API ei ole julkinen tai mukaan halutaan luonnokset.</p>
+                  </div>
+                  <div class="step-toggle">Avaa / sulje</div>
+                </div>
+              </summary>
+              <div class="step-body">
+                <div class="section-head">
+                  <h3 class="section-title">Autentikointi</h3>
+                  <button type="button" class="help-button" data-help-topic="auth-overview" aria-label="Ohje: autentikointi">?</button>
+                </div>
+                <div class="grid">
+                  <label>
+                    <span class="field-head">Auth mode <button type="button" class="help-button" data-help-topic="authMode" aria-label="Ohje: auth mode">?</button></span>
+                    <select name="authMode" id="authMode">
+                      <option value="none">none</option>
+                      <option value="app-password">app-password</option>
+                      <option value="bearer">bearer</option>
+                    </select>
+                    <span>Useimmiten julkiselle datalle riittaa <code>none</code>.</span>
+                  </label>
+                </div>
+                <div id="app-password-fields" class="grid auth-fields" hidden>
+                  <label>
+                    <span class="field-head">WP username <button type="button" class="help-button" data-help-topic="wpUser" aria-label="Ohje: WP username">?</button></span>
+                    <input name="wpUser">
+                  </label>
+                  <label>
+                    <span class="field-head">WP application password <button type="button" class="help-button" data-help-topic="wpAppPassword" aria-label="Ohje: WP application password">?</button></span>
+                    <input name="wpAppPassword" type="password">
+                  </label>
+                </div>
+                <div id="bearer-fields" class="grid auth-fields" hidden>
+                  <label>
+                    <span class="field-head">Bearer token <button type="button" class="help-button" data-help-topic="wpBearerToken" aria-label="Ohje: bearer token">?</button></span>
+                    <input name="wpBearerToken" type="password">
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <details class="step">
+              <summary>
+                <div class="step-head">
+                  <div class="step-number">4</div>
+                  <div>
+                    <h2 class="step-title">Migration output</h2>
+                    <p class="step-lede">Mihin konfiguraatio, sisalto, media ja raportit kirjoitetaan.</p>
+                  </div>
+                  <div class="step-toggle">Avaa / sulje</div>
+                </div>
+              </summary>
+              <div class="step-body">
+                <div class="section-head">
+                  <h3 class="section-title">Tulostus</h3>
+                  <button type="button" class="help-button" data-help-topic="output-overview" aria-label="Ohje: tulostus">?</button>
+                </div>
+                <div class="grid">
+                  <label>
+                    <span class="field-head">Output root <button type="button" class="help-button" data-help-topic="outputRoot" aria-label="Ohje: output root">?</button></span>
+                    <input name="outputRoot" required>
+                  </label>
+                  <label>
+                    <span class="field-head">Config path <button type="button" class="help-button" data-help-topic="configPath" aria-label="Ohje: config path">?</button></span>
+                    <input name="configPath" required>
+                  </label>
+                  <label>
+                    <span class="field-head">Content directory <button type="button" class="help-button" data-help-topic="contentDir" aria-label="Ohje: content directory">?</button></span>
+                    <input name="contentDir" required>
+                  </label>
+                  <label>
+                    <span class="field-head">Media directory <button type="button" class="help-button" data-help-topic="mediaDir" aria-label="Ohje: media directory">?</button></span>
+                    <input name="mediaDir" required>
+                  </label>
+                </div>
+              </div>
+            </details>
+
+            <details class="step">
+              <summary>
+                <div class="step-head">
+                  <div class="step-number">5</div>
+                  <div>
+                    <h2 class="step-title">GitHub Pages deployment</h2>
+                    <p class="step-lede">Suunnittele repo, Actions-build ja automaattinen julkaisu GitHub Pagesiin.</p>
+                  </div>
+                  <div class="step-toggle">Avaa / sulje</div>
+                </div>
+              </summary>
+              <div class="step-body">
+                <div class="section-head">
+                  <h3 class="section-title">GitHub Pages ja Actions</h3>
+                  <button type="button" class="help-button" data-help-topic="github-overview" aria-label="Ohje: GitHub Pages">?</button>
+                </div>
+                <div class="grid">
+                  <label>
+                    <span class="field-head">GitHub owner <button type="button" class="help-button" data-help-topic="githubOwner" aria-label="Ohje: GitHub owner">?</button></span>
+                    <input name="githubOwner" placeholder="username or org">
+                  </label>
+                  <label>
+                    <span class="field-head">Repository name <button type="button" class="help-button" data-help-topic="githubRepo" aria-label="Ohje: repository name">?</button></span>
+                    <input name="githubRepo" placeholder="site-repo">
+                  </label>
+                  <label>
+                    <span class="field-head">Pages site URL <button type="button" class="help-button" data-help-topic="pagesUrl" aria-label="Ohje: Pages URL">?</button></span>
+                    <input name="pagesUrl" placeholder="https://username.github.io/site-repo/">
+                  </label>
+                  <label>
+                    <span class="field-head">Build command <button type="button" class="help-button" data-help-topic="buildCommand" aria-label="Ohje: build command">?</button></span>
+                    <input name="buildCommand" value="npx @11ty/eleventy">
+                  </label>
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle">
+                    <input name="useGitHubActions" type="checkbox" checked>
+                    <span>Kayta GitHub Actionsia buildiin ja julkaisuun automaattisesti. <button type="button" class="help-button" data-help-topic="useGitHubActions" aria-label="Ohje: GitHub Actions">?</button></span>
+                  </label>
+                  <label class="toggle">
+                    <input name="publishOnPush" type="checkbox" checked>
+                    <span>Julkaise aina pushin jalkeen oletusbranchista. <button type="button" class="help-button" data-help-topic="publishOnPush" aria-label="Ohje: publish on push">?</button></span>
+                  </label>
+                </div>
+                <div class="subtle-box">
+                  <p>Tausta-ajatus: WordPressista tuotettu sisalto commitoidaan repossa, GitHub Actions rakentaa Eleventy-sivun ja GitHub Pages julkaisee sen ilman manuaalista deployta.</p>
+                </div>
+              </div>
+            </details>
+
+            <details class="step">
+              <summary>
+                <div class="step-head">
+                  <div class="step-number">6</div>
+                  <div>
+                    <h2 class="step-title">Optional custom domain</h2>
+                    <p class="step-lede">Halutessa oma domain, DNS-ohjaus ja CNAME GitHub Pagesin paalle.</p>
+                  </div>
+                  <div class="step-toggle">Avaa / sulje</div>
+                </div>
+              </summary>
+              <div class="step-body">
+                <div class="section-head">
+                  <h3 class="section-title">Domain-optio</h3>
+                  <button type="button" class="help-button" data-help-topic="domain-overview" aria-label="Ohje: domain">?</button>
+                </div>
+                <div class="toggle-row">
+                  <label class="toggle">
+                    <input name="useCustomDomain" type="checkbox" id="useCustomDomain">
+                    <span>Ota mukaan oman domainin hankinta ja kytkenta. <button type="button" class="help-button" data-help-topic="useCustomDomain" aria-label="Ohje: custom domain">?</button></span>
+                  </label>
+                </div>
+                <div id="domain-fields" class="grid domain-fields" hidden>
+                  <label>
+                    <span class="field-head">Desired domain <button type="button" class="help-button" data-help-topic="desiredDomain" aria-label="Ohje: desired domain">?</button></span>
+                    <input name="desiredDomain" placeholder="example.com">
+                  </label>
+                  <label>
+                    <span class="field-head">Registrar <button type="button" class="help-button" data-help-topic="registrar" aria-label="Ohje: registrar">?</button></span>
+                    <input name="registrar" placeholder="Namecheap, Cloudflare, etc.">
+                  </label>
+                </div>
+                <div class="subtle-box">
+                  <p>Domain-vaihe on valinnainen. Julkaisu voi toimia myos suoraan GitHub Pages -osoitteella ilman omaa domainia.</p>
+                </div>
+              </div>
+            </details>
+
+            <div class="actions">
+              <button type="button" class="secondary" id="save-config">Tallenna config</button>
+              <button type="submit" class="primary" id="run-migration">Aja migraatio</button>
+            </div>
+            <div id="status" class="status" aria-live="polite"></div>
+          </form>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel">
+            <h2 class="side-title">Deployment blueprint</h2>
+            <p class="hint">Yhteenveto kayttoliittyman vaiheista WordPressista julkaistuun sivustoon.</p>
+            <ol class="plan-list" id="plan-preview"></ol>
+          </section>
+
+          <section class="panel">
+            <h2 class="side-title">Automation checklist</h2>
+            <ul class="check-list">
+              <li>
+                <strong>1. Migraatio ajetaan</strong>
+                <span class="meta">CLI-backend kirjoittaa sisallot, raportin ja halutessa redirectit.</span>
+              </li>
+              <li>
+                <strong>2. Eleventy build</strong>
+                <span class="meta">Build-komento ajetaan GitHub Actionsissa.</span>
+              </li>
+              <li>
+                <strong>3. GitHub Pages deploy</strong>
+                <span class="meta">Push oletusbranchiin tuottaa automaattisen julkaisun.</span>
+              </li>
+              <li>
+                <strong>4. Optional domain</strong>
+                <span class="meta">CNAME ja DNS asetetaan vain jos oma domain halutaan mukaan.</span>
+              </li>
+            </ul>
+          </section>
+
+          <section class="panel">
+            <h2 class="side-title">Tuloste</h2>
+            <p class="hint">API-vastaukset ja migraation raportti nakyvat tassa.</p>
+            <div class="result"><pre id="result">Ladataan oletusarvot...</pre></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <dialog id="help-dialog" class="help-dialog">
+      <div class="help-shell">
+        <div class="help-topbar">
+          <div>
+            <p class="eyebrow">Kenttaohje</p>
+            <h3 id="help-title">Ohje</h3>
+          </div>
+          <button type="button" class="help-close" id="help-close" aria-label="Sulje ohje">x</button>
+        </div>
+        <div id="help-body" class="help-body"></div>
+      </div>
+    </dialog>
+
+    <script>
+      const form = document.getElementById("migration-form");
+      const authMode = document.getElementById("authMode");
+      const appPasswordFields = document.getElementById("app-password-fields");
+      const bearerFields = document.getElementById("bearer-fields");
+      const useCustomDomain = document.getElementById("useCustomDomain");
+      const domainFields = document.getElementById("domain-fields");
+      const saveButton = document.getElementById("save-config");
+      const runButton = document.getElementById("run-migration");
+      const statusNode = document.getElementById("status");
+      const resultNode = document.getElementById("result");
+      const outputRootField = form.elements.namedItem("outputRoot");
+      const configPathField = form.elements.namedItem("configPath");
+      const planPreview = document.getElementById("plan-preview");
+      const helpDialog = document.getElementById("help-dialog");
+      const helpTitle = document.getElementById("help-title");
+      const helpBody = document.getElementById("help-body");
+      const helpClose = document.getElementById("help-close");
+
+      let lastSuggestedConfigPath = "";
+      const helpContent = {
+        "source-overview": {
+          title: "Lahdeasetukset",
+          body: `
+            <p>Lahdeosion kentilla maaritetaan mistä WordPress-sisalto haetaan. Nykyinen migrattori toteuttaa kaytannossa REST-rajapinnan.</p>
+            <ul>
+              <li>Tarvitset yleensa sivuston juuriosoitteen ja REST namespace -polun.</li>
+              <li>Jos rajapinta on suojattu, ota autentikointi kayttoon seuraavissa vaiheissa.</li>
+            </ul>
+          `
+        },
+        sourceType: {
+          title: "Source type",
+          body: `
+            <p>Valitsee lahteen teknisen muodon. Toimiva vaihtoehto tassa projektissa on <code>rest</code>.</p>
+            <ul>
+              <li><code>xml</code> ja <code>json</code> ovat kayttoliittymassa nakyvilla, mutta migraatiologiikka ei viela aja niita.</li>
+            </ul>
+          `
+        },
+        restNamespace: {
+          title: "REST namespace",
+          body: `
+            <p>Tama liitetaan WordPressin perusosoitteeseen, jolloin endpointit muodostuvat esimerkiksi <code>https://site.com/wp-json/wp/v2/posts</code>.</p>
+          `
+        },
+        wpBaseUrl: {
+          title: "WordPress base URL",
+          body: `
+            <p>Anna sivuston juuri, esimerkiksi <code>https://example.com</code>, ilman REST-polun loppuosaa.</p>
+          `
+        },
+        "content-overview": {
+          title: "Sisalto ja muunnos",
+          body: `
+            <p>Tassa vaiheessa paatetaan mita WordPressista siirretaan ja miten HTML kirjoitetaan Eleventyyn.</p>
+            <ul>
+              <li>Aloita dry-runilla.</li>
+              <li>Tarkista raportti ennen varsinaista kirjoitusta.</li>
+            </ul>
+          `
+        },
+        contentTypes: {
+          title: "Content types",
+          body: `
+            <p>Pilkulla eroteltu lista REST API:n type-slugeista, esimerkiksi <code>posts,pages</code>.</p>
+          `
+        },
+        htmlMode: {
+          title: "HTML mode",
+          body: `
+            <p><code>keep-html</code> sailyttaa WordPressin HTML:n. <code>basic-markdown</code> tekee yksinkertaisen muunnoksen Eleventyyn paremmin sopivaan muotoon.</p>
+          `
+        },
+        targetPermalinkPattern: {
+          title: "Permalink pattern",
+          body: `
+            <p>Kohdepolun malli muille kuin sivuille. Tuetut paikkamerkit ovat <code>{type}</code> ja <code>{slug}</code>.</p>
+          `
+        },
+        includeDrafts: {
+          title: "Include drafts",
+          body: `
+            <p>Ottaa mukaan luonnokset ja private-sisallot, jos rajapinta palauttaa ne valitulla autentikoinnilla.</p>
+          `
+        },
+        downloadMedia: {
+          title: "Download media",
+          body: `
+            <p>Lataa sisallosta loytyvat mediaviittaukset paikalliseen mediahakemistoon varsinaisessa ajossa.</p>
+          `
+        },
+        createRedirects: {
+          title: "Create redirects",
+          body: `
+            <p>Luo <code>redirects.csv</code>-tiedoston vanhojen WordPress-osoitteiden mapitukseen.</p>
+          `
+        },
+        dryRun: {
+          title: "Dry-run",
+          body: `
+            <p>Turvallinen ensimmainen ajo: raportti syntyy, mutta sisaltotiedostoja ei kirjoiteta.</p>
+          `
+        },
+        "auth-overview": {
+          title: "Autentikointi",
+          body: `
+            <p>Tarvitaan vain jos REST API ei ole julkinen tai mukaan halutaan julkaisematon sisalto.</p>
+          `
+        },
+        authMode: {
+          title: "Auth mode",
+          body: `
+            <p><code>app-password</code> kayttaa Basic Authia. <code>bearer</code> lahettaa bearer-tokenin HTTP-otsakkeessa.</p>
+          `
+        },
+        wpUser: {
+          title: "WP username",
+          body: `
+            <p>WordPress-kayttajanimi application password -kirjautumista varten.</p>
+          `
+        },
+        wpAppPassword: {
+          title: "WP application password",
+          body: `
+            <p>WordPressin luoma application password, ei tavallinen salasana.</p>
+          `
+        },
+        wpBearerToken: {
+          title: "Bearer token",
+          body: `
+            <p>Token-pohjainen tunniste, jos API-kerros vaatii bearer-authin.</p>
+          `
+        },
+        "output-overview": {
+          title: "Tulostusasetukset",
+          body: `
+            <p>Maarittaa mihin konfiguraatio, sisalto, media ja raportit kirjoitetaan ennen kuin ne viedaan Eleventy-projektiin ja GitHubiin.</p>
+          `
+        },
+        outputRoot: {
+          title: "Output root",
+          body: `
+            <p>Ylakansio, jonka alle migrattori kirjoittaa kaiken tuotetun materiaalin.</p>
+          `
+        },
+        configPath: {
+          title: "Config path",
+          body: `
+            <p>JSON-konfiguraation tallennuspolku. Samaa tiedostoa voi ajaa myohemmin CLI:lla.</p>
+          `
+        },
+        contentDir: {
+          title: "Content directory",
+          body: `
+            <p>Alikansio, johon Markdown-sisalto kirjoitetaan tyypeittain.</p>
+          `
+        },
+        mediaDir: {
+          title: "Media directory",
+          body: `
+            <p>Alikansio paikallisesti ladatulle medialle.</p>
+          `
+        },
+        "github-overview": {
+          title: "GitHub Pages ja Actions",
+          body: `
+            <p>Tassa vaiheessa suunnitellaan julkaisuputki: Eleventy-build GitHub Actionsissa ja automaattinen julkaisu GitHub Pagesiin.</p>
+            <ul>
+              <li>Yleinen malli on build every push -> deploy to Pages.</li>
+              <li>UI kuvaa tavoitetilan vaikka backend ei viela luo workflow-tiedostoja automaattisesti.</li>
+            </ul>
+          `
+        },
+        githubOwner: {
+          title: "GitHub owner",
+          body: `
+            <p>Kayttajatunnus tai organisaatio, jonka alle repo luodaan.</p>
+          `
+        },
+        githubRepo: {
+          title: "Repository name",
+          body: `
+            <p>Repositorio johon Eleventy-projekti ja migroitu sisalto viedaan.</p>
+          `
+        },
+        pagesUrl: {
+          title: "Pages site URL",
+          body: `
+            <p>Arvioitu GitHub Pages -osoite, esimerkiksi <code>https://username.github.io/repo/</code>.</p>
+          `
+        },
+        buildCommand: {
+          title: "Build command",
+          body: `
+            <p>Komento jonka GitHub Actions ajaa build-vaiheessa. Eleventy-projekteissa tama on usein <code>npx @11ty/eleventy</code> tai <code>npm run build</code>.</p>
+          `
+        },
+        useGitHubActions: {
+          title: "Use GitHub Actions",
+          body: `
+            <p>Tarkoitus on, etta build ja deploy tapahtuvat GitHubissa ilman paikallista julkaisuaskelta.</p>
+          `
+        },
+        publishOnPush: {
+          title: "Publish on push",
+          body: `
+            <p>Kun tama on paalla, tavoitetila on julkaista automaattisesti aina kun oletusbranchiin tulee uusi push.</p>
+          `
+        },
+        "domain-overview": {
+          title: "Custom domain",
+          body: `
+            <p>Valinnainen vaihe omalle domainille. Sisaltaa domainin hankinnan, DNS-asetukset ja GitHub Pagesin CNAME-kytkennan.</p>
+          `
+        },
+        useCustomDomain: {
+          title: "Use custom domain",
+          body: `
+            <p>Aktivoi oma domain -vaihe suunnitelmaan. Muuten sivusto voi jaada GitHub Pages -osoitteeseen.</p>
+          `
+        },
+        desiredDomain: {
+          title: "Desired domain",
+          body: `
+            <p>Haluttu verkkotunnus, esimerkiksi <code>example.com</code> tai <code>www.example.com</code>.</p>
+          `
+        },
+        registrar: {
+          title: "Registrar",
+          body: `
+            <p>Palvelu, josta domain hankitaan ja jossa DNS-tietueet hallitaan.</p>
+          `
+        }
+      };
+
+      function setBusy(isBusy) {
+        saveButton.disabled = isBusy;
+        runButton.disabled = isBusy;
+      }
+
+      function setStatus(message, isError = false) {
+        statusNode.textContent = message;
+        statusNode.classList.toggle("error", isError);
+      }
+
+      function updateAuthVisibility() {
+        appPasswordFields.hidden = authMode.value !== "app-password";
+        bearerFields.hidden = authMode.value !== "bearer";
+      }
+
+      function updateDomainVisibility() {
+        domainFields.hidden = !useCustomDomain.checked;
+      }
+
+      function suggestConfigPath(outputRoot) {
+        const base = String(outputRoot || "").replace(/\/+$/, "");
+        return base ? `${base}/migration-config.json` : "./migrations/wp-to-eleventy/migration-config.json";
+      }
+
+      function openHelp(topic) {
+        const entry = helpContent[topic];
+        if (!entry) return;
+        helpTitle.textContent = entry.title;
+        helpBody.innerHTML = entry.body;
+        helpDialog.showModal();
+      }
+
+      function getPayload() {
+        const data = new FormData(form);
+        return {
+          sourceType: data.get("sourceType"),
+          wpBaseUrl: data.get("wpBaseUrl"),
+          restNamespace: data.get("restNamespace"),
+          contentTypes: data.get("contentTypes"),
+          includeDrafts: data.get("includeDrafts") === "on",
+          downloadMedia: data.get("downloadMedia") === "on",
+          createRedirects: data.get("createRedirects") === "on",
+          htmlMode: data.get("htmlMode"),
+          targetPermalinkPattern: data.get("targetPermalinkPattern"),
+          authMode: data.get("authMode"),
+          wpUser: data.get("wpUser"),
+          wpAppPassword: data.get("wpAppPassword"),
+          wpBearerToken: data.get("wpBearerToken"),
+          dryRun: data.get("dryRun") === "on",
+          outputRoot: data.get("outputRoot"),
+          contentDir: data.get("contentDir"),
+          mediaDir: data.get("mediaDir"),
+          configPath: data.get("configPath")
+        };
+      }
+
+      function getPlanState() {
+        const data = new FormData(form);
+        return {
+          wpBaseUrl: data.get("wpBaseUrl"),
+          contentTypes: data.get("contentTypes"),
+          outputRoot: data.get("outputRoot"),
+          githubOwner: data.get("githubOwner"),
+          githubRepo: data.get("githubRepo"),
+          pagesUrl: data.get("pagesUrl"),
+          buildCommand: data.get("buildCommand"),
+          useGitHubActions: data.get("useGitHubActions") === "on",
+          publishOnPush: data.get("publishOnPush") === "on",
+          useCustomDomain: data.get("useCustomDomain") === "on",
+          desiredDomain: data.get("desiredDomain"),
+          registrar: data.get("registrar")
+        };
+      }
+
+      function renderPlan() {
+        const state = getPlanState();
+        const repoLabel = state.githubOwner && state.githubRepo
+          ? `${state.githubOwner}/${state.githubRepo}`
+          : "GitHub owner/repo puuttuu";
+        const domainLine = state.useCustomDomain
+          ? `${state.desiredDomain || "valitse domain"} registrarilla ${state.registrar || "ei maaritetty"}`
+          : "Ei omaa domainia, julkaisu GitHub Pages -osoitteeseen";
+
+        const items = [
+          {
+            title: "WordPress extraction",
+            text: `${state.wpBaseUrl || "WordPress URL puuttuu"} -> sisaltotyypit ${state.contentTypes || "posts,pages"}`
+          },
+          {
+            title: "Migration output",
+            text: `Tuloste kirjoitetaan kansioon ${state.outputRoot || "./migrations/..."} ja tarkistetaan ennen repo-siirtoa`
+          },
+          {
+            title: "Repository and Pages",
+            text: `${repoLabel} julkaistaan osoitteeseen ${state.pagesUrl || "https://username.github.io/repo/"}`
+          },
+          {
+            title: "GitHub Actions automation",
+            text: state.useGitHubActions
+              ? `Build command: ${state.buildCommand || "npx @11ty/eleventy"}; ${state.publishOnPush ? "deploy jokaisesta pushista" : "deploy kaynnistetaan hallitusti"}`
+              : "Actions ei ole valittuna"
+          },
+          {
+            title: "Custom domain",
+            text: domainLine
+          }
+        ];
+
+        planPreview.innerHTML = items.map((item) => `
+          <li>
+            <strong>${item.title}</strong>
+            <span class="meta">${item.text}</span>
+          </li>
+        `).join("");
+      }
+
+      function fillForm(values) {
+        Object.entries(values).forEach(([key, value]) => {
+          const field = form.elements.namedItem(key);
+          if (!field) return;
+          if (field.type === "checkbox") field.checked = Boolean(value);
+          else field.value = value ?? "";
+        });
+
+        const defaults = {
+          githubOwner: "",
+          githubRepo: "",
+          pagesUrl: "",
+          buildCommand: "npx @11ty/eleventy",
+          useGitHubActions: true,
+          publishOnPush: true,
+          useCustomDomain: false,
+          desiredDomain: "",
+          registrar: ""
+        };
+
+        Object.entries(defaults).forEach(([key, value]) => {
+          const field = form.elements.namedItem(key);
+          if (!field) return;
+          if (field.type === "checkbox") field.checked = Boolean(value);
+          else if (!field.value) field.value = value;
+        });
+
+        lastSuggestedConfigPath = configPathField.value;
+        updateAuthVisibility();
+        updateDomainVisibility();
+        renderPlan();
+      }
+
+      async function callApi(url, payload) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Request failed");
+        return data;
+      }
+
+      async function loadDefaults() {
+        const response = await fetch("/api/defaults");
+        const data = await response.json();
+        fillForm(data);
+        resultNode.textContent = JSON.stringify(data, null, 2);
+        setStatus("Oletusarvot ladattu.");
+      }
+
+      authMode.addEventListener("change", updateAuthVisibility);
+      useCustomDomain.addEventListener("change", () => {
+        updateDomainVisibility();
+        renderPlan();
+      });
+      outputRootField.addEventListener("input", () => {
+        const nextPath = suggestConfigPath(outputRootField.value);
+        if (!configPathField.value || configPathField.value === lastSuggestedConfigPath) {
+          configPathField.value = nextPath;
+        }
+        lastSuggestedConfigPath = nextPath;
+        renderPlan();
+      });
+
+      form.addEventListener("input", (event) => {
+        if (event.target !== outputRootField) renderPlan();
+      });
+
+      document.querySelectorAll("[data-help-topic]").forEach((button) => {
+        button.addEventListener("click", () => openHelp(button.dataset.helpTopic));
+      });
+
+      helpClose.addEventListener("click", () => helpDialog.close());
+      helpDialog.addEventListener("click", (event) => {
+        const rect = helpDialog.getBoundingClientRect();
+        const inside =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+        if (!inside) helpDialog.close();
+      });
+
+      saveButton.addEventListener("click", async () => {
+        setBusy(true);
+        setStatus("Tallennetaan konfiguraatio...");
+        try {
+          const data = await callApi("/api/save-config", getPayload());
+          resultNode.textContent = JSON.stringify(
+            {
+              ...data,
+              deploymentPlan: getPlanState()
+            },
+            null,
+            2
+          );
+          configPathField.value = data.configPath;
+          lastSuggestedConfigPath = data.configPath;
+          setStatus("Konfiguraatio tallennettu.");
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setBusy(true);
+        setStatus("Migraatio kaynnissa...");
+        try {
+          const data = await callApi("/api/run", getPayload());
+          resultNode.textContent = JSON.stringify(
+            {
+              ...data,
+              deploymentPlan: getPlanState()
+            },
+            null,
+            2
+          );
+          configPathField.value = data.configPath;
+          lastSuggestedConfigPath = data.configPath;
+          setStatus("Migraatio valmis.");
+        } catch (error) {
+          setStatus(error.message, true);
+        } finally {
+          setBusy(false);
+        }
+      });
+
+      loadDefaults().catch((error) => {
+        setStatus(error.message, true);
+        resultNode.textContent = error.stack || String(error);
+      });
+    </script>
+  </body>
+</html>
