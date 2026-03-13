@@ -935,7 +935,21 @@
             <button type="button" class="help-button" data-help-topic="plugin-audit-overview">?</button>
           </div>
           <p class="hint" data-i18n="plugin_audit_intro"></p>
+          <div class="grid">
+            <label>
+              <span class="field-head"><span data-i18n="field_pluginFilter"></span></span>
+              <input id="plugin-filter-input" data-i18n-placeholder="placeholder_pluginFilter">
+            </label>
+          </div>
+          <div class="grid">
+            <div class="hint" data-i18n="plugin_catalog_hint"></div>
+          </div>
           <div class="plugin-grid" id="plugin-grid"></div>
+          <div class="actions">
+            <button type="button" class="secondary" id="plugin-prev-button" data-i18n="btn_prev"></button>
+            <button type="button" class="secondary" id="plugin-next-button" data-i18n="btn_next"></button>
+            <div class="status" id="plugin-page-status"></div>
+          </div>
         </div>
 
         <aside class="side-stack">
@@ -994,11 +1008,17 @@
       const pluginGrid = document.getElementById("plugin-grid");
       const pluginSummary = document.getElementById("plugin-summary");
       const pluginRisks = document.getElementById("plugin-risks");
+      const pluginFilterInput = document.getElementById("plugin-filter-input");
+      const pluginPrevButton = document.getElementById("plugin-prev-button");
+      const pluginNextButton = document.getElementById("plugin-next-button");
+      const pluginPageStatus = document.getElementById("plugin-page-status");
 
       let lastSuggestedConfigPath = "";
       let currentLang = "fi";
       let currentTheme = "light";
       let currentTab = "workflow-tab";
+      let commonPluginPage = 1;
+      const commonPluginsPerPage = 8;
 
       const translations = {
         fi: {
@@ -1095,6 +1115,12 @@
           plugin_summary_hint: "Nopea yhteenveto siitä, mitkä osat voidaan poistaa, korvata tai vaativat erillisselvitystä.",
           plugin_risks_title: "Suurimmat migraatioriskit",
           plugin_risks_hint: "Nämä kohdat vaativat todennäköisimmin erillistä suunnittelua ennen lopullista siirtoa.",
+          plugin_catalog_hint: "Listaan on yhdistetty sekä tämän sivuston havaitut lisäosat että yleisimmät WordPress-pluginut. Kaikille on annettu sama korvaus- ja riskianalyysi.",
+          field_pluginFilter: "Suodata plugin-listaa",
+          placeholder_pluginFilter: "Hae nimellä tai slugilla",
+          btn_prev: "Edellinen",
+          btn_next: "Seuraava",
+          plugin_page_status: "Sivu {page} / {pages} ({count} osumaa)",
           help_eyebrow: "Kenttäohje",
           status_defaults_loaded: "Oletusarvot ladattu.",
           status_saving: "Tallennetaan konfiguraatio...",
@@ -1243,6 +1269,12 @@
           plugin_summary_hint: "A quick summary of what can be removed, replaced, or needs separate investigation.",
           plugin_risks_title: "Main migration risks",
           plugin_risks_hint: "These areas most likely need separate planning before the final migration.",
+          plugin_catalog_hint: "This list combines both the plugins detected from the target site and common WordPress plugins. Each item uses the same replacement and risk analysis format.",
+          field_pluginFilter: "Filter plugin list",
+          placeholder_pluginFilter: "Search by name or slug",
+          btn_prev: "Previous",
+          btn_next: "Next",
+          plugin_page_status: "Page {page} / {pages} ({count} matches)",
           help_eyebrow: "Field help",
           status_defaults_loaded: "Defaults loaded.",
           status_saving: "Saving configuration...",
@@ -1446,6 +1478,61 @@
         ]
       };
 
+      const commonPluginAuditData = {
+        fi: [
+          { name: "Elementor Website Builder", slug: "elementor", category: "Sivunrakentaja", replacement: "Rakenna layoutit suoraan Eleventy-templaateilla", effort: "Usein korvataan kokonaan", note: "Drag-and-drop-rakenteet eivät siirry sellaisenaan, joten sivut kannattaa rakentaa staattisiksi komponenteiksi." },
+          { name: "Yoast SEO", slug: "wordpress-seo", category: "SEO", replacement: "Front matter + meta-templaat + sitemap/robots", effort: "Helppo korvata", note: "Perus-SEO on hyvä staattisessa sivussa ilman WordPress-pluginia." },
+          { name: "Contact Form 7", slug: "contact-form-7", category: "Lomakkeet", replacement: "Formspree, Basin, Netlify Forms tai oma backend", effort: "Helppo korvata", note: "Staattinen sivu tarvitsee lomakekäsittelyn ulkoiselta palvelulta tai omalta API:lta." },
+          { name: "Classic Editor", slug: "classic-editor", category: "Toimitustyökalu", replacement: "Ei tarvita julkaisussa", effort: "Poistuu kokonaan", note: "Tämä on WordPressin editorikokemuksen lisäosa, ei julkaistun sivun ominaisuus." },
+          { name: "LiteSpeed Cache", slug: "litespeed-cache", category: "Suorituskyky", replacement: "CDN + staattinen hosting + asset-optimointi buildissa", effort: "Poistuu lähes kokonaan", note: "Staattinen julkaisu poistaa suuren osan WP-cachen tarpeesta." },
+          { name: "WooCommerce", slug: "woocommerce", category: "Verkkokauppa", replacement: "Snipcart, Shopify Buy Button, Medusa tai muu headless-kauppa", effort: "Vaatii erillisen ratkaisun", note: "Jos sivustolla on kauppalogiikkaa, sitä ei kannata yrittää siirtää pelkkänä sisältönä." },
+          { name: "Akismet Anti-spam", slug: "akismet", category: "Roskapostisuoja", replacement: "Captcha + ulkoinen lomakepalvelu", effort: "Helppo korvata", note: "Tarve koskee lähinnä lomakkeita ja kommentteja." },
+          { name: "WPForms Lite", slug: "wpforms-lite", category: "Lomakkeet", replacement: "Ulkoinen form backend tai kevyt JS-lomake + serverless", effort: "Helppo korvata", note: "Itse form-UI voidaan tehdä helposti, käsittely tarvitsee erillisen palvelun." },
+          { name: "Site Kit by Google", slug: "google-site-kit", category: "Analytiikka", replacement: "Suora GA-tagitus tai vaihtoehtoinen analytiikka", effort: "Helppo korvata", note: "WordPress-sidonnaista hallintakerrosta ei tarvita staattisessa sivussa." },
+          { name: "All-in-One WP Migration and Backup", slug: "all-in-one-wp-migration", category: "Migraatio/backup", replacement: "Git + deploy pipeline + erillinen sisältöbackup", effort: "Poistuu käytöstä", note: "Tämä kuuluu WordPressin ylläpitoon, ei staattisen sivun lopputulokseen." },
+          { name: "Wordfence Security", slug: "wordfence", category: "Tietoturva", replacement: "Hosting-tason suojaus, CDN/WAF, minimaalinen hyökkäyspinta", effort: "Osin poistuu", note: "Staattinen sivu vähentää merkittävästi WordPress-tyyppistä hyökkäyspintaa." },
+          { name: "WP Mail SMTP", slug: "wp-mail-smtp", category: "Sähköposti", replacement: "Lomakepalvelun oma lähetys tai erillinen mail API", effort: "Helppo korvata", note: "SMTP-lähetys ei yleensä kuulu staattiselle sivulle ilman erillistä backendia." },
+          { name: "Yoast Duplicate Post", slug: "duplicate-post", category: "Toimitustyökalu", replacement: "Ei tarvita julkaisussa", effort: "Poistuu kokonaan", note: "Sisällöntuotannon apuväline, ei julkaistun sivun ominaisuus." },
+          { name: "Really Simple Security", slug: "really-simple-ssl", category: "HTTPS/tietoturva", replacement: "GitHub Pages/hosting hoitaa HTTPS:n", effort: "Poistuu kokonaan", note: "Tyypillinen WordPress-infraan liittyvä lisäosa." },
+          { name: "Rank Math SEO", slug: "seo-by-rank-math", category: "SEO", replacement: "Sama kuin Yoast/AIOSEO: staattinen metadata", effort: "Helppo korvata", note: "Korvattavissa samalla SEO-ratkaisulla kuin muutkin SEO-pluginet." },
+          { name: "Duplicate Page", slug: "duplicate-page", category: "Toimitustyökalu", replacement: "Ei tarvita julkaisussa", effort: "Poistuu kokonaan", note: "Editorin apuväline, ei tuotantosivun osa." },
+          { name: "UpdraftPlus", slug: "updraftplus", category: "Backup", replacement: "Git, artifactit ja repo-varmistukset", effort: "Poistuu käytöstä", note: "WordPressin backup-logiikka ei siirry sellaisenaan staattiseen julkaisuun." },
+          { name: "Jetpack", slug: "jetpack", category: "Monitoimiplugin", replacement: "Pilko ominaisuudet erillisiksi palveluiksi tarpeen mukaan", effort: "Vaatii jaottelun", note: "Jetpack sisältää monta erillistä ominaisuutta, joita ei pidä käsitellä yhtenä pakettina migraatiossa." },
+          { name: "All in One SEO", slug: "all-in-one-seo-pack", category: "SEO", replacement: "Staattinen SEO-kerros Eleventyssä", effort: "Helppo korvata", note: "Sama korvauspolku kuin Yoastille ja Rank Mathille." },
+          { name: "Hostinger Tools", slug: "hostinger", category: "Hosting-hallinta", replacement: "Ei yleensä tarvita", effort: "Poistuu kokonaan", note: "Hostingiin liittyvä hallintalisäosa ei yleensä kuulu uuteen staattiseen arkkitehtuuriin." },
+          { name: "WPCode", slug: "insert-headers-and-footers", category: "Custom-koodit", replacement: "Suora koodi layout- tai partial-tiedostoihin", effort: "Helppo korvata", note: "Header/footer-snippetit kannattaa siirtää versionhallittuihin templateihin." },
+          { name: "WordPress Importer", slug: "wordpress-importer", category: "Migraatiotyökalu", replacement: "Tämä migrattori tai muu oma import-putki", effort: "Poistuu käytöstä", note: "Tuontityökalu ei ole osa lopullista julkaisua." },
+          { name: "Redirection", slug: "redirection", category: "Redirectit", replacement: "redirects.csv + hosting/CDN redirect-säännöt", effort: "Helppo korvata", note: "Staattisessa mallissa redirectit hoidetaan yleensä hostin tai CDN:n tasolla." },
+          { name: "MonsterInsights", slug: "google-analytics-for-wordpress", category: "Analytiikka", replacement: "Suora analytiikkatagi tai kevyt ulkoinen analytiikka", effort: "Helppo korvata", note: "WordPress-dashboard-integraatiota ei tarvita, jos analytiikka luetaan palvelun omasta UI:sta." }
+        ],
+        en: [
+          { name: "Elementor Website Builder", slug: "elementor", category: "Page builder", replacement: "Build layouts directly in Eleventy templates", effort: "Usually replaced entirely", note: "Drag-and-drop structures do not migrate cleanly, so pages should usually be rebuilt as static components." },
+          { name: "Yoast SEO", slug: "wordpress-seo", category: "SEO", replacement: "Front matter + meta templates + sitemap/robots", effort: "Easy replacement", note: "Core SEO works well in a static site without a WordPress plugin." },
+          { name: "Contact Form 7", slug: "contact-form-7", category: "Forms", replacement: "Formspree, Basin, Netlify Forms, or your own backend", effort: "Easy replacement", note: "A static site needs form handling from an external service or a custom API." },
+          { name: "Classic Editor", slug: "classic-editor", category: "Editorial tool", replacement: "Not needed in the published site", effort: "Removed entirely", note: "This affects the WordPress editing experience, not the final published site." },
+          { name: "LiteSpeed Cache", slug: "litespeed-cache", category: "Performance", replacement: "CDN + static hosting + build-time asset optimization", effort: "Mostly removed", note: "Static publishing removes much of the caching need seen in WordPress." },
+          { name: "WooCommerce", slug: "woocommerce", category: "E-commerce", replacement: "Snipcart, Shopify Buy Button, Medusa, or another headless commerce layer", effort: "Needs separate solution", note: "If the site contains store logic, it should not be migrated as plain content only." },
+          { name: "Akismet Anti-spam", slug: "akismet", category: "Spam protection", replacement: "Captcha + external form service", effort: "Easy replacement", note: "This mainly matters for forms and comments." },
+          { name: "WPForms Lite", slug: "wpforms-lite", category: "Forms", replacement: "External form backend or lightweight JS form + serverless handler", effort: "Easy replacement", note: "The form UI is simple; submission handling needs a separate service." },
+          { name: "Site Kit by Google", slug: "google-site-kit", category: "Analytics", replacement: "Direct GA tagging or alternative analytics", effort: "Easy replacement", note: "The WordPress admin integration layer is unnecessary in a static site." },
+          { name: "All-in-One WP Migration and Backup", slug: "all-in-one-wp-migration", category: "Migration/backup", replacement: "Git + deploy pipeline + separate content backups", effort: "Removed from runtime", note: "This belongs to WordPress operations, not the static site outcome." },
+          { name: "Wordfence Security", slug: "wordfence", category: "Security", replacement: "Hosting-level protection, CDN/WAF, and minimal attack surface", effort: "Partly removed", note: "A static site dramatically reduces WordPress-style attack surface." },
+          { name: "WP Mail SMTP", slug: "wp-mail-smtp", category: "Email", replacement: "Form provider delivery or separate mail API", effort: "Easy replacement", note: "SMTP delivery usually does not belong in a static site without a dedicated backend." },
+          { name: "Yoast Duplicate Post", slug: "duplicate-post", category: "Editorial tool", replacement: "Not needed in the published site", effort: "Removed entirely", note: "An authoring convenience, not a feature of the final site." },
+          { name: "Really Simple Security", slug: "really-simple-ssl", category: "HTTPS/security", replacement: "GitHub Pages or hosting handles HTTPS", effort: "Removed entirely", note: "A typical WordPress infrastructure plugin." },
+          { name: "Rank Math SEO", slug: "seo-by-rank-math", category: "SEO", replacement: "Same as Yoast/AIOSEO: static metadata in Eleventy", effort: "Easy replacement", note: "Can be replaced with the same SEO layer as other SEO plugins." },
+          { name: "Duplicate Page", slug: "duplicate-page", category: "Editorial tool", replacement: "Not needed in the published site", effort: "Removed entirely", note: "Editor workflow helper, not part of the production site." },
+          { name: "UpdraftPlus", slug: "updraftplus", category: "Backup", replacement: "Git, deployment artifacts, and repository backups", effort: "Removed from runtime", note: "WordPress backup logic does not map directly to a static publishing workflow." },
+          { name: "Jetpack", slug: "jetpack", category: "Multi-feature plugin", replacement: "Split features into separate services as needed", effort: "Needs decomposition", note: "Jetpack bundles many unrelated capabilities and should not be treated as a single migration item." },
+          { name: "All in One SEO", slug: "all-in-one-seo-pack", category: "SEO", replacement: "Static SEO layer in Eleventy", effort: "Easy replacement", note: "Same replacement path as Yoast and Rank Math." },
+          { name: "Hostinger Tools", slug: "hostinger", category: "Hosting management", replacement: "Usually not needed", effort: "Removed entirely", note: "Hosting admin helpers do not usually belong in the new static architecture." },
+          { name: "WPCode", slug: "insert-headers-and-footers", category: "Custom code snippets", replacement: "Move code directly into layouts or partials", effort: "Easy replacement", note: "Header/footer snippets should be moved into version-controlled templates." },
+          { name: "WordPress Importer", slug: "wordpress-importer", category: "Migration tool", replacement: "This migrator or another dedicated import pipeline", effort: "Removed from runtime", note: "An import tool is not part of the final published site." },
+          { name: "Redirection", slug: "redirection", category: "Redirects", replacement: "redirects.csv + hosting/CDN redirect rules", effort: "Easy replacement", note: "In a static setup, redirects are usually handled by the host or CDN layer." },
+          { name: "MonsterInsights", slug: "google-analytics-for-wordpress", category: "Analytics", replacement: "Direct analytics tags or lightweight external analytics", effort: "Easy replacement", note: "You do not need a WordPress dashboard integration if analytics is read from the analytics provider itself." }
+        ]
+      };
+
       const helpContent = {
         "source-overview": {
           fi: { title: "Lähdeasetukset", body: "<p>Tässä määritetään mistä WordPress-sisältö haetaan. Nykyinen toteutus tukee käytännössä REST-rajapintaa.</p><ul><li>Tarvitset yleensä sivuston juuriosoitteen ja REST namespace -polun.</li><li>Jos rajapinta on suojattu, ota autentikointi käyttöön alempana.</li></ul>" },
@@ -1636,9 +1723,34 @@
         `).join("");
       }
 
+      function mergedPluginItems() {
+        const seen = new Set();
+        const merged = [];
+        for (const item of [...pluginAuditData[currentLang], ...commonPluginAuditData[currentLang]]) {
+          const key = String(item.slug || item.name).toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(item);
+        }
+        return merged;
+      }
+
       function renderPluginAudit() {
-        const items = pluginAuditData[currentLang];
-        pluginGrid.innerHTML = items.map((item) => `
+        const query = String(pluginFilterInput.value || "").trim().toLowerCase();
+        const allItems = mergedPluginItems();
+        const items = allItems.filter((item) =>
+          !query ||
+          item.name.toLowerCase().includes(query) ||
+          String(item.slug || "").toLowerCase().includes(query) ||
+          item.category.toLowerCase().includes(query)
+        );
+
+        const totalPages = Math.max(1, Math.ceil(items.length / commonPluginsPerPage));
+        if (commonPluginPage > totalPages) commonPluginPage = totalPages;
+        const start = (commonPluginPage - 1) * commonPluginsPerPage;
+        const pageItems = items.slice(start, start + commonPluginsPerPage);
+
+        pluginGrid.innerHTML = pageItems.map((item) => `
           <article class="plugin-card">
             <div>
               <h3>${item.name}</h3>
@@ -1646,6 +1758,7 @@
             <div class="plugin-meta">
               <span class="plugin-badge">${item.category}</span>
               <span class="plugin-badge">${item.effort}</span>
+              ${item.slug ? `<span class="plugin-badge">${item.slug}</span>` : ""}
             </div>
             <p><strong>${t("plugin_replacement_label")}:</strong> ${item.replacement}</p>
             <p>${item.note}</p>
@@ -1660,6 +1773,13 @@
         `).join("");
 
         pluginRisks.innerHTML = translations[currentLang].plugin_risk_items.map((item) => `<li>${item}</li>`).join("");
+        pluginPageStatus.textContent = t("plugin_page_status")
+          .replace("{page}", String(commonPluginPage))
+          .replace("{pages}", String(totalPages))
+          .replace("{count}", String(items.length));
+
+        pluginPrevButton.disabled = commonPluginPage <= 1;
+        pluginNextButton.disabled = commonPluginPage >= totalPages;
       }
 
       function setActiveTab(tabId) {
@@ -1870,6 +1990,23 @@
 
       tabButtons.forEach((button) => {
         button.addEventListener("click", () => setActiveTab(button.dataset.tabTarget));
+      });
+
+      pluginFilterInput.addEventListener("input", () => {
+        commonPluginPage = 1;
+        renderPluginAudit();
+      });
+
+      pluginPrevButton.addEventListener("click", () => {
+        if (commonPluginPage > 1) {
+          commonPluginPage -= 1;
+          renderPluginAudit();
+        }
+      });
+
+      pluginNextButton.addEventListener("click", () => {
+        commonPluginPage += 1;
+        renderPluginAudit();
       });
 
       authMode.addEventListener("change", updateAuthVisibility);
