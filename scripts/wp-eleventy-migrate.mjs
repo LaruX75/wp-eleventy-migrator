@@ -442,6 +442,11 @@ async function fetchText(url, headers = {}) {
   return res.text();
 }
 
+function buildAuthHeaders(config, progress = () => {}) {
+  const headers = buildAuthHeaders(config, progress);
+  return headers;
+}
+
 function extractStylesheetUrls(html, baseUrl) {
   const urls = new Set();
   for (const match of String(html || "").matchAll(/<link[^>]+rel=["'][^"']*stylesheet[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>/gi)) {
@@ -490,6 +495,169 @@ function extractInlineStyles(html) {
     if (content) styles.push(content);
   }
   return styles;
+}
+
+function uniqueNonEmpty(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function detectThemeFromSignals(homepageHtml, stylesheetUrls = []) {
+  const candidates = [];
+  const html = String(homepageHtml || "");
+
+  for (const match of html.matchAll(/wp-content\/themes\/([^\/"'?#]+)/gi)) candidates.push(match[1]);
+  for (const url of stylesheetUrls) {
+    const match = String(url).match(/wp-content\/themes\/([^\/"'?#]+)/i);
+    if (match?.[1]) candidates.push(match[1]);
+  }
+  const bodyTheme = html.match(/\btheme-([a-z0-9_-]+)/i)?.[1];
+  if (bodyTheme) candidates.push(bodyTheme);
+
+  const slugs = uniqueNonEmpty(candidates);
+  const primarySlug = slugs[0] || "";
+  const isKadence = slugs.some((slug) => slug.toLowerCase().includes("kadence")) || /\bkb-(?:row|section|tabs|accordion|navigation)\b/i.test(html);
+
+  return {
+    slug: primarySlug,
+    candidates: slugs,
+    kadence: isKadence,
+    proSignals: /kadence[-_\s]?pro|kb-(?:navigation|modal|toc|countdown|off-canvas|lottie)/i.test(html)
+  };
+}
+
+function detectPluginsFromSignals(homepageHtml, restRoot, stylesheetUrls = []) {
+  const html = String(homepageHtml || "");
+  const namespaces = Array.isArray(restRoot?.namespaces) ? restRoot.namespaces.map((value) => String(value || "").toLowerCase()) : [];
+  const haystack = [html, ...stylesheetUrls, namespaces.join(" ")].join("\n").toLowerCase();
+  const matches = [];
+  const push = (slug, name, signal) => {
+    if (matches.some((item) => item.slug === slug)) return;
+    matches.push({ slug, name, signal });
+  };
+
+  if (haystack.includes("wpml") || haystack.includes("wpml-ls")) push("wpml", "WPML", "HTML / REST namespace");
+  if (haystack.includes("gtranslate")) push("gtranslate", "GTranslate", "HTML shortcode / asset");
+  if (haystack.includes("aioseo")) push("aioseo", "All in One SEO", "REST namespace / asset");
+  if (haystack.includes("complianz")) push("complianz", "Complianz", "Asset or cookie markup");
+  if (haystack.includes("newsletter")) push("newsletter", "Newsletter", "Asset or form markup");
+  if (haystack.includes("betterdocs")) push("betterdocs", "BetterDocs", "Asset or REST namespace");
+  if (haystack.includes("embedpress")) push("embedpress", "EmbedPress", "Asset or markup");
+  if (haystack.includes("independent analytics") || haystack.includes("iawp")) push("iawp", "Independent Analytics", "Asset or REST namespace");
+  if (haystack.includes("kadence")) push("kadence-blocks", "Kadence / Kadence Blocks", "Theme, HTML classes, or asset path");
+  if (haystack.includes("kadence pro") || /\bkb-(?:navigation|modal|toc|countdown|off-canvas|lottie)\b/i.test(html)) push("kadence-pro", "Kadence Pro", "Pro block classes or assets");
+  if (haystack.includes("woocommerce")) push("woocommerce", "WooCommerce", "REST namespace / asset");
+  if (haystack.includes("mailerlite")) push("mailerlite", "MailerLite integration", "Asset or form integration");
+  if (haystack.includes("mailchimp")) push("mailchimp", "Mailchimp integration", "Asset or form integration");
+
+  return matches;
+}
+
+async function analyzeSite(config, progress = () => {}) {
+  const headers = buildAuthHeaders(config, progress);
+  const warnings = [];
+  const report = {
+    startedAt: new Date().toISOString(),
+    wpBaseUrl: config.wpBaseUrl,
+    warnings
+  };
+
+  progress("info", `Analysoidaan sivusto → ${config.wpBaseUrl}`);
+  progress("info", "Haetaan etusivun HTML ja tunnisteet…");
+  const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
+  const stylesheetUrls = extractStylesheetUrls(homepageHtml, config.wpBaseUrl);
+  const inlineStyles = extractInlineStyles(homepageHtml);
+  const navs = extractNavFromHtml(homepageHtml, config.wpBaseUrl);
+
+  progress("ok", `Etusivu haettu: ${stylesheetUrls.length} stylesheetiä, ${navs.length} navigaatiota`);
+
+  let restRoot = null;
+  try {
+    progress("info", "Tarkistetaan WordPress REST -juuri…");
+    restRoot = await fetchJson(joinUrl(config.wpBaseUrl, "/wp-json/"), headers);
+    progress("ok", `REST juuri löytyi: ${(restRoot?.namespaces || []).length} namespacea`);
+  } catch (err) {
+    warnings.push(`REST root failed: ${String(err.message || err)}`);
+    progress("warn", "REST-juurta ei saatu luettua");
+  }
+
+  const theme = detectThemeFromSignals(homepageHtml, stylesheetUrls);
+  const plugins = detectPluginsFromSignals(homepageHtml, restRoot, stylesheetUrls);
+  const htmlLang = homepageHtml.match(/<html[^>]+lang=["']([^"']+)["']/i)?.[1] || "";
+  const languages = uniqueNonEmpty([
+    htmlLang,
+    /\/en\//i.test(homepageHtml) ? "en" : "",
+    /wpml|gtranslate/i.test(homepageHtml) ? "multilingual-signal" : ""
+  ]);
+
+  const contentCounts = {};
+  const baseApi = joinUrl(config.wpBaseUrl, config.restNamespace || DEFAULT_NAMESPACE);
+  for (const type of DEFAULT_TYPES) {
+    try {
+      progress("info", `Lasketaan ${type} REST API:n kautta…`);
+      const items = await fetchAllPages(`${baseApi}/${type}`, headers);
+      contentCounts[type] = items.length;
+      progress("ok", `${type}: ${items.length} kohdetta`);
+    } catch (err) {
+      warnings.push(`Count fetch for ${type} failed: ${String(err.message || err)}`);
+      progress("warn", `${type}-määrää ei saatu laskettua`);
+    }
+  }
+
+  const menus = await fetchMenus(config.wpBaseUrl, headers, warnings);
+  if (menus.menus.length) progress("ok", `Valikot löydetty REST API:sta (${menus.menus.length} kpl)`);
+  else progress("warn", "Valikot eivät olleet saatavilla REST API:sta");
+
+  const recommendedPreset = theme.proSignals
+    ? "kadence-pro"
+    : theme.kadence || plugins.some((plugin) => plugin.slug === "kadence-blocks")
+      ? "kadence"
+      : "none";
+
+  report.analysis = {
+    structure: {
+      htmlLang,
+      languages,
+      navigationCount: navs.length,
+      primaryNavigationItems: navs[0]?.items?.length || 0,
+      headingCount: (homepageHtml.match(/<h[1-6]\b/gi) || []).length,
+      formCount: (homepageHtml.match(/<form\b/gi) || []).length,
+      contentCounts
+    },
+    styles: {
+      stylesheetCount: stylesheetUrls.length,
+      sameOriginStylesheets: stylesheetUrls.filter((url) => {
+        try { return new URL(url).origin === new URL(config.wpBaseUrl).origin; } catch { return false; }
+      }).length,
+      inlineStyleBlocks: inlineStyles.length
+    },
+    theme,
+    rest: {
+      available: Boolean(restRoot),
+      namespaceCount: Array.isArray(restRoot?.namespaces) ? restRoot.namespaces.length : 0
+    },
+    menus: {
+      source: menus.source || "unavailable",
+      detected: menus.menus.length
+    },
+    plugins,
+    recommendations: [
+      recommendedPreset === "kadence-pro"
+        ? "Sivusto näyttää käyttävän Kadence Prota. Käytä Kadence Pro -presetiä ja pidä lohko- sekä tyylimigraatio päällä."
+        : recommendedPreset === "kadence"
+          ? "Sivusto näyttää käyttävän Kadencea. Kadence-preset on todennäköisesti järkevin lähtökohta."
+          : "Sivusto ei näytä puhtaalta Kadence-tapaukselta. Aloita neutraalilla presetillä ja lisää muunnokset tarpeen mukaan.",
+      languages.length > 1 || plugins.some((plugin) => plugin.slug === "wpml")
+        ? "Monikielisyydestä on signaaleja. Varmista kielikohtaiset permalinkit, valikot ja sisältökokoelmat ennen julkaisua."
+        : "Monikielisyydestä ei näy vahvaa signaalia etusivun perusteella.",
+      menus.menus.length
+        ? "Valikkorakennetta näyttää olevan saatavilla. Tarkista silti HTML-fallbackin tai REST-valikkojen laatu migraation jälkeen."
+        : "Valikkojen automaattinen tuonti voi vaatia fallback-parsintaa tai manuaalista täydentämistä."
+    ]
+  };
+
+  report.finishedAt = new Date().toISOString();
+  progress("ok", "Sivuanalyysi valmis");
+  return report;
 }
 
 // Common words that look like shortcodes but aren't — Finnish, English, JS artifacts
@@ -2194,8 +2362,34 @@ async function serveUi(port = 4173) {
         return;
       }
 
+      if (req.method === "POST" && url.pathname === "/api/analyze") {
+        const body = await readJsonBody(req);
+        const config = await createConfigFromInput(body);
+        const jobId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const log = [];
+        const progress = (level, msg) => {
+          log.push({ level, msg, t: new Date().toISOString() });
+        };
+        jobs.set(jobId, { status: "running", kind: "analysis", log });
+        analyzeSite(config, progress).then((report) => {
+          jobs.set(jobId, { status: "done", kind: "analysis", report, log });
+        }).catch((err) => {
+          jobs.set(jobId, { status: "error", kind: "analysis", error: String(err?.message || err), log });
+        });
+        sendJson(res, 202, { ok: true, jobId });
+        return;
+      }
+
       if (req.method === "GET" && url.pathname.startsWith("/api/run/")) {
         const jobId = url.pathname.slice("/api/run/".length);
+        const job = jobs.get(jobId);
+        if (!job) { sendJson(res, 404, { error: "Job not found" }); return; }
+        sendJson(res, 200, job);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname.startsWith("/api/analyze/")) {
+        const jobId = url.pathname.slice("/api/analyze/".length);
         const job = jobs.get(jobId);
         if (!job) { sendJson(res, 404, { error: "Job not found" }); return; }
         sendJson(res, 200, job);
