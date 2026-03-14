@@ -3731,6 +3731,7 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
     categories,
     tags
   };
+  if (config.lang) frontMatter.lang = config.lang;
   if (authorName) frontMatter.author = authorName;
   if (featuredImageUrl) frontMatter.featuredImage = featuredImageUrl;
   if (item?.sticky === true) frontMatter.sticky = true;
@@ -3789,7 +3790,9 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   progress("info", `Tulostehakemisto: ${config.outputRoot}${config.dryRun ? " (dry run)" : ""}`);
 
   const root = path.resolve(process.cwd(), config.outputRoot);
-  const contentRoot = path.join(root, config.contentDir);
+  const contentRoot = config.langPrefix
+    ? path.join(root, config.contentDir, config.langPrefix)
+    : path.join(root, config.contentDir);
   const mediaRoot = path.join(root, config.mediaDir);
   const dataRoot = path.join(root, config.dataDir || DEFAULT_DATA_DIR);
   const kadencePartialsPath = path.join(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR);
@@ -3857,12 +3860,14 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   }
 
   const baseApi = joinUrl(config.wpBaseUrl, config.restNamespace || DEFAULT_NAMESPACE);
+  const langParam = config.lang ? `?lang=${encodeURIComponent(config.lang)}` : "";
+  const langSep = config.lang ? `?lang=${encodeURIComponent(config.lang)}&` : "?";
 
   progress("info", "Haetaan taksonomiat (kategoriat, tagit)…");
   printStep("fetch", `Taxonomies from ${baseApi}`);
   const [cats, tags] = await Promise.all([
-    fetchAllPages(`${baseApi}/categories`, headers).catch(() => []),
-    fetchAllPages(`${baseApi}/tags`, headers).catch(() => [])
+    fetchAllPages(`${baseApi}/categories${langParam}`, headers).catch(() => []),
+    fetchAllPages(`${baseApi}/tags${langParam}`, headers).catch(() => [])
   ]);
   const categoryMap = new Map(cats.map((c) => [c.id, c.name]));
   const tagMap = new Map(tags.map((t) => [t.id, t.name]));
@@ -3968,9 +3973,9 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   for (const type of config.contentTypes) {
     const typeSlug = slugify(type);
     const endpointBase = `${baseApi}/${type}`;
-    const baseWithEmbed = `${endpointBase}?_embed=1`;
+    const baseWithEmbed = `${endpointBase}${langSep}_embed=1`;
     const endpoint = config.authMode !== "none"
-      ? `${endpointBase}?context=edit&_embed=1`
+      ? `${endpointBase}${langSep}context=edit&_embed=1`
       : baseWithEmbed;
     progress("info", `Haetaan ${type}…`);
     printStep("fetch", `${type} -> ${endpoint}`);
@@ -3995,7 +4000,8 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     // Write Eleventy directory data file so collections.posts works out of the box.
     if (typeSlug === "posts" && !config.dryRun) {
       const layout = resolveLayoutForType("posts", config);
-      const dirData = { tags: ["posts"], ...(layout ? { layout } : {}) };
+      const postTag = config.langPrefix ? `posts-${config.langPrefix}` : "posts";
+      const dirData = { tags: ["posts", postTag], ...(config.lang ? { lang: config.lang } : {}), ...(layout ? { layout } : {}) };
       await writeIfMissing(path.join(outTypeDir, "posts.json"), `${JSON.stringify(dirData, null, 2)}\n`);
     }
 
@@ -4149,7 +4155,9 @@ async function createConfigFromInput(raw = {}) {
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
     mediaDir: String(raw.mediaDir || "media").trim() || "media",
-    dataDir: String(raw.dataDir || DEFAULT_DATA_DIR).trim() || DEFAULT_DATA_DIR
+    dataDir: String(raw.dataDir || DEFAULT_DATA_DIR).trim() || DEFAULT_DATA_DIR,
+    lang: String(raw.lang || "").trim().toLowerCase(),
+    langPrefix: String(raw.langPrefix || raw.lang || "").trim().toLowerCase()
   };
 }
 
