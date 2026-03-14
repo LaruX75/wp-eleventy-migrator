@@ -1510,6 +1510,14 @@
                       <div class="subsection-body">
                         <div class="grid">
                           <label>
+                            <span class="field-head"><span data-i18n="field_siteMode"></span></span>
+                            <select name="siteMode">
+                              <option value="new" data-i18n="option_siteMode_new"></option>
+                              <option value="existing" data-i18n="option_siteMode_existing"></option>
+                            </select>
+                            <span data-i18n="hint_siteMode"></span>
+                          </label>
+                          <label>
                             <span class="field-head"><span data-i18n="field_outputRoot"></span> <button type="button" class="help-button" data-help-topic="outputRoot">?</button></span>
                             <input name="outputRoot" required>
                           </label>
@@ -1925,6 +1933,7 @@
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
           field_wpBearerToken: "Bearer token",
+          field_siteMode: "Projektitila",
           field_localProjectFolder: "Paikallinen projektikansio",
           field_outputRoot: "Output root",
           field_configPath: "Config path",
@@ -1953,6 +1962,7 @@
           hint_kadenceBlocksDir: "Hakemisto, johon generoidut Kadence Nunjucks -partialit kirjoitetaan.",
           hint_stylesDir: "Hakemisto, johon ladatut legacy-tyylit ja design tokenit kirjoitetaan.",
           hint_authMode: "Useimmiten julkiselle datalle riittää none.",
+          hint_siteMode: "Uusi sivusto bootstrapataan Eleventy-projektiksi ja riippuvuudet asennetaan. Olemassa olevaan projektiin tuodaan sisältö varovaisemmin.",
           hint_localProjectFolder: "Tähän paikalliseen projektikansioon migroitu sisältö tuodaan jatkotyöstöä varten.",
           option_preset_none: "Ei presetiä",
           option_preset_kadence: "Kadence",
@@ -1962,6 +1972,8 @@
           option_auth_none: "none",
           option_auth_app_password: "app-password",
           option_auth_bearer: "bearer",
+          option_siteMode_new: "Luo uusi sivusto",
+          option_siteMode_existing: "Päivitä olemassa olevaa",
           option_domain_buy: "Hanki uusi domain",
           option_domain_point: "Osoita olemassa oleva domain",
           toggle_includeDrafts: "Sisällytä draftit ja private-sisällöt.",
@@ -2246,6 +2258,7 @@
           field_wpUser: "WP username",
           field_wpAppPassword: "WP application password",
           field_wpBearerToken: "Bearer token",
+          field_siteMode: "Project mode",
           field_localProjectFolder: "Local project folder",
           field_outputRoot: "Output root",
           field_configPath: "Config path",
@@ -2274,6 +2287,7 @@
           hint_kadenceBlocksDir: "Directory where generated Kadence Nunjucks partials are written.",
           hint_stylesDir: "Directory where downloaded legacy styles and extracted design tokens are written.",
           hint_authMode: "For public content, none is usually enough.",
+          hint_siteMode: "A new site is bootstrapped as an Eleventy project and dependencies are installed. Existing mode updates content more conservatively.",
           hint_localProjectFolder: "This is the local project folder where the migrated content will be brought for further work.",
           option_preset_none: "No preset",
           option_preset_kadence: "Kadence",
@@ -2283,6 +2297,8 @@
           option_auth_none: "none",
           option_auth_app_password: "app-password",
           option_auth_bearer: "bearer",
+          option_siteMode_new: "Create new site",
+          option_siteMode_existing: "Update existing site",
           option_domain_buy: "Buy a new domain",
           option_domain_point: "Point an existing domain",
           toggle_includeDrafts: "Include drafts and private content.",
@@ -3241,6 +3257,9 @@
       function deriveProjectDefaults(folderValue = "") {
         const folder = String(folderValue || "").trim().replace(/\/+$/, "");
         const siteSlug = slugFromUrl(form.elements.namedItem("wpBaseUrl").value || "");
+        const siteMode = form.elements.namedItem("siteMode").value || "new";
+        const localDevCommand = siteMode === "existing" ? "npx @11ty/eleventy --serve" : "npm run dev";
+        const buildCommand = siteMode === "existing" ? "npx @11ty/eleventy" : "npm run build";
         if (!folder) {
           return {
             outputRoot: "",
@@ -3248,8 +3267,9 @@
             contentDir: "content",
             mediaDir: "media",
             dataDir: "_data",
-            localDevCommand: "npx @11ty/eleventy --serve",
-            localSiteUrl: "http://127.0.0.1:8080/"
+            localDevCommand,
+            localSiteUrl: "http://127.0.0.1:8080/",
+            buildCommand
           };
         }
         return {
@@ -3258,8 +3278,9 @@
           contentDir: "content",
           mediaDir: "media",
           dataDir: "_data",
-          localDevCommand: "npx @11ty/eleventy --serve",
+          localDevCommand,
           localSiteUrl: "http://127.0.0.1:8080/",
+          buildCommand,
           githubRepo: siteSlug
         };
       }
@@ -3274,6 +3295,7 @@
           ["dataDir", defaults.dataDir],
           ["localDevCommand", defaults.localDevCommand],
           ["localSiteUrl", defaults.localSiteUrl],
+          ["buildCommand", defaults.buildCommand],
           ["githubRepo", defaults.githubRepo]
         ];
         for (const [name, value] of mappings) {
@@ -3297,6 +3319,7 @@
       function getPayload() {
         const data = new FormData(form);
         return {
+          siteMode: data.get("siteMode"),
           preset: data.get("preset"),
           sourceType: data.get("sourceType"),
           wpBaseUrl: data.get("wpBaseUrl"),
@@ -3354,6 +3377,7 @@
         const data = new FormData(form);
         return {
           phases: getPhaseState(),
+          siteMode: data.get("siteMode"),
           wpBaseUrl: data.get("wpBaseUrl"),
           contentTypes: data.get("contentTypes"),
           localProjectFolder: data.get("localProjectFolder"),
@@ -3400,7 +3424,7 @@
           {
             title: planLabels.p1_output,
             text: phases.local
-              ? `${state.localProjectFolder || planText.missingProject}; ${state.outputRoot || "./migrations/..."}`
+              ? `${state.siteMode === "existing" ? t("option_siteMode_existing") : t("option_siteMode_new")}; ${state.localProjectFolder || planText.missingProject}; ${state.outputRoot || "./migrations/..."}`
               : planText.phaseInactive
           },
           {
@@ -3482,9 +3506,10 @@
           githubRepo: "",
           pagesUrl: "",
           localProjectFolder: "",
-          localDevCommand: "npx @11ty/eleventy --serve",
+          siteMode: "new",
+          localDevCommand: "npm run dev",
           localSiteUrl: "http://127.0.0.1:8080/",
-          buildCommand: "npx @11ty/eleventy",
+          buildCommand: "npm run build",
           useGitHubActions: true,
           publishOnPush: true,
           useCustomDomain: false,
@@ -3614,6 +3639,11 @@
         applyPresetDefaults();
         renderPlan();
         renderStylesPanel();
+      });
+
+      form.elements.namedItem("siteMode").addEventListener("change", () => {
+        applyProjectDefaults(form.elements.namedItem("localProjectFolder").value, true);
+        renderPlan();
       });
 
       form.querySelectorAll('input[name="phaseAnalyzeActive"], input[name="phaseLocalActive"], input[name="phasePublishActive"]').forEach((field) => {

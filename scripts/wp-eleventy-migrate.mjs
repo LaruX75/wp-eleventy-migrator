@@ -6,6 +6,7 @@ import process from "node:process";
 import http from "node:http";
 import readline from "node:readline/promises";
 import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -94,6 +95,7 @@ const SUPPORTED_KADENCE_PRO_BLOCKS = [
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
+const execFileAsync = promisify(execFile);
 
 function nowStamp() {
   const d = new Date();
@@ -723,6 +725,150 @@ async function writeEleventyPluginPlan(root, config, report, progress = () => {}
   ].join("\n");
   await fs.writeFile(snippetPath, snippet, "utf8");
   progress("ok", `Eleventy-pluginisuunnitelma kirjoitettu: ${enabled.length}/${replacements.length} käytössä`);
+}
+
+function deriveProjectName(config) {
+  const fromUrl = slugify(String(config.wpBaseUrl || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]);
+  return fromUrl || "eleventy-site";
+}
+
+function inferBootstrapDependencies(config) {
+  const dependencies = {
+    "@11ty/eleventy": "^3.0.0"
+  };
+  const replacements = normalizeEleventyReplacements(config.eleventyReplacements).filter((item) => item.enabled);
+  for (const item of replacements) {
+    if (item.packageName === "@11ty/eleventy-navigation") {
+      dependencies["@11ty/eleventy-navigation"] = "^1.0.4";
+    }
+  }
+  return dependencies;
+}
+
+async function writeIfMissing(filePath, content) {
+  if (await fileExists(filePath)) return false;
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, content, "utf8");
+  return true;
+}
+
+async function bootstrapEleventyProject(root, config, report, progress = () => {}) {
+  if (config.siteMode === "existing") {
+    report.bootstrap = { skipped: true, reason: "existing-site-mode" };
+    progress("info", "Eleventy-bootstrap ohitettu: päivitetään olemassa olevaa projektia");
+    return;
+  }
+
+  const dependencies = inferBootstrapDependencies(config);
+  const usesNavigation = Object.prototype.hasOwnProperty.call(dependencies, "@11ty/eleventy-navigation");
+  const packageJsonPath = path.join(root, "package.json");
+  const configJsPath = path.join(root, ".eleventy.js");
+  const gitignorePath = path.join(root, ".gitignore");
+  const notesPath = path.join(root, "MIGRATION-NOTES.md");
+
+  const packageJson = {
+    name: deriveProjectName(config),
+    private: true,
+    scripts: {
+      dev: "eleventy --serve",
+      build: "eleventy"
+    },
+    dependencies
+  };
+
+  const configLines = [];
+  if (usesNavigation) {
+    configLines.push('const eleventyNavigationPlugin = require("@11ty/eleventy-navigation");');
+    configLines.push("");
+  }
+  configLines.push('const { existsSync } = require("node:fs");');
+  configLines.push("");
+  configLines.push("module.exports = function(eleventyConfig) {");
+  if (usesNavigation) {
+    configLines.push("  eleventyConfig.addPlugin(eleventyNavigationPlugin);");
+  }
+  configLines.push('  if (existsSync("media")) eleventyConfig.addPassthroughCopy({ "media": "media" });');
+  configLines.push('  if (existsSync("styles")) eleventyConfig.addPassthroughCopy({ "styles": "styles" });');
+  configLines.push("");
+  configLines.push("  return {");
+  configLines.push('    dir: { input: "content", includes: "../_includes", data: "../_data", output: "_site" },');
+  configLines.push('    templateFormats: ["md", "njk", "html"],');
+  configLines.push('    markdownTemplateEngine: "njk",');
+  configLines.push('    htmlTemplateEngine: "njk",');
+  configLines.push('    dataTemplateEngine: "njk"');
+  configLines.push("  };");
+  configLines.push("};");
+  configLines.push("");
+
+  const notes = [
+    "# Migration Notes",
+    "",
+    "This project was bootstrapped by `wp-eleventy-migrator`.",
+    "",
+    "## Next steps",
+    "",
+    "1. Run `npm install` in this folder to install Eleventy and any selected plugins.",
+    "2. Run `npm run dev` to preview the migrated site locally.",
+    "3. Review `_includes/`, `_data/`, styles, and content output before publishing.",
+    ""
+  ].join("\n");
+
+  const bootstrap = {
+    packageJsonPath,
+    configJsPath,
+    gitignorePath,
+    notesPath,
+    dependencies: Object.keys(dependencies),
+    created: []
+  };
+
+  if (config.dryRun) {
+    report.bootstrap = { ...bootstrap, note: "Bootstrap files will be created on non-dry-run" };
+    progress("ok", `Eleventy-bootstrap suunniteltu: ${bootstrap.dependencies.join(", ")}`);
+    return;
+  }
+
+  if (await writeIfMissing(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)) bootstrap.created.push(packageJsonPath);
+  if (await writeIfMissing(configJsPath, configLines.join("\n"))) bootstrap.created.push(configJsPath);
+  if (await writeIfMissing(gitignorePath, "_site/\nnode_modules/\n.DS_Store\n")) bootstrap.created.push(gitignorePath);
+  if (await writeIfMissing(notesPath, notes)) bootstrap.created.push(notesPath);
+
+  report.bootstrap = bootstrap;
+  progress("ok", `Eleventy-bootstrap valmis: ${bootstrap.created.length} tiedostoa`);
+}
+
+async function installProjectDependencies(root, config, report, progress = () => {}) {
+  const packageJsonPath = path.join(root, "package.json");
+  const shouldInstall = config.siteMode === "new";
+  if (!shouldInstall) {
+    report.install = { skipped: true, reason: "existing-site-mode" };
+    progress("info", "Riippuvuuksien asennus ohitettu: päivitetään olemassa olevaa projektia");
+    return;
+  }
+
+  if (!(await fileExists(packageJsonPath))) {
+    report.install = { skipped: true, reason: "missing-package-json" };
+    progress("warn", "Riippuvuuksia ei voitu asentaa: package.json puuttuu");
+    return;
+  }
+
+  if (config.dryRun) {
+    report.install = { planned: true, command: "npm install" };
+    progress("ok", "Riippuvuuksien asennus suunniteltu: npm install (dry run)");
+    return;
+  }
+
+  try {
+    progress("info", "Asennetaan Eleventy-riippuvuudet…");
+    await execFileAsync("npm", ["install"], { cwd: root, encoding: "utf8", maxBuffer: 1024 * 1024 * 8 });
+    report.install = { ran: true, command: "npm install" };
+    progress("ok", "Riippuvuudet asennettu: npm install");
+  } catch (err) {
+    const detail = String(err?.stderr || err?.stdout || err?.message || err);
+    report.install = { ran: true, failed: true, command: "npm install", detail };
+    report.warnings.push(`npm install failed: ${detail}`);
+    progress("warn", "Riippuvuuksien asennus epäonnistui, tarkista loki");
+  }
 }
 
 // Common words that look like shortcodes but aren't — Finnish, English, JS artifacts
@@ -2077,6 +2223,9 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   if (config.downloadMedia) await fs.mkdir(mediaRoot, { recursive: true });
   if (config.importMenus) await fs.mkdir(dataRoot, { recursive: true });
 
+  await bootstrapEleventyProject(root, config, report, progress);
+  await installProjectDependencies(root, config, report, progress);
+
   if (config.convertKadenceBlocks) {
     const allKadenceBlocks = config.preset === "kadence-pro"
       ? [...SUPPORTED_KADENCE_BLOCKS, ...SUPPORTED_KADENCE_PRO_BLOCKS]
@@ -2305,6 +2454,7 @@ async function createConfigFromInput(raw = {}) {
 
   return {
     preset,
+    siteMode: ["new", "existing"].includes(String(raw.siteMode || "new")) ? String(raw.siteMode || "new") : "new",
     sourceType: String(raw.sourceType || "rest").toLowerCase(),
     wpBaseUrl: String(raw.wpBaseUrl || "").trim().replace(/\/+$/, ""),
     restNamespace: String(raw.restNamespace || DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE,
@@ -2448,6 +2598,7 @@ function sendJson(res, status, payload) {
 
 function extractDeploymentPlan(body) {
   const keys = [
+    "siteMode",
     "localProjectFolder", "localDevCommand", "localSiteUrl",
     "githubOwner", "githubRepo", "pagesUrl", "buildCommand",
     "useGitHubActions", "publishOnPush",
@@ -2665,6 +2816,7 @@ async function serveUi(port = 4173) {
         const stamp = nowStamp();
         const outputRoot = `./migrations/wp-to-eleventy-${stamp}`;
         sendJson(res, 200, {
+          siteMode: "new",
           sourceType: "rest",
           preset: "none",
           wpBaseUrl: "",
