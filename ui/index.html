@@ -358,6 +358,132 @@
         color: var(--muted);
       }
 
+      .phase-quick {
+        display: grid;
+        gap: 14px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        background: var(--panel-strong);
+      }
+
+      .phase-row {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+      }
+
+      .phase-row.phase-row-3 {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+      }
+
+      .phase-progress {
+        display: grid;
+        gap: 8px;
+      }
+
+      .phase-progress-bar {
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--secondary-bg);
+        border: 1px solid var(--line);
+      }
+
+      .phase-progress-bar span {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent-strong) 72%, white 28%));
+        transition: width 180ms ease;
+      }
+
+      .phase-progress-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .phase-disclosure {
+        border: 1px dashed color-mix(in srgb, var(--accent) 28%, transparent);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+        overflow: hidden;
+      }
+
+      .phase-disclosure summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 14px 16px;
+      }
+
+      .phase-disclosure summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .phase-disclosure-body {
+        padding: 0 16px 16px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .recommendation-list,
+      .plugin-check-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .recommendation-list li {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px 14px;
+        background: var(--panel-strong);
+        color: var(--muted);
+      }
+
+      .plugin-check-grid label {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel-strong);
+      }
+
+      .plugin-check-grid input {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+      }
+
+      .phase-actions-footer {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .continue-glow {
+        position: relative;
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 42%, transparent);
+        animation: continuePulse 1.6s ease-in-out infinite;
+      }
+
+      @keyframes continuePulse {
+        0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 34%, transparent); }
+        70% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--accent) 0%, transparent); }
+        100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+      }
+
+      .step[aria-disabled="true"] {
+        opacity: 0.58;
+        pointer-events: none;
+      }
+
       .section-head {
         display: flex;
         align-items: center;
@@ -893,14 +1019,6 @@
       }
 
       /* ── Analysis result card tweaks ───────────────────────────────── */
-      #analyze-result-area .result { min-height: unset; }
-      #analyze-plugin-grid .plugin-card { font-size: 0.9rem; }
-      .effort-high   { background: color-mix(in srgb, #fee2e2 80%, transparent); color: #991b1b; }
-      .effort-medium { background: color-mix(in srgb, #fef9c3 80%, transparent); color: #92400e; }
-      .effort-low    { background: color-mix(in srgb, #dcfce7 80%, transparent); color: #166534; }
-      body[data-theme="dark"] .effort-high   { background: color-mix(in srgb, #7f1d1d 60%, transparent); color: #fca5a5; }
-      body[data-theme="dark"] .effort-medium { background: color-mix(in srgb, #78350f 60%, transparent); color: #fde68a; }
-      body[data-theme="dark"] .effort-low    { background: color-mix(in srgb, #14532d 60%, transparent); color: #86efac; }
     </style>
   </head>
   <body data-theme="light">
@@ -954,7 +1072,6 @@
 
       <div class="panel tab-nav-panel">
         <div class="tabs">
-          <button type="button" class="tab-button" data-tab-target="analyze-tab" id="analyze-tab-button" data-i18n="tab_analyze"></button>
           <button type="button" class="tab-button is-active" data-tab-target="workflow-tab" id="workflow-tab-button" data-i18n="tab_workflow"></button>
           <button type="button" class="tab-button" data-tab-target="styles-tab" id="styles-tab-button" data-i18n="tab_styles"></button>
           <button type="button" class="tab-button" data-tab-target="plugins-tab" id="plugins-tab-button" data-i18n="tab_plugins"></button>
@@ -962,97 +1079,9 @@
         </div>
       </div>
 
-      <section class="layout tab-panel" id="analyze-tab" hidden>
-        <div class="panel">
-          <div class="section-head">
-            <h2 class="section-title" data-i18n="analyze_title"></h2>
-            <button type="button" class="help-button" data-help-topic="analyze-overview">?</button>
-          </div>
-          <p class="hint" data-i18n="analyze_intro"></p>
-
-          <div class="grid grid-1" style="margin-bottom:14px">
-            <label>
-              <span class="field-head"><span data-i18n="field_wpBaseUrl"></span></span>
-              <input id="analyze-url" type="url" data-i18n-placeholder="placeholder_wpBaseUrl">
-            </label>
-          </div>
-
-          <details class="step" id="analyze-auth-details">
-            <summary>
-              <div class="step-head">
-                <div class="step-number" style="width:28px;height:28px;font-size:0.82rem">⚙</div>
-                <div>
-                  <h3 class="step-title" style="font-size:0.95rem" data-i18n="analyze_auth_section"></h3>
-                  <p class="step-lede" style="font-size:0.85rem" data-i18n="analyze_auth_lede"></p>
-                </div>
-                <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
-              </div>
-            </summary>
-            <div class="step-body">
-              <div class="grid">
-                <label>
-                  <span data-i18n="field_authMode"></span>
-                  <select id="analyze-authMode">
-                    <option value="none" data-i18n="option_auth_none"></option>
-                    <option value="app-password" data-i18n="option_auth_app_password"></option>
-                    <option value="bearer" data-i18n="option_auth_bearer"></option>
-                  </select>
-                </label>
-              </div>
-              <div id="analyze-app-password-fields" class="grid auth-fields" hidden>
-                <label>
-                  <span data-i18n="field_wpUser"></span>
-                  <input id="analyze-wpUser">
-                </label>
-                <label>
-                  <span data-i18n="field_wpAppPassword"></span>
-                  <input id="analyze-wpAppPassword" type="password">
-                </label>
-              </div>
-              <div id="analyze-bearer-fields" class="grid auth-fields" hidden>
-                <label>
-                  <span data-i18n="field_wpBearerToken"></span>
-                  <input id="analyze-wpBearerToken" type="password">
-                </label>
-              </div>
-            </div>
-          </details>
-
-          <div class="actions" style="margin-top:14px">
-            <button type="button" class="primary" id="run-analyze-button" data-i18n="btn_analyze"></button>
-          </div>
-          <div id="analyze-status" class="status" aria-live="polite" style="margin-top:8px"></div>
-
-          <div id="analyze-result-area" hidden>
-            <div id="analyze-report-card" class="result" style="margin-top:16px;min-height:unset"><pre id="analyze-report-pre" style="margin:0;white-space:pre-wrap;word-break:break-word;font-family:'SFMono-Regular',monospace;font-size:0.85rem;line-height:1.6"></pre></div>
-
-            <div id="analyze-plugins-section" style="margin-top:16px" hidden>
-              <h3 style="margin:0 0 10px;font-size:1rem" data-i18n="analyze_plugins_title"></h3>
-              <div id="analyze-plugin-grid" class="plugin-grid"></div>
-            </div>
-
-            <div class="actions" style="margin-top:16px">
-              <button type="button" class="primary" id="apply-analysis-button" data-i18n="btn_apply_analysis"></button>
-            </div>
-          </div>
-        </div>
-
-        <aside class="side-stack">
-          <section class="panel">
-            <h2 class="side-title" data-i18n="analyze_side_title"></h2>
-            <p class="hint" data-i18n="analyze_side_hint"></p>
-            <ul class="check-list" id="analyze-checklist"></ul>
-          </section>
-        </aside>
-      </section>
-
       <section class="layout tab-panel" id="workflow-tab">
         <div class="panel">
           <form id="migration-form">
-            <div class="subtle-box" id="analyze-promo" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-              <p style="margin:0" data-i18n="analyze_promo_text"></p>
-              <button type="button" class="secondary" id="go-to-analyze-button" data-i18n="btn_go_to_analyze" style="flex-shrink:0;white-space:nowrap"></button>
-            </div>
             <details class="step" open>
               <summary>
                 <div class="step-head">
@@ -1070,99 +1099,141 @@
                 </div>
               </summary>
               <div class="step-body">
-                <p class="step-phase-note" data-i18n="step0_note"></p>
-                <div class="section-head">
-                  <h3 class="section-title" data-i18n="source_section"></h3>
-                  <button type="button" class="help-button" data-help-topic="source-overview">?</button>
-                </div>
-                <div class="grid">
-                  <label>
-                    <span class="field-head"><span data-i18n="field_wpBaseUrl"></span> <button type="button" class="help-button" data-help-topic="wpBaseUrl">?</button></span>
-                    <input name="wpBaseUrl" type="url" required data-i18n-placeholder="placeholder_wpBaseUrl">
-                    <span data-i18n="hint_wpBaseUrl"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_restNamespace"></span> <button type="button" class="help-button" data-help-topic="restNamespace">?</button></span>
-                    <input name="restNamespace" required>
-                    <span data-i18n="hint_restNamespace"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_sourceType"></span> <button type="button" class="help-button" data-help-topic="sourceType">?</button></span>
-                    <select name="sourceType">
-                      <option value="rest">rest</option>
-                      <option value="xml">xml</option>
-                      <option value="json">json</option>
-                    </select>
-                    <span data-i18n="hint_sourceType"></span>
-                  </label>
+                <div class="phase-quick">
+                  <div class="phase-row phase-row-3">
+                    <label>
+                      <span class="field-head"><span data-i18n="field_wpBaseUrl"></span> <button type="button" class="help-button" data-help-topic="wpBaseUrl">?</button></span>
+                      <input name="wpBaseUrl" type="url" required data-i18n-placeholder="placeholder_wpBaseUrl">
+                    </label>
+                    <button type="button" class="primary" id="analyze-site" data-i18n="btn_analyze"></button>
+                    <button type="button" class="secondary" id="open-log-after-analysis" data-i18n="btn_view_log" disabled></button>
+                  </div>
+                  <div class="phase-progress">
+                    <div class="phase-progress-bar"><span id="analysis-progress-fill"></span></div>
+                    <div class="phase-progress-meta">
+                      <span id="analysis-progress-text" data-i18n="progress_waiting_analysis"></span>
+                      <span id="analysis-progress-value">0%</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div class="section-head">
-                  <h3 class="section-title" data-i18n="analysis_section"></h3>
-                  <button type="button" class="help-button" data-help-topic="analysis-overview">?</button>
-                </div>
-                <div class="grid">
-                  <label>
-                    <span class="field-head"><span data-i18n="field_preset"></span> <button type="button" class="help-button" data-help-topic="preset">?</button></span>
-                    <select name="preset" id="preset">
-                      <option value="none" data-i18n="option_preset_none"></option>
-                      <option value="kadence" data-i18n="option_preset_kadence"></option>
-                      <option value="kadence-pro" data-i18n="option_preset_kadence_pro"></option>
-                    </select>
-                    <span data-i18n="hint_preset"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_stylesDir"></span> <button type="button" class="help-button" data-help-topic="stylesDir">?</button></span>
-                    <input name="stylesDir" data-i18n-placeholder="placeholder_stylesDir">
-                    <span data-i18n="hint_stylesDir"></span>
-                  </label>
-                </div>
-                <div class="toggle-row">
-                  <label class="toggle">
-                    <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts">
-                    <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="convertKadenceBlocks" type="checkbox" id="convertKadenceBlocks">
-                    <span data-i18n="toggle_convertKadenceBlocks"></span> <button type="button" class="help-button" data-help-topic="convertKadenceBlocks">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="migrateStyles" type="checkbox" id="migrateStyles">
-                    <span data-i18n="toggle_migrateStyles"></span> <button type="button" class="help-button" data-help-topic="migrateStyles">?</button>
-                  </label>
-                </div>
-                <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_pageLayout"></span> <button type="button" class="help-button" data-help-topic="pageLayout">?</button></span>
-                    <input name="pageLayout" data-i18n-placeholder="placeholder_pageLayout">
-                    <span data-i18n="hint_pageLayout"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_postLayout"></span> <button type="button" class="help-button" data-help-topic="postLayout">?</button></span>
-                    <input name="postLayout" data-i18n-placeholder="placeholder_postLayout">
-                    <span data-i18n="hint_postLayout"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
-                    <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout">
-                    <span data-i18n="hint_defaultLayout"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_kadenceBlocksDir"></span> <button type="button" class="help-button" data-help-topic="kadenceBlocksDir">?</button></span>
-                    <input name="kadenceBlocksDir" data-i18n-placeholder="placeholder_kadenceBlocksDir">
-                    <span data-i18n="hint_kadenceBlocksDir"></span>
-                  </label>
-                </div>
-                <div class="subtle-box">
-                  <p data-i18n="analysis_box"></p>
-                </div>
-                <div class="actions">
-                  <button type="button" class="secondary" id="analyze-site" data-i18n="btn_analyze"></button>
+                <details class="phase-disclosure" id="analysis-settings-disclosure">
+                  <summary>
+                    <div class="step-head">
+                      <div>
+                        <h3 class="step-title" style="font-size:0.98rem" data-i18n="analysis_disclosure_title"></h3>
+                        <p class="step-lede" style="font-size:0.85rem" data-i18n="analysis_disclosure_lede"></p>
+                      </div>
+                      <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    </div>
+                  </summary>
+                  <div class="phase-disclosure-body">
+                    <p class="step-phase-note" data-i18n="step0_note"></p>
+                    <div class="section-head">
+                      <h3 class="section-title" data-i18n="source_section"></h3>
+                      <button type="button" class="help-button" data-help-topic="source-overview">?</button>
+                    </div>
+                    <div class="grid">
+                      <label>
+                        <span class="field-head"><span data-i18n="field_restNamespace"></span> <button type="button" class="help-button" data-help-topic="restNamespace">?</button></span>
+                        <input name="restNamespace" required>
+                        <span data-i18n="hint_restNamespace"></span>
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_sourceType"></span> <button type="button" class="help-button" data-help-topic="sourceType">?</button></span>
+                        <select name="sourceType">
+                          <option value="rest">rest</option>
+                          <option value="xml">xml</option>
+                          <option value="json">json</option>
+                        </select>
+                        <span data-i18n="hint_sourceType"></span>
+                      </label>
+                    </div>
+
+                    <div id="analysis-recommendations" hidden>
+                      <div class="section-head">
+                        <h3 class="section-title" data-i18n="analysis_recommendations_title"></h3>
+                      </div>
+                      <ul class="recommendation-list" id="analysis-recommendation-list"></ul>
+
+                      <div class="section-head">
+                        <h3 class="section-title" data-i18n="analysis_structures_title"></h3>
+                      </div>
+                      <div class="toggle-row">
+                        <label class="toggle">
+                          <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts">
+                          <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
+                        </label>
+                        <label class="toggle">
+                          <input name="convertKadenceBlocks" type="checkbox" id="convertKadenceBlocks">
+                          <span data-i18n="toggle_convertKadenceBlocks"></span> <button type="button" class="help-button" data-help-topic="convertKadenceBlocks">?</button>
+                        </label>
+                        <label class="toggle">
+                          <input name="migrateStyles" type="checkbox" id="migrateStyles">
+                          <span data-i18n="toggle_migrateStyles"></span> <button type="button" class="help-button" data-help-topic="migrateStyles">?</button>
+                        </label>
+                      </div>
+
+                      <div class="section-head">
+                        <h3 class="section-title" data-i18n="analysis_presets_title"></h3>
+                      </div>
+                      <div class="grid">
+                        <label>
+                          <span class="field-head"><span data-i18n="field_preset"></span> <button type="button" class="help-button" data-help-topic="preset">?</button></span>
+                          <select name="preset" id="preset">
+                            <option value="none" data-i18n="option_preset_none"></option>
+                            <option value="kadence" data-i18n="option_preset_kadence"></option>
+                            <option value="kadence-pro" data-i18n="option_preset_kadence_pro"></option>
+                          </select>
+                          <span data-i18n="hint_preset"></span>
+                        </label>
+                        <label>
+                          <span class="field-head"><span data-i18n="field_stylesDir"></span> <button type="button" class="help-button" data-help-topic="stylesDir">?</button></span>
+                          <input name="stylesDir" data-i18n-placeholder="placeholder_stylesDir">
+                          <span data-i18n="hint_stylesDir"></span>
+                        </label>
+                      </div>
+                      <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
+                        <label>
+                          <span class="field-head"><span data-i18n="field_pageLayout"></span> <button type="button" class="help-button" data-help-topic="pageLayout">?</button></span>
+                          <input name="pageLayout" data-i18n-placeholder="placeholder_pageLayout">
+                          <span data-i18n="hint_pageLayout"></span>
+                        </label>
+                        <label>
+                          <span class="field-head"><span data-i18n="field_postLayout"></span> <button type="button" class="help-button" data-help-topic="postLayout">?</button></span>
+                          <input name="postLayout" data-i18n-placeholder="placeholder_postLayout">
+                          <span data-i18n="hint_postLayout"></span>
+                        </label>
+                        <label>
+                          <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
+                          <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout">
+                          <span data-i18n="hint_defaultLayout"></span>
+                        </label>
+                        <label>
+                          <span class="field-head"><span data-i18n="field_kadenceBlocksDir"></span> <button type="button" class="help-button" data-help-topic="kadenceBlocksDir">?</button></span>
+                          <input name="kadenceBlocksDir" data-i18n-placeholder="placeholder_kadenceBlocksDir">
+                          <span data-i18n="hint_kadenceBlocksDir"></span>
+                        </label>
+                      </div>
+
+                      <div class="section-head">
+                        <h3 class="section-title" data-i18n="analysis_plugins_title"></h3>
+                      </div>
+                      <div id="analysis-plugin-checkboxes" class="plugin-check-grid"></div>
+                    </div>
+
+                    <div class="subtle-box">
+                      <p data-i18n="analysis_box"></p>
+                    </div>
+                  </div>
+                </details>
+                <div class="phase-actions-footer">
+                  <button type="button" class="primary" id="continue-to-migration" data-i18n="btn_continue_to_migration" disabled></button>
                 </div>
               </div>
             </details>
 
-            <details class="step">
+            <details class="step" id="migration-step" aria-disabled="true">
               <summary>
                 <div class="step-head">
                   <div class="step-number">2</div>
@@ -1179,136 +1250,166 @@
                 </div>
               </summary>
               <div class="step-body">
-                <p class="step-phase-note" data-i18n="step1_note"></p>
-
-                <div class="section-head">
-                  <h3 class="section-title" data-i18n="content_section"></h3>
-                  <button type="button" class="help-button" data-help-topic="content-overview">?</button>
-                </div>
-                <div class="grid">
-                  <label>
-                    <span class="field-head"><span data-i18n="field_contentTypes"></span> <button type="button" class="help-button" data-help-topic="contentTypes">?</button></span>
-                    <input name="contentTypes" data-i18n-placeholder="placeholder_contentTypes">
-                    <span data-i18n="hint_contentTypes"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_htmlMode"></span> <button type="button" class="help-button" data-help-topic="htmlMode">?</button></span>
-                    <select name="htmlMode">
-                      <option value="keep-html" data-i18n="option_keep_html"></option>
-                      <option value="basic-markdown" data-i18n="option_basic_markdown"></option>
-                    </select>
-                    <span data-i18n="hint_htmlMode"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_permalink"></span> <button type="button" class="help-button" data-help-topic="targetPermalinkPattern">?</button></span>
-                    <input name="targetPermalinkPattern" data-i18n-placeholder="placeholder_permalink">
-                    <span data-i18n="hint_permalink"></span>
-                  </label>
-                </div>
-                <div class="toggle-row">
-                  <label class="toggle">
-                    <input name="includeDrafts" type="checkbox">
-                    <span data-i18n="toggle_includeDrafts"></span> <button type="button" class="help-button" data-help-topic="includeDrafts">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="downloadMedia" type="checkbox">
-                    <span data-i18n="toggle_downloadMedia"></span> <button type="button" class="help-button" data-help-topic="downloadMedia">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="createRedirects" type="checkbox">
-                    <span data-i18n="toggle_createRedirects"></span> <button type="button" class="help-button" data-help-topic="createRedirects">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="importMenus" type="checkbox" checked>
-                    <span data-i18n="toggle_importMenus"></span> <button type="button" class="help-button" data-help-topic="importMenus">?</button>
-                  </label>
-                  <label class="toggle">
-                    <input name="dryRun" type="checkbox">
-                    <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
-                  </label>
+                <div class="phase-quick">
+                  <div class="phase-row">
+                    <label>
+                      <span class="field-head"><span data-i18n="field_localProjectFolder"></span> <button type="button" class="help-button" data-help-topic="localProjectFolder">?</button></span>
+                      <input name="localProjectFolder" data-i18n-placeholder="placeholder_localProjectFolder">
+                    </label>
+                    <button type="button" class="secondary" id="open-project-folder" data-i18n="btn_open_project_folder"></button>
+                  </div>
+                  <div class="phase-row phase-row-3">
+                    <button type="submit" class="primary" id="run-migration" data-i18n="btn_run"></button>
+                    <button type="button" class="secondary" id="run-dry-migration" data-i18n="btn_dry_run_plain"></button>
+                    <button type="button" class="secondary" id="save-config" data-i18n="btn_save"></button>
+                  </div>
+                  <div class="phase-progress">
+                    <div class="phase-progress-bar"><span id="migration-progress-fill"></span></div>
+                    <div class="phase-progress-meta">
+                      <span id="migration-progress-text" data-i18n="progress_waiting_migration"></span>
+                      <span id="migration-progress-value">0%</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div class="section-head">
-                  <h3 class="section-title" data-i18n="auth_section"></h3>
-                  <button type="button" class="help-button" data-help-topic="auth-overview">?</button>
-                </div>
-                <div class="grid">
-                  <label>
-                    <span class="field-head"><span data-i18n="field_authMode"></span> <button type="button" class="help-button" data-help-topic="authMode">?</button></span>
-                    <select name="authMode" id="authMode">
-                      <option value="none" data-i18n="option_auth_none"></option>
-                      <option value="app-password" data-i18n="option_auth_app_password"></option>
-                      <option value="bearer" data-i18n="option_auth_bearer"></option>
-                    </select>
-                    <span data-i18n="hint_authMode"></span>
-                  </label>
-                </div>
-                <div id="app-password-fields" class="grid auth-fields" hidden>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_wpUser"></span> <button type="button" class="help-button" data-help-topic="wpUser">?</button></span>
-                    <input name="wpUser">
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_wpAppPassword"></span> <button type="button" class="help-button" data-help-topic="wpAppPassword">?</button></span>
-                    <input name="wpAppPassword" type="password">
-                  </label>
-                </div>
-                <div id="bearer-fields" class="grid auth-fields" hidden>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_wpBearerToken"></span> <button type="button" class="help-button" data-help-topic="wpBearerToken">?</button></span>
-                    <input name="wpBearerToken" type="password">
-                  </label>
-                </div>
+                <details class="phase-disclosure" id="migration-settings-disclosure">
+                  <summary>
+                    <div class="step-head">
+                      <div>
+                        <h3 class="step-title" style="font-size:0.98rem" data-i18n="migration_disclosure_title"></h3>
+                        <p class="step-lede" style="font-size:0.85rem" data-i18n="migration_disclosure_lede"></p>
+                      </div>
+                      <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    </div>
+                  </summary>
+                  <div class="phase-disclosure-body">
+                    <p class="step-phase-note" data-i18n="step1_note"></p>
 
-                <div class="section-head">
-                  <h3 class="section-title" data-i18n="output_section"></h3>
-                  <button type="button" class="help-button" data-help-topic="output-overview">?</button>
-                </div>
-                <div class="grid">
-                  <label>
-                    <span class="field-head"><span data-i18n="field_localProjectFolder"></span> <button type="button" class="help-button" data-help-topic="localProjectFolder">?</button></span>
-                    <input name="localProjectFolder" data-i18n-placeholder="placeholder_localProjectFolder">
-                    <span data-i18n="hint_localProjectFolder"></span>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_outputRoot"></span> <button type="button" class="help-button" data-help-topic="outputRoot">?</button></span>
-                    <input name="outputRoot" required>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_configPath"></span> <button type="button" class="help-button" data-help-topic="configPath">?</button></span>
-                    <input name="configPath" required>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_contentDir"></span> <button type="button" class="help-button" data-help-topic="contentDir">?</button></span>
-                    <input name="contentDir" required>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_mediaDir"></span> <button type="button" class="help-button" data-help-topic="mediaDir">?</button></span>
-                    <input name="mediaDir" required>
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_dataDir"></span> <button type="button" class="help-button" data-help-topic="dataDir">?</button></span>
-                    <input name="dataDir" required>
-                  </label>
-                </div>
+                    <div class="section-head">
+                      <h3 class="section-title" data-i18n="content_section"></h3>
+                      <button type="button" class="help-button" data-help-topic="content-overview">?</button>
+                    </div>
+                    <div class="grid">
+                      <label>
+                        <span class="field-head"><span data-i18n="field_contentTypes"></span> <button type="button" class="help-button" data-help-topic="contentTypes">?</button></span>
+                        <input name="contentTypes" data-i18n-placeholder="placeholder_contentTypes">
+                        <span data-i18n="hint_contentTypes"></span>
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_htmlMode"></span> <button type="button" class="help-button" data-help-topic="htmlMode">?</button></span>
+                        <select name="htmlMode">
+                          <option value="keep-html" data-i18n="option_keep_html"></option>
+                          <option value="basic-markdown" data-i18n="option_basic_markdown"></option>
+                        </select>
+                        <span data-i18n="hint_htmlMode"></span>
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_permalink"></span> <button type="button" class="help-button" data-help-topic="targetPermalinkPattern">?</button></span>
+                        <input name="targetPermalinkPattern" data-i18n-placeholder="placeholder_permalink">
+                        <span data-i18n="hint_permalink"></span>
+                      </label>
+                    </div>
+                    <div class="toggle-row">
+                      <label class="toggle">
+                        <input name="includeDrafts" type="checkbox">
+                        <span data-i18n="toggle_includeDrafts"></span> <button type="button" class="help-button" data-help-topic="includeDrafts">?</button>
+                      </label>
+                      <label class="toggle">
+                        <input name="downloadMedia" type="checkbox">
+                        <span data-i18n="toggle_downloadMedia"></span> <button type="button" class="help-button" data-help-topic="downloadMedia">?</button>
+                      </label>
+                      <label class="toggle">
+                        <input name="createRedirects" type="checkbox">
+                        <span data-i18n="toggle_createRedirects"></span> <button type="button" class="help-button" data-help-topic="createRedirects">?</button>
+                      </label>
+                      <label class="toggle">
+                        <input name="importMenus" type="checkbox" checked>
+                        <span data-i18n="toggle_importMenus"></span> <button type="button" class="help-button" data-help-topic="importMenus">?</button>
+                      </label>
+                      <label class="toggle">
+                        <input name="dryRun" type="checkbox">
+                        <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
+                      </label>
+                    </div>
 
-                <div class="section-head">
-                  <h3 class="section-title" data-i18n="local_section"></h3>
-                  <button type="button" class="help-button" data-help-topic="local-overview">?</button>
-                </div>
-                <div class="grid">
-                  <label>
-                    <span class="field-head"><span data-i18n="field_localDevCommand"></span> <button type="button" class="help-button" data-help-topic="localDevCommand">?</button></span>
-                    <input name="localDevCommand">
-                  </label>
-                  <label>
-                    <span class="field-head"><span data-i18n="field_localSiteUrl"></span> <button type="button" class="help-button" data-help-topic="localSiteUrl">?</button></span>
-                    <input name="localSiteUrl">
-                  </label>
-                </div>
-                <div class="subtle-box">
-                  <p data-i18n="local_box"></p>
-                </div>
+                    <div class="section-head">
+                      <h3 class="section-title" data-i18n="auth_section"></h3>
+                      <button type="button" class="help-button" data-help-topic="auth-overview">?</button>
+                    </div>
+                    <div class="grid">
+                      <label>
+                        <span class="field-head"><span data-i18n="field_authMode"></span> <button type="button" class="help-button" data-help-topic="authMode">?</button></span>
+                        <select name="authMode" id="authMode">
+                          <option value="none" data-i18n="option_auth_none"></option>
+                          <option value="app-password" data-i18n="option_auth_app_password"></option>
+                          <option value="bearer" data-i18n="option_auth_bearer"></option>
+                        </select>
+                        <span data-i18n="hint_authMode"></span>
+                      </label>
+                    </div>
+                    <div id="app-password-fields" class="grid auth-fields" hidden>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_wpUser"></span> <button type="button" class="help-button" data-help-topic="wpUser">?</button></span>
+                        <input name="wpUser">
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_wpAppPassword"></span> <button type="button" class="help-button" data-help-topic="wpAppPassword">?</button></span>
+                        <input name="wpAppPassword" type="password">
+                      </label>
+                    </div>
+                    <div id="bearer-fields" class="grid auth-fields" hidden>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_wpBearerToken"></span> <button type="button" class="help-button" data-help-topic="wpBearerToken">?</button></span>
+                        <input name="wpBearerToken" type="password">
+                      </label>
+                    </div>
+
+                    <div class="section-head">
+                      <h3 class="section-title" data-i18n="output_section"></h3>
+                      <button type="button" class="help-button" data-help-topic="output-overview">?</button>
+                    </div>
+                    <div class="grid">
+                      <label>
+                        <span class="field-head"><span data-i18n="field_outputRoot"></span> <button type="button" class="help-button" data-help-topic="outputRoot">?</button></span>
+                        <input name="outputRoot" required>
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_configPath"></span> <button type="button" class="help-button" data-help-topic="configPath">?</button></span>
+                        <input name="configPath" required>
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_contentDir"></span> <button type="button" class="help-button" data-help-topic="contentDir">?</button></span>
+                        <input name="contentDir" required>
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_mediaDir"></span> <button type="button" class="help-button" data-help-topic="mediaDir">?</button></span>
+                        <input name="mediaDir" required>
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_dataDir"></span> <button type="button" class="help-button" data-help-topic="dataDir">?</button></span>
+                        <input name="dataDir" required>
+                      </label>
+                    </div>
+
+                    <div class="section-head">
+                      <h3 class="section-title" data-i18n="local_section"></h3>
+                      <button type="button" class="help-button" data-help-topic="local-overview">?</button>
+                    </div>
+                    <div class="grid">
+                      <label>
+                        <span class="field-head"><span data-i18n="field_localDevCommand"></span> <button type="button" class="help-button" data-help-topic="localDevCommand">?</button></span>
+                        <input name="localDevCommand">
+                      </label>
+                      <label>
+                        <span class="field-head"><span data-i18n="field_localSiteUrl"></span> <button type="button" class="help-button" data-help-topic="localSiteUrl">?</button></span>
+                        <input name="localSiteUrl">
+                      </label>
+                    </div>
+                    <div class="subtle-box">
+                      <p data-i18n="local_box"></p>
+                    </div>
+                  </div>
+                </details>
               </div>
             </details>
 
@@ -1403,10 +1504,6 @@
               </div>
             </details>
 
-            <div class="actions">
-              <button type="button" class="secondary" id="save-config" data-i18n="btn_save"></button>
-              <button type="submit" class="primary" id="run-migration" data-i18n="btn_run"></button>
-            </div>
             <div id="status" class="status" aria-live="polite"></div>
           </form>
         </div>
@@ -1554,6 +1651,10 @@
       const saveButton = document.getElementById("save-config");
       const analyzeButton = document.getElementById("analyze-site");
       const runButton = document.getElementById("run-migration");
+      const dryRunButton = document.getElementById("run-dry-migration");
+      const openProjectFolderButton = document.getElementById("open-project-folder");
+      const openLogAfterAnalysisButton = document.getElementById("open-log-after-analysis");
+      const continueToMigrationButton = document.getElementById("continue-to-migration");
       const exportJsonButton = document.getElementById("export-json");
       const statusNode = document.getElementById("status");
       const resultNode = document.getElementById("result");
@@ -1564,6 +1665,18 @@
       const planPreview = document.getElementById("plan-preview");
       const checklist = document.getElementById("checklist");
       const workflowFocus = document.getElementById("workflow-focus");
+      const analysisProgressFill = document.getElementById("analysis-progress-fill");
+      const analysisProgressText = document.getElementById("analysis-progress-text");
+      const analysisProgressValue = document.getElementById("analysis-progress-value");
+      const migrationProgressFill = document.getElementById("migration-progress-fill");
+      const migrationProgressText = document.getElementById("migration-progress-text");
+      const migrationProgressValue = document.getElementById("migration-progress-value");
+      const analysisSettingsDisclosure = document.getElementById("analysis-settings-disclosure");
+      const migrationSettingsDisclosure = document.getElementById("migration-settings-disclosure");
+      const analysisRecommendations = document.getElementById("analysis-recommendations");
+      const analysisRecommendationList = document.getElementById("analysis-recommendation-list");
+      const analysisPluginCheckboxes = document.getElementById("analysis-plugin-checkboxes");
+      const migrationStep = document.getElementById("migration-step");
       const logSummaryNode = document.getElementById("log-summary");
       const helpDialog = document.getElementById("help-dialog");
       const helpTitle = document.getElementById("help-title");
@@ -1572,7 +1685,6 @@
       const languageSelect = document.getElementById("language-select");
       const themeSelect = document.getElementById("theme-select");
       const tabButtons = document.querySelectorAll("[data-tab-target]");
-      const analyzeTab = document.getElementById("analyze-tab");
       const workflowTab = document.getElementById("workflow-tab");
       const stylesTab = document.getElementById("styles-tab");
       const pluginsTab = document.getElementById("plugins-tab");
@@ -1622,9 +1734,19 @@
           step0_title: "Vaihe 1: Syötä sivun osoite ja analysoi",
           step0_lede: "Tutki sivuston rakenne, teema, tyylit, valikot ja plugin-signaalit ennen varsinaista migraatiota.",
           step0_note: "Tämä vaihe tekee esiselvityksen siitä, mitä sivustolla oikeasti on ja mitä preset- sekä tyyliasetuksia kannattaa käyttää.",
+          analysis_disclosure_title: "Näytä analyysin asetukset ja suositukset",
+          analysis_disclosure_lede: "Avaa tämä, jos haluat tarkistaa analyysin perusteella valitut presetit, rakennevalinnat ja plugin-listan.",
+          analysis_recommendations_title: "Analyysin esiasetetut suositukset",
+          analysis_structures_title: "Ehdotetut rakennevalinnat",
+          analysis_presets_title: "Esitäytetyt presetit ja polut",
+          analysis_summary_theme: "Teemaehdotus",
+          analysis_summary_languages: "Havaitut kielet",
+          analysis_summary_content: "Havaittu sisältömäärä",
           step1_title: "Vaihe 2: Migroi sivut omalle koneelle",
           step1_lede: "Sisältötyypit, autentikointi, paikallinen projektikansio, output ja paikallinen ajo.",
           step1_note: "Tämä vaihe kirjoittaa sisällön paikalliseen Eleventy-projektiin tai dry-run-raporttiin.",
+          migration_disclosure_title: "Näytä migraation lisäasetukset",
+          migration_disclosure_lede: "Avaa tämä, jos haluat säätää sisältötyyppejä, autentikointia tai tarkempia output-polkuja.",
           step2_title: "Vaihe 3: Julkaise GitHubiin ja kytke domain",
           step2_lede: "GitHub Pages, Actions-julkaisu ja valinnainen domainin hankinta tai ohjaus.",
           step2_note: "Tämä vaihe määrittelee miten valmiiksi tarkistettu sivusto julkaistaan automaattisesti.",
@@ -1709,6 +1831,10 @@
           domain_box: "Domain-vaihe on valinnainen. Voit joko hankkia uuden domainin tai ohjata olemassa olevan domainin GitHub Pages -sivustolle DNS- ja CNAME-asetuksilla.",
           btn_save: "Tallenna config",
           btn_analyze: "Analysoi sivu",
+          btn_view_log: "Katso lokitiedosto",
+          btn_continue_to_migration: "Jatka seuraavaan vaiheeseen",
+          btn_open_project_folder: "Avaa kansio",
+          btn_dry_run_plain: "Tee testiajo, ei tallenneta koneelle",
           btn_run: "Aja migraatio",
           btn_export_json: "Vie JSON",
           plan_title: "Kolmen vaiheen suunnitelma",
@@ -1754,6 +1880,7 @@
           status_analysis_done: "Sivuanalyysi valmis.",
           status_analyze_inactive: "Analyysivaihe ei ole aktiivinen. Kytke vaihe päälle ennen ajoa.",
           status_local_inactive: "Paikallinen migraatiovaihe ei ole aktiivinen. Kytke vaihe päälle ennen migraation ajoa.",
+          status_folder_picker_fallback: "Selain ei tue kansiovalitsinta tässä ympäristössä. Syötä projektikansio kenttään käsin.",
           status_saving: "Tallennetaan konfiguraatio...",
           status_saved: "Konfiguraatio tallennettu.",
           status_running: "Migraatio käynnissä...",
@@ -1785,10 +1912,17 @@
           analysis_result_plugins: "Plugin-signaalit",
           analysis_result_no_plugins: "Ei tunnistettuja plugin-signaaleja",
           analysis_result_recommendations: "Suositukset",
+          progress_waiting_analysis: "Odottaa analyysin käynnistystä",
+          progress_running_analysis: "Analysoidaan sivustoa",
+          progress_done_analysis: "Analyysi valmis",
+          progress_failed_analysis: "Analyysi epäonnistui",
+          progress_waiting_migration: "Odottaa migraation käynnistystä",
+          progress_running_migration: "Migraatio käynnissä",
+          progress_running_dry_migration: "Testiajo käynnissä",
+          progress_done_migration: "Migraatio valmis",
+          progress_done_dry_migration: "Testiajo valmis",
+          progress_failed_migration: "Migraatio epäonnistui",
           field_dataDir: "Data-hakemisto",
-          tab_analyze: "Analyysi",
-          analyze_title: "WordPress-sivuston analyysi",
-          analyze_intro: "Syötä sivuston URL. Analyysi hakee REST API:n kautta sisältötyypit, lisäosat ja teema-asetukset ja ehdottaa migraatiokonfiguraatiota automaattisesti.",
           analyze_auth_section: "Autentikointi (valinnainen)",
           analyze_auth_lede: "Tarvitaan vain jos sisältö on yksityistä tai haluat context=edit -tason tiedon.",
           analyze_side_title: "Mitä analyysi tekee?",
@@ -1797,7 +1931,6 @@
           btn_analyze: "Aja analyysi",
           btn_analyzing: "Analysoidaan…",
           btn_apply_analysis: "Täytä lomake analyysin perusteella",
-          btn_go_to_analyze: "Analysoi ensin →",
           analyze_promo_text: "Suositus: aja analyysi ennen migraatiota. Se tunnistaa lisäosat, sisältötyypit ja teeman, ja täyttää asetukset automaattisesti.",
           analyze_status_done: "Analyysi valmis.",
           analyze_status_applied: "Asetukset täytetty analyysin perusteella.",
@@ -1918,9 +2051,19 @@
           step0_title: "Step 1: Enter the site URL and analyze it",
           step0_lede: "Inspect the site structure, theme, styles, menus, and plugin signals before the actual migration.",
           step0_note: "This phase builds an upfront picture of what is really on the source site and which preset or style strategy makes sense.",
+          analysis_disclosure_title: "Show analysis settings and recommendations",
+          analysis_disclosure_lede: "Open this if you want to inspect the suggested presets, structure choices, and plugin list derived from the analysis.",
+          analysis_recommendations_title: "Analysis-based preset recommendations",
+          analysis_structures_title: "Suggested structure choices",
+          analysis_presets_title: "Pre-filled presets and paths",
+          analysis_summary_theme: "Theme suggestion",
+          analysis_summary_languages: "Detected languages",
+          analysis_summary_content: "Detected content volume",
           step1_title: "Step 2: Migrate the site locally",
           step1_lede: "Content types, authentication, local project folder, output paths, and local preview.",
           step1_note: "This phase writes content into a local Eleventy project or into a dry-run report.",
+          migration_disclosure_title: "Show migration advanced settings",
+          migration_disclosure_lede: "Open this if you want to adjust content types, authentication, or more detailed output paths.",
           step2_title: "Step 3: Publish to GitHub and connect a domain",
           step2_lede: "GitHub Pages, automated Actions deployment, and optional custom domain setup.",
           step2_note: "This phase defines how the reviewed site will be published automatically.",
@@ -2005,6 +2148,10 @@
           domain_box: "The domain step is optional. You can either buy a new domain or point an existing domain to the GitHub Pages site with DNS and CNAME settings.",
           btn_save: "Save config",
           btn_analyze: "Analyze site",
+          btn_view_log: "View log file",
+          btn_continue_to_migration: "Continue to next phase",
+          btn_open_project_folder: "Open folder",
+          btn_dry_run_plain: "Run test only, do not save locally",
           btn_run: "Run migration",
           btn_export_json: "Export JSON",
           plan_title: "Three-step plan",
@@ -2050,6 +2197,7 @@
           status_analysis_done: "Site analysis finished.",
           status_analyze_inactive: "The analysis phase is disabled. Enable it before running site analysis.",
           status_local_inactive: "The local migration phase is disabled. Enable it before running migration.",
+          status_folder_picker_fallback: "This browser environment does not support the folder picker. Enter the project folder manually in the field.",
           status_saving: "Saving configuration...",
           status_saved: "Configuration saved.",
           status_running: "Migration running...",
@@ -2081,10 +2229,17 @@
           analysis_result_plugins: "Plugin signals",
           analysis_result_no_plugins: "No detected plugin signals",
           analysis_result_recommendations: "Recommendations",
+          progress_waiting_analysis: "Waiting to start analysis",
+          progress_running_analysis: "Analyzing the site",
+          progress_done_analysis: "Analysis complete",
+          progress_failed_analysis: "Analysis failed",
+          progress_waiting_migration: "Waiting to start migration",
+          progress_running_migration: "Migration running",
+          progress_running_dry_migration: "Dry run running",
+          progress_done_migration: "Migration complete",
+          progress_done_dry_migration: "Dry run complete",
+          progress_failed_migration: "Migration failed",
           field_dataDir: "Data directory",
-          tab_analyze: "Analysis",
-          analyze_title: "WordPress site analysis",
-          analyze_intro: "Enter the site URL. The analysis fetches content types, plugins, and theme settings via the REST API and automatically suggests a migration configuration.",
           analyze_auth_section: "Authentication (optional)",
           analyze_auth_lede: "Only needed for private content or context=edit level details.",
           analyze_side_title: "What does the analysis do?",
@@ -2093,7 +2248,6 @@
           btn_analyze: "Run analysis",
           btn_analyzing: "Analysing…",
           btn_apply_analysis: "Fill form from analysis",
-          btn_go_to_analyze: "Run analysis first →",
           analyze_promo_text: "Recommended: run the analysis before migrating. It detects plugins, content types, and theme, then pre-fills the settings automatically.",
           analyze_status_done: "Analysis complete.",
           analyze_status_applied: "Settings filled from analysis.",
@@ -2730,7 +2884,6 @@
 
       function setActiveTab(tabId) {
         currentTab = tabId;
-        analyzeTab.hidden = tabId !== "analyze-tab";
         workflowTab.hidden = tabId !== "workflow-tab";
         stylesTab.hidden = tabId !== "styles-tab";
         pluginsTab.hidden = tabId !== "plugins-tab";
@@ -2749,12 +2902,72 @@
         saveButton.disabled = isBusy;
         analyzeButton.disabled = isBusy;
         runButton.disabled = isBusy;
+        dryRunButton.disabled = isBusy;
         runButton.textContent = isBusy ? t("btn_running") : t("btn_run");
       }
 
       function setStatus(message, isError = false) {
         statusNode.textContent = message;
         statusNode.classList.toggle("error", isError);
+      }
+
+      function setPhaseProgress(phase, percent, messageKeyOrText) {
+        const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
+        const fill = phase === "analysis" ? analysisProgressFill : migrationProgressFill;
+        const text = phase === "analysis" ? analysisProgressText : migrationProgressText;
+        const value = phase === "analysis" ? analysisProgressValue : migrationProgressValue;
+        fill.style.width = `${clamped}%`;
+        text.textContent = translations[currentLang][messageKeyOrText] ?? messageKeyOrText;
+        value.textContent = `${clamped}%`;
+      }
+
+      function updateStepAvailability() {
+        const phases = getPhaseState();
+        const analysisReady = Boolean(latestAnalysisReport?.analysis);
+        const localEnabled = phases.local && analysisReady;
+        migrationStep.setAttribute("aria-disabled", localEnabled ? "false" : "true");
+        if (!localEnabled) migrationStep.open = false;
+      }
+
+      function applyAnalysisSuggestions(report) {
+        if (!report?.analysis) return;
+        const analysis = report.analysis;
+        const recommendedPreset = analysis.theme?.proSignals ? "kadence-pro" : analysis.theme?.kadence ? "kadence" : "none";
+        presetSelect.value = recommendedPreset;
+        form.elements.namedItem("useNunjucksLayouts").checked = recommendedPreset !== "none";
+        form.elements.namedItem("convertKadenceBlocks").checked = recommendedPreset === "kadence" || recommendedPreset === "kadence-pro";
+        form.elements.namedItem("migrateStyles").checked = recommendedPreset === "kadence" || recommendedPreset === "kadence-pro";
+        if (analysis.menus?.detected === 0) form.elements.namedItem("importMenus").checked = true;
+        applyPresetDefaults();
+        updateNunjucksVisibility();
+      }
+
+      function renderAnalysisSuggestions(report) {
+        if (!report?.analysis) {
+          analysisRecommendations.hidden = true;
+          openLogAfterAnalysisButton.disabled = true;
+          continueToMigrationButton.disabled = true;
+          continueToMigrationButton.classList.remove("continue-glow");
+          return;
+        }
+        const analysis = report.analysis;
+        analysisRecommendations.hidden = false;
+        openLogAfterAnalysisButton.disabled = false;
+        continueToMigrationButton.disabled = false;
+        continueToMigrationButton.classList.add("continue-glow");
+        analysisRecommendationList.innerHTML = [
+          `${t("analysis_summary_theme")}: ${analysis.theme?.slug || "-"}`,
+          `${t("analysis_summary_languages")}: ${(analysis.structure?.languages || []).join(", ") || "-"}`,
+          `${t("analysis_summary_content")}: posts ${analysis.structure?.contentCounts?.posts ?? 0}, pages ${analysis.structure?.contentCounts?.pages ?? 0}`,
+          ...((analysis.recommendations || []).slice(0, 3))
+        ].map((item) => `<li>${item}</li>`).join("");
+
+        analysisPluginCheckboxes.innerHTML = (analysis.plugins || []).map((plugin) => `
+          <label>
+            <input type="checkbox" checked data-plugin-slug="${plugin.slug}">
+            <span><strong>${plugin.name}</strong><br><span class="meta">${plugin.signal}</span></span>
+          </label>
+        `).join("");
       }
 
       function updateAuthVisibility() {
@@ -2915,6 +3128,7 @@
 
         renderWorkflowFocus();
         renderLogSummary();
+        updateStepAvailability();
       }
 
       function renderWorkflowFocus() {
@@ -2951,8 +3165,8 @@
 
         const defaults = {
           phaseAnalyzeActive: true,
-          phaseLocalActive: true,
-          phasePublishActive: true,
+          phaseLocalActive: false,
+          phasePublishActive: false,
           preset: "none",
           githubOwner: "",
           githubRepo: "",
@@ -2994,6 +3208,9 @@
         renderStylesPanel();
         renderWorkflowFocus();
         renderLogSummary();
+        updateStepAvailability();
+        setPhaseProgress("analysis", 0, "progress_waiting_analysis");
+        setPhaseProgress("migration", 0, "progress_waiting_migration");
       }
 
       function applyPresetDefaults() {
@@ -3048,112 +3265,6 @@
         resultNode.textContent = JSON.stringify(data, null, 2);
         setStatus(t("status_defaults_loaded"));
       }
-
-      // ── Analysis tab ────────────────────────────────────────────────
-      const analyzeUrlInput = document.getElementById("analyze-url");
-      const analyzeAuthModeSelect = document.getElementById("analyze-authMode");
-      const analyzeAppPasswordFields = document.getElementById("analyze-app-password-fields");
-      const analyzeBearerFields = document.getElementById("analyze-bearer-fields");
-      const runAnalyzeButton = document.getElementById("run-analyze-button");
-      const analyzeStatusNode = document.getElementById("analyze-status");
-      const analyzeResultArea = document.getElementById("analyze-result-area");
-      const analyzeReportPre = document.getElementById("analyze-report-pre");
-      const analyzePluginsSection = document.getElementById("analyze-plugins-section");
-      const analyzePluginGrid = document.getElementById("analyze-plugin-grid");
-      const applyAnalysisButton = document.getElementById("apply-analysis-button");
-      const goToAnalyzeButton = document.getElementById("go-to-analyze-button");
-      const analyzeChecklist = document.getElementById("analyze-checklist");
-
-      let lastAnalysisResult = null;
-
-      function setAnalyzeStatus(msg, isError = false) {
-        analyzeStatusNode.textContent = msg;
-        analyzeStatusNode.classList.toggle("error", isError);
-      }
-
-      function renderAnalyzeChecklist() {
-        const items = translations[currentLang].analyze_checklist_items || [];
-        analyzeChecklist.innerHTML = items.map(([title, body]) => `
-          <li><strong>${title}</strong><span class="meta"> — ${body}</span></li>
-        `).join("");
-      }
-
-      analyzeAuthModeSelect.addEventListener("change", () => {
-        const v = analyzeAuthModeSelect.value;
-        analyzeAppPasswordFields.hidden = v !== "app-password";
-        analyzeBearerFields.hidden = v !== "bearer";
-      });
-
-      goToAnalyzeButton.addEventListener("click", () => {
-        setActiveTab("analyze-tab");
-        // Sync URL from migration form if filled
-        const wpBaseUrlField = form.elements.namedItem("wpBaseUrl");
-        if (wpBaseUrlField?.value && !analyzeUrlInput.value) {
-          analyzeUrlInput.value = wpBaseUrlField.value;
-        }
-      });
-
-      applyAnalysisButton.addEventListener("click", () => {
-        if (!lastAnalysisResult) return;
-        const cfg = lastAnalysisResult.suggestedConfig;
-        fillForm(cfg);
-        setActiveTab("workflow-tab");
-        setStatus(t("analyze_status_applied"));
-      });
-
-      runAnalyzeButton.addEventListener("click", async () => {
-        const url = analyzeUrlInput.value.trim();
-        if (!url) { setAnalyzeStatus("Syötä WordPress-sivuston URL.", true); return; }
-        runAnalyzeButton.disabled = true;
-        runAnalyzeButton.textContent = t("btn_analyzing");
-        analyzeResultArea.hidden = true;
-        setAnalyzeStatus("");
-        try {
-          const payload = {
-            wpBaseUrl: url,
-            authMode: analyzeAuthModeSelect.value,
-            wpUser: document.getElementById("analyze-wpUser")?.value || "",
-            wpAppPassword: document.getElementById("analyze-wpAppPassword")?.value || "",
-            wpBearerToken: document.getElementById("analyze-wpBearerToken")?.value || "",
-          };
-          const result = await fetchJson("/api/wp-analyze", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          lastAnalysisResult = result;
-
-          // Show plain report
-          analyzeReportPre.textContent = result.report || "";
-          analyzeResultArea.hidden = false;
-
-          // Show plugin table
-          if (result.detectedPlugins && result.detectedPlugins.length) {
-            analyzePluginGrid.innerHTML = result.detectedPlugins.map((p) => {
-              const effortClass = p.effort === "high" ? "effort-high" : p.effort === "medium" ? "effort-medium" : "effort-low";
-              const effortLabel = p.effort === "high" ? "korkea" : p.effort === "medium" ? "kohtalainen" : "matala";
-              return `<div class="plugin-card">
-                <h3>${p.name}</h3>
-                <div class="plugin-meta">
-                  <span class="plugin-badge ${effortClass}">${effortLabel} työmäärä</span>
-                  <span class="plugin-badge" style="font-size:0.72rem;color:var(--muted)">${p.detectedFrom}</span>
-                </div>
-                <p>${p.replacement}</p>
-              </div>`;
-            }).join("");
-            analyzePluginsSection.hidden = false;
-          } else {
-            analyzePluginsSection.hidden = true;
-          }
-
-          setAnalyzeStatus(t("analyze_status_done"));
-        } catch (err) {
-          setAnalyzeStatus(err.message, true);
-        } finally {
-          runAnalyzeButton.disabled = false;
-          runAnalyzeButton.textContent = t("btn_analyze");
-        }
-      });
 
       const serverStatusNode = document.getElementById("server-status");
 
@@ -3276,51 +3387,175 @@
         }
       });
 
-      analyzeButton.addEventListener("click", async () => {
+      function progressFromLog(items, mode) {
+        if (!items?.length) return 10;
+        const max = mode === "analysis" ? 90 : 92;
+        const value = 10 + (items.length * (mode === "analysis" ? 12 : 7));
+        return Math.min(max, value);
+      }
+
+      async function runWorkflowAnalysis() {
         const payload = getPayload();
         if (!payload.wpBaseUrl) { setStatus(t("hint_wpBaseUrl"), true); return; }
+        if (!getPhaseState().analyze) {
+          setStatus(t("status_analyze_inactive"), true);
+          return;
+        }
 
         setBusy(true);
+        setPhaseProgress("analysis", 12, "progress_running_analysis");
         latestRunKind = "analysis";
         migrationLogNode.innerHTML = "";
         migrationLogNode.hidden = false;
         appendLogItems([{ level: "info", msg: t("log_phase_analyze_start") }]);
-        setActiveTab("log-tab");
         setStatus(t("status_analyzing"));
         resultViewNode.hidden = true;
         try {
-          const result = await fetchJson("/api/wp-analyze", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              wpBaseUrl: payload.wpBaseUrl,
-              authMode: payload.authMode,
-              wpUser: payload.wpUser,
-              wpAppPassword: payload.wpAppPassword,
-              wpBearerToken: payload.wpBearerToken,
-            }),
-          });
-
-          latestAnalysisReport = result;
-          appendLogItems([{ level: "ok", msg: result.report?.split("\n")[0] || t("status_analysis_done") }]);
-          if (result.detectedPlugins?.length) {
-            for (const p of result.detectedPlugins) {
-              appendLogItems([{ level: "info", msg: `Plugin: ${p.name} — ${p.effort} effort` }]);
+          const startData = await callApi("/api/analyze", payload);
+          let result;
+          let pollErrors = 0;
+          let seen = 0;
+          while (true) {
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            let statusData;
+            try {
+              statusData = await fetchJson(`/api/analyze/${startData.jobId}`);
+              pollErrors = 0;
+            } catch (pollErr) {
+              pollErrors += 1;
+              if (pollErrors >= 4) throw pollErr;
+              appendLogItems([{ level: "warn", msg: `${t("log_connection_retry")} (${pollErrors}/3)` }]);
+              continue;
             }
-          }
-          migrationLogNode.hidden = false;
 
-          latestRawExport = { ...buildRawExport(), analysis: result };
+            const newItems = (statusData.log ?? []).slice(seen);
+            appendLogItems(newItems);
+            seen += newItems.length;
+            setPhaseProgress("analysis", progressFromLog(statusData.log, "analysis"), "progress_running_analysis");
+
+            if (statusData.status === "done") { result = statusData; break; }
+            if (statusData.status === "error") throw new Error(statusData.detail || statusData.error);
+          }
+
+          latestAnalysisReport = result.report;
+          applyAnalysisSuggestions(result.report);
+          renderAnalysisSuggestions(result.report);
+          analysisSettingsDisclosure.open = true;
+          setPhaseProgress("analysis", 100, "progress_done_analysis");
+          latestRawExport = { ...buildRawExport(), analysisJob: result };
           resultNode.textContent = JSON.stringify(latestRawExport, null, 2);
-          renderAnalysisResult(result);
+          renderAnalysisResult(result.report);
           renderLogSummary();
+          renderPlan();
           setStatus(t("status_analysis_done"));
         } catch (error) {
+          setPhaseProgress("analysis", 100, "progress_failed_analysis");
           setStatus(error.message, true);
         } finally {
           setBusy(false);
         }
+      }
+
+      analyzeButton.addEventListener("click", runWorkflowAnalysis);
+
+      openLogAfterAnalysisButton.addEventListener("click", () => setActiveTab("log-tab"));
+
+      continueToMigrationButton.addEventListener("click", () => {
+        form.elements.namedItem("phaseLocalActive").checked = true;
+        form.elements.namedItem("phasePublishActive").checked = true;
+        migrationStep.open = true;
+        continueToMigrationButton.classList.remove("continue-glow");
+        updateStepAvailability();
+        renderPlan();
+        migrationStep.scrollIntoView({ behavior: "smooth", block: "start" });
       });
+
+      openProjectFolderButton.addEventListener("click", async () => {
+        migrationStep.open = true;
+        migrationSettingsDisclosure.open = true;
+        const folderField = form.elements.namedItem("localProjectFolder");
+        try {
+          if (window.showDirectoryPicker) {
+            const handle = await window.showDirectoryPicker();
+            folderField.value = handle.name || folderField.value;
+          } else {
+            folderField.focus();
+            setStatus(t("status_folder_picker_fallback"));
+            return;
+          }
+        } catch (error) {
+          if (error?.name !== "AbortError") setStatus(String(error.message || error), true);
+          return;
+        }
+        renderPlan();
+      });
+
+      async function runMigrationJob({ dryRunOverride = null } = {}) {
+        if (!getPhaseState().local) {
+          setStatus(t("status_local_inactive"), true);
+          return;
+        }
+        const originalDryRun = form.elements.namedItem("dryRun").checked;
+        if (dryRunOverride !== null) form.elements.namedItem("dryRun").checked = dryRunOverride;
+        const payload = getPayload();
+
+        setBusy(true);
+        logSeenCount = 0;
+        latestRunKind = "migration";
+        migrationLogNode.innerHTML = "";
+        migrationLogNode.hidden = false;
+        appendLogItems([
+          { level: "info", msg: t("log_phase_local_start") },
+          { level: "info", msg: `${t("log_phase_publish")}: ${getPhaseState().publish ? t("phase_active_text") : t("phase_inactive_text")}` }
+        ]);
+        setPhaseProgress("migration", 12, payload.dryRun ? "progress_running_dry_migration" : "progress_running_migration");
+        resultViewNode.hidden = true;
+        setStatus(t("status_running"));
+        try {
+          const startData = await callApi("/api/run", payload);
+          configPathField.value = startData.configPath;
+          lastSuggestedConfigPath = startData.configPath;
+
+          let result;
+          let pollErrors = 0;
+          while (true) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            let statusData;
+            try {
+              statusData = await fetchJson(`/api/run/${startData.jobId}`);
+              pollErrors = 0;
+            } catch (pollErr) {
+              pollErrors += 1;
+              if (pollErrors >= 4) throw pollErr;
+              appendLogItems([{ level: "warn", msg: `${t("log_connection_retry")} (${pollErrors}/3)` }]);
+              continue;
+            }
+
+            const newItems = (statusData.log ?? []).slice(logSeenCount);
+            appendLogItems(newItems);
+            logSeenCount += newItems.length;
+            setPhaseProgress("migration", progressFromLog(statusData.log, "migration"), payload.dryRun ? "progress_running_dry_migration" : "progress_running_migration");
+
+            if (statusData.status === "done") { result = statusData; break; }
+            if (statusData.status === "error") { throw new Error(statusData.error); }
+          }
+
+          latestMigrationReport = result.report;
+          latestRawExport = { ...buildRawExport(), migrationJob: result };
+          resultNode.textContent = JSON.stringify(latestRawExport, null, 2);
+          renderMigrationResult(result.report, payload.dryRun);
+          renderLogSummary();
+          setPhaseProgress("migration", 100, payload.dryRun ? "progress_done_dry_migration" : "progress_done_migration");
+          setStatus(t("status_done"));
+        } catch (error) {
+          setPhaseProgress("migration", 100, "progress_failed_migration");
+          setStatus(error.message, true);
+        } finally {
+          form.elements.namedItem("dryRun").checked = originalDryRun;
+          setBusy(false);
+          renderPlan();
+        }
+      }
 
       function renderMigrationResult(report, isDryRun) {
         if (!report) { resultViewNode.hidden = true; return; }
@@ -3554,62 +3789,11 @@
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        if (!getPhaseState().local) {
-          setStatus(t("status_local_inactive"), true);
-          return;
-        }
-        setBusy(true);
-        logSeenCount = 0;
-        latestRunKind = "migration";
-        migrationLogNode.innerHTML = "";
-        migrationLogNode.hidden = false;
-        appendLogItems([
-          { level: "info", msg: t("log_phase_local_start") },
-          { level: "info", msg: `${t("log_phase_publish")}: ${getPhaseState().publish ? t("phase_active_text") : t("phase_inactive_text")}` }
-        ]);
-        resultViewNode.hidden = true;
-        setActiveTab("log-tab");
-        setStatus(t("status_running"));
-        try {
-          const startData = await callApi("/api/run", getPayload());
-          configPathField.value = startData.configPath;
-          lastSuggestedConfigPath = startData.configPath;
+        await runMigrationJob({ dryRunOverride: false });
+      });
 
-          let result;
-          let pollErrors = 0;
-          while (true) {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            let statusData;
-            try {
-              statusData = await fetchJson(`/api/run/${startData.jobId}`);
-              pollErrors = 0;
-            } catch (pollErr) {
-              pollErrors += 1;
-              if (pollErrors >= 4) throw pollErr;
-              appendLogItems([{ level: "warn", msg: `${t("log_connection_retry")} (${pollErrors}/3)` }]);
-              continue;
-            }
-
-            // Append any new log entries
-            const newItems = (statusData.log ?? []).slice(logSeenCount);
-            appendLogItems(newItems);
-            logSeenCount += newItems.length;
-
-            if (statusData.status === "done") { result = statusData; break; }
-            if (statusData.status === "error") { throw new Error(statusData.error); }
-          }
-
-          latestMigrationReport = result.report;
-          latestRawExport = { ...buildRawExport(), migrationJob: result };
-          resultNode.textContent = JSON.stringify(latestRawExport, null, 2);
-          renderMigrationResult(result.report, getPayload().dryRun);
-          renderLogSummary();
-          setStatus(t("status_done"));
-        } catch (error) {
-          setStatus(error.message, true);
-        } finally {
-          setBusy(false);
-        }
+      dryRunButton.addEventListener("click", async () => {
+        await runMigrationJob({ dryRunOverride: true });
       });
 
       exportJsonButton.addEventListener("click", () => {
