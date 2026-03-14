@@ -443,7 +443,15 @@ async function fetchText(url, headers = {}) {
 }
 
 function buildAuthHeaders(config, progress = () => {}) {
-  const headers = buildAuthHeaders(config, progress);
+  const headers = {};
+  if (config.authMode === "app-password" && config.wpUser && config.wpAppPassword) {
+    const token = Buffer.from(`${config.wpUser}:${config.wpAppPassword}`).toString("base64");
+    headers.Authorization = `Basic ${token}`;
+    progress("ok", "Autentikointi: app-password");
+  } else if (config.authMode === "bearer" && config.wpBearerToken) {
+    headers.Authorization = `Bearer ${config.wpBearerToken}`;
+    progress("ok", "Autentikointi: bearer token");
+  }
   return headers;
 }
 
@@ -2374,7 +2382,7 @@ async function serveUi(port = 4173) {
         analyzeSite(config, progress).then((report) => {
           jobs.set(jobId, { status: "done", kind: "analysis", report, log });
         }).catch((err) => {
-          jobs.set(jobId, { status: "error", kind: "analysis", error: String(err?.message || err), log });
+          jobs.set(jobId, { status: "error", kind: "analysis", error: String(err?.message || err), detail: String(err?.stack || err), log });
         });
         sendJson(res, 202, { ok: true, jobId });
         return;
