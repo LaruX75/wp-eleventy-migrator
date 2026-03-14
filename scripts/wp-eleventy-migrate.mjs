@@ -394,7 +394,15 @@ async function tryFetchMenusFromWpV2(wpBaseUrl, headers) {
 
   return menus.map((menu) => {
     const menuId = menu?.id;
-    const menuItems = items.filter((item) => (item?.menus || []).includes(menuId) || item?.menus === menuId || item?.menu === menuId);
+    const menuItems = items.filter((item) => {
+      const menusValue = item?.menus;
+      const menuRefs = Array.isArray(menusValue)
+        ? menusValue
+        : menusValue === undefined || menusValue === null
+          ? []
+          : [menusValue];
+      return menuRefs.includes(menuId) || item?.menu === menuId;
+    });
     return normalizeMenuRecord(menu, menuItems);
   }).filter((menu) => menu.items.length > 0);
 }
@@ -740,6 +748,8 @@ async function migrateStyles(config, root, report, headers) {
   }
 
   report.styles = {
+    enabled: true,
+    downloaded: stylesheets.length,
     migrated: stylesheets.length,
     stylesDir,
     manifestPath,
@@ -766,7 +776,24 @@ async function migrateStyles(config, root, report, headers) {
   }
 }
 
-function buildTargetPermalink(type, slug, config) {
+function normalizePathnameToPermalink(pathname) {
+  const raw = String(pathname || "").trim();
+  if (!raw || raw === "/") return "/";
+  const clean = `/${raw.replace(/^\/+|\/+$/g, "")}/`;
+  return clean === "//" ? "/" : clean;
+}
+
+function buildTargetPermalink(type, slug, config, sourceUrl = "") {
+  if (sourceUrl) {
+    try {
+      const pathname = new URL(sourceUrl).pathname || "/";
+      if (pathname === "/" || slug === "home") return "/";
+      const normalized = normalizePathnameToPermalink(pathname);
+      if (normalized !== "/") return normalized;
+    } catch {
+      // fall back to generated permalink
+    }
+  }
   if (type === "pages") return `/${slug}/`;
   const tpl = config.targetPermalinkPattern || "/{type}/{slug}/";
   return tpl.replaceAll("{type}", slugify(type)).replaceAll("{slug}", slugify(slug));
@@ -1660,7 +1687,7 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   const tags = Array.isArray(item?.tags) ? item.tags.map((id) => tagMap.get(id)).filter(Boolean) : [];
   const rawBlockContent = item?.content?.raw || "";
   const renderedHtml = item?.content?.rendered || item?.content || "";
-  const permalink = buildTargetPermalink(type, slug, config);
+  const permalink = buildTargetPermalink(type, slug, config, item?.link || "");
   const layout = resolveLayoutForType(type, config);
   let body = config.htmlMode === "basic-markdown" ? basicHtmlToMarkdown(renderedHtml) : String(renderedHtml).trim();
   let fileExtension = "md";
@@ -1747,7 +1774,9 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     sourceType: config.sourceType,
     totals: {},
     redirects: [],
-    warnings: []
+    warnings: [],
+    styles: { enabled: Boolean(config.migrateStyles) },
+    kadenceBlocks: { enabled: Boolean(config.convertKadenceBlocks) }
   };
 
   if (config.sourceType !== "rest") {
@@ -1772,6 +1801,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       ? [...SUPPORTED_KADENCE_BLOCKS, ...SUPPORTED_KADENCE_PRO_BLOCKS]
       : SUPPORTED_KADENCE_BLOCKS;
     report.kadenceBlocks = {
+      enabled: true,
       partialsPath: kadencePartialsPath,
       supportedBlocks: allKadenceBlocks,
       proBlocks: config.preset === "kadence-pro"
