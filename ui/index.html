@@ -1366,6 +1366,106 @@
                   </div>
                 </details>
                 <div class="phase-actions-footer">
+                  <button type="button" class="primary" id="continue-to-configure" data-i18n="btn_continue_to_configure" disabled></button>
+                </div>
+              </div>
+            </details>
+
+            <details class="step" id="configure-step" aria-disabled="true">
+              <summary>
+                <div class="step-head">
+                  <div class="step-number">2</div>
+                  <div>
+                    <h2 class="step-title" data-i18n="step1_title"></h2>
+                    <p class="step-lede" data-i18n="step1_lede"></p>
+                  </div>
+                  <label class="phase-switch">
+                    <input name="phaseConfigureActive" type="checkbox" checked>
+                    <span class="phase-switch-ui" aria-hidden="true"></span>
+                    <span class="phase-switch-label" data-i18n="phase_toggle_label"></span>
+                  </label>
+                  <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                </div>
+              </summary>
+              <div class="step-body">
+                <div class="phase-quick">
+                  <div class="subtle-box">
+                    <p data-i18n="configure_box"></p>
+                  </div>
+                  <div class="recommendation-list" id="configure-summary-list"></div>
+                  <div class="phase-row">
+                    <button type="button" class="primary" id="apply-configure-profile" data-i18n="btn_apply_configure" disabled></button>
+                    <button type="button" class="secondary" id="reset-configure-profile" data-i18n="btn_reset_configure" disabled></button>
+                  </div>
+                </div>
+
+                <details class="phase-disclosure" id="configure-settings-disclosure">
+                  <summary>
+                    <div class="step-head">
+                      <div>
+                        <h3 class="step-title" style="font-size:0.98rem" data-i18n="configure_disclosure_title"></h3>
+                        <p class="step-lede" style="font-size:0.85rem" data-i18n="configure_disclosure_lede"></p>
+                      </div>
+                      <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    </div>
+                  </summary>
+                  <div class="phase-disclosure-body">
+                    <p class="step-phase-note" data-i18n="step1_note"></p>
+                    <details class="subsection-disclosure" open>
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="configure_profile_section"></h3>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_themeCssPath"></span></span>
+                            <input name="themeCssPath">
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_separatorList"></span></span>
+                            <input name="separatorList">
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_colLayoutList"></span></span>
+                            <input name="colLayoutList">
+                          </label>
+                        </div>
+                        <label>
+                          <span class="field-head"><span data-i18n="field_paletteJson"></span></span>
+                          <textarea name="paletteJson" rows="8"></textarea>
+                        </label>
+                      </div>
+                    </details>
+
+                    <details class="subsection-disclosure" open>
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="configure_fallback_section"></h3>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_unknownBlocks"></span></span>
+                            <input name="unknownBlockList">
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_unknownKadenceBlockStrategy"></span></span>
+                            <select name="unknownKadenceBlockStrategy">
+                              <option value="fallback-html" data-i18n="option_unknown_strategy_fallback"></option>
+                              <option value="comment-only" data-i18n="option_unknown_strategy_comment"></option>
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </details>
+                <div class="phase-actions-footer">
                   <button type="button" class="primary" id="continue-to-migration" data-i18n="btn_continue_to_migration" disabled></button>
                 </div>
               </div>
@@ -1374,10 +1474,10 @@
             <details class="step" id="migration-step" aria-disabled="true">
               <summary>
                 <div class="step-head">
-                  <div class="step-number">2</div>
+                  <div class="step-number">3</div>
                   <div>
-                    <h2 class="step-title" data-i18n="step1_title"></h2>
-                    <p class="step-lede" data-i18n="step1_lede"></p>
+                    <h2 class="step-title" data-i18n="step2_title"></h2>
+                    <p class="step-lede" data-i18n="step2_lede"></p>
                   </div>
                   <label class="phase-switch">
                     <input name="phaseLocalActive" type="checkbox" checked>
@@ -1590,10 +1690,10 @@
             <details class="step">
               <summary>
                 <div class="step-head">
-                  <div class="step-number">3</div>
+                  <div class="step-number">4</div>
                   <div>
-                    <h2 class="step-title" data-i18n="step2_title"></h2>
-                    <p class="step-lede" data-i18n="step2_lede"></p>
+                    <h2 class="step-title" data-i18n="step3_title"></h2>
+                    <p class="step-lede" data-i18n="step3_lede"></p>
                   </div>
                   <label class="phase-switch">
                     <input name="phasePublishActive" type="checkbox" checked>
@@ -1604,7 +1704,7 @@
                 </div>
               </summary>
               <div class="step-body">
-                <p class="step-phase-note" data-i18n="step2_note"></p>
+                <p class="step-phase-note" data-i18n="step3_note"></p>
                 <div class="section-head">
                   <h3 class="section-title" data-i18n="github_section"></h3>
                   <button type="button" class="help-button" data-help-topic="github-overview">?</button>
@@ -1828,7 +1928,10 @@
       const dryRunButton = document.getElementById("run-dry-migration");
       const openProjectFolderButton = document.getElementById("open-project-folder");
       const openLogAfterAnalysisButton = document.getElementById("open-log-after-analysis");
+      const continueToConfigureButton = document.getElementById("continue-to-configure");
       const continueToMigrationButton = document.getElementById("continue-to-migration");
+      const applyConfigureProfileButton = document.getElementById("apply-configure-profile");
+      const resetConfigureProfileButton = document.getElementById("reset-configure-profile");
       const exportJsonButton = document.getElementById("export-json");
       const statusNode = document.getElementById("status");
       const resultNode = document.getElementById("result");
@@ -1848,10 +1951,13 @@
       const migrationProgressValue = document.getElementById("migration-progress-value");
       const migrationLiveLogNode = document.getElementById("migration-live-log");
       const analysisSettingsDisclosure = document.getElementById("analysis-settings-disclosure");
+      const configureSettingsDisclosure = document.getElementById("configure-settings-disclosure");
       const migrationSettingsDisclosure = document.getElementById("migration-settings-disclosure");
       const analysisRecommendations = document.getElementById("analysis-recommendations");
       const analysisRecommendationList = document.getElementById("analysis-recommendation-list");
       const analysisPluginCheckboxes = document.getElementById("analysis-plugin-checkboxes");
+      const configureSummaryList = document.getElementById("configure-summary-list");
+      const configureStep = document.getElementById("configure-step");
       const migrationStep = document.getElementById("migration-step");
       const logSummaryNode = document.getElementById("log-summary");
       const helpDialog = document.getElementById("help-dialog");
@@ -1881,6 +1987,7 @@
       let currentTab = "workflow-tab";
       let commonPluginPage = 1;
       let latestAnalysisReport = null;
+      let latestConfiguredProfile = null;
       let latestMigrationReport = null;
       let latestRawExport = null;
       let latestRunKind = "";
@@ -1890,7 +1997,7 @@
         fi: {
           hero_eyebrow: "Vaiheittainen migraatiovirta",
           hero_title: "WordPress -> Eleventy -> GitHub Pages",
-          hero_lede: "Käyttöliittymä jakaa työn kolmeen askelmaan: analysoi lähdesivu, migroi sisältö omalle koneelle ja julkaise lopuksi GitHub Pagesiin sekä haluttaessa omaan domainiin.",
+          hero_lede: "Käyttöliittymä jakaa työn neljään askelmaan: analysoi lähdesivu, hyväksy profiilipohjaiset asetukset, migroi sisältö omalle koneelle ja julkaise lopuksi GitHub Pagesiin sekä haluttaessa omaan domainiin.",
           ui_language: "Kieli",
           ui_theme: "Teema",
           tab_workflow: "Migraatiotyönkulku",
@@ -1900,13 +2007,13 @@
           chip_1: "Vaihe 1. Analysoi sivu",
           chip_2: "WordPress-lähde",
           chip_3: "Rakenne ja tyylit",
-          chip_4: "Vaihe 2. Paikallinen migraatio",
-          chip_5: "Vaihe 3. Julkaise GitHubiin",
+          chip_4: "Vaihe 2. Configure",
+          chip_5: "Vaihe 3. Paikallinen migraatio",
           chip_6: "GitHub Pages + domain",
           hero_card1_title: "Suositeltu kulku",
           hero_card1_body: "Aja ensin dry-run, tarkista migroitu sisältö paikallisesti ja julkaise vasta sen jälkeen GitHub Pagesiin.",
           hero_card2_title: "Julkaisumalli",
-          hero_card2_body: "Vaiheessa 2 käyttöliittymä ohjaa GitHub Actions -buildiin, GitHub Pages -julkaisuun ja valinnaiseen domain-kytkentään.",
+          hero_card2_body: "Configure-vaihe hyväksyy discovery-profiilin ennen paikallista migraatiota, jonka jälkeen julkaisu ohjataan GitHubiin ja domainiin.",
           step0_title: "Vaihe 1: Syötä sivun osoite ja analysoi",
           step0_lede: "Tutki sivuston rakenne, teema, tyylit, valikot ja plugin-signaalit ennen varsinaista migraatiota.",
           step0_note: "Tämä vaihe tekee esiselvityksen siitä, mitä sivustolla oikeasti on ja mitä preset- sekä tyyliasetuksia kannattaa käyttää.",
@@ -1918,14 +2025,34 @@
           analysis_summary_theme: "Teemaehdotus",
           analysis_summary_languages: "Havaitut kielet",
           analysis_summary_content: "Havaittu sisältömäärä",
-          step1_title: "Vaihe 2: Migroi sivut omalle koneelle",
-          step1_lede: "Sisältötyypit, autentikointi, paikallinen projektikansio, output ja paikallinen ajo.",
-          step1_note: "Tämä vaihe kirjoittaa sisällön paikalliseen Eleventy-projektiin tai dry-run-raporttiin.",
+          step1_title: "Vaihe 2: Hyväksy profiili ja configure-asetukset",
+          step1_lede: "Tarkista analyysin löytämä palette, separatorit, layoutit ja fallback-strategia ennen migraatiota.",
+          step1_note: "Tämä vaihe muuttaa discovery-tuloksen hyväksytyksi migraatioprofiiliksi, jota varsinainen migraatio käyttää.",
+          configure_disclosure_title: "Näytä configure-asetukset",
+          configure_disclosure_lede: "Avaa tämä, jos haluat muokata profiilia ennen paikallista migraatiota.",
+          configure_profile_section: "Profiili ja theme.css",
+          configure_fallback_section: "Tuntemattomat blokit ja fallbackit",
+          configure_box: "Configure-vaihe muodostaa analyysistä hyväksytyn sivustoprofiilin. Migraatio käyttää tätä profiilia eikä raakaa analyysiraporttia.",
+          field_themeCssPath: "Theme.css polku",
+          field_separatorList: "Separatorit",
+          field_colLayoutList: "Column layoutit",
+          field_paletteJson: "Palette JSON",
+          field_unknownBlocks: "Tuntemattomat blokit",
+          field_unknownKadenceBlockStrategy: "Fallback-strategia",
+          option_unknown_strategy_fallback: "Säilytä fallback-HTML",
+          option_unknown_strategy_comment: "Kirjoita vain TODO-kommentti",
+          btn_apply_configure: "Hyväksy configure-profiili",
+          btn_reset_configure: "Palauta analyysin ehdotus",
+          btn_continue_to_configure: "Jatka configure-vaiheeseen",
+          btn_continue_to_migration: "Jatka migraatioon",
+          step2_title: "Vaihe 3: Migroi sivut omalle koneelle",
+          step2_lede: "Sisältötyypit, autentikointi, paikallinen projektikansio, output ja paikallinen ajo.",
+          step2_note: "Tämä vaihe kirjoittaa sisällön paikalliseen Eleventy-projektiin tai dry-run-raporttiin.",
           migration_disclosure_title: "Näytä migraation lisäasetukset",
           migration_disclosure_lede: "Avaa tämä, jos haluat säätää sisältötyyppejä, autentikointia tai tarkempia output-polkuja.",
-          step2_title: "Vaihe 3: Julkaise GitHubiin ja kytke domain",
-          step2_lede: "GitHub Pages, Actions-julkaisu ja valinnainen domainin hankinta tai ohjaus.",
-          step2_note: "Tämä vaihe määrittelee miten valmiiksi tarkistettu sivusto julkaistaan automaattisesti.",
+          step3_title: "Vaihe 4: Julkaise GitHubiin ja kytke domain",
+          step3_lede: "GitHub Pages, Actions-julkaisu ja valinnainen domainin hankinta tai ohjaus.",
+          step3_note: "Tämä vaihe määrittelee miten valmiiksi tarkistettu sivusto julkaistaan automaattisesti.",
           step_toggle: "Avaa / sulje",
           phase_toggle_label: "Aktiivinen",
           source_section: "Lähdeasetukset",
@@ -2005,7 +2132,7 @@
           toggle_useGitHubActions: "Käytä GitHub Actionsia buildiin ja julkaisuun automaattisesti.",
           toggle_publishOnPush: "Julkaise aina pushin jälkeen oletusbranchista.",
           toggle_useCustomDomain: "Ota mukaan oman domainin hankinta tai olemassa olevan domainin ohjaus.",
-          local_box: "Vaiheen 2 tavoite on, että migroitu sisältö on omalla koneella ja Eleventy-sivusto voidaan tarkistaa paikallisesti ennen GitHub-julkaisua.",
+          local_box: "Vaiheen 3 tavoite on, että migroitu sisältö on omalla koneella ja Eleventy-sivusto voidaan tarkistaa paikallisesti ennen GitHub-julkaisua.",
           analysis_box: "Analyysi käy läpi etusivun HTML:n, REST-signaalit, tyylitiedostot, navigaation ja plugin-jäljet. Sen perusteella voit päättää esimerkiksi Kadence- tai Kadence Pro -presetin käytöstä.",
           github_box: "Vaiheen 3 tavoite on, että vaiheessa 2 tarkistettu sivusto commitoidaan GitHubiin, buildataan Actionsissa ja julkaistaan GitHub Pagesiin ilman manuaalista deployta.",
           domain_box: "Domain-vaihe on valinnainen. Voit joko hankkia uuden domainin tai ohjata olemassa olevan domainin GitHub Pages -sivustolle DNS- ja CNAME-asetuksilla.",
@@ -2062,6 +2189,9 @@
           status_defaults_loaded: "Oletusarvot ladattu.",
           status_analyzing: "Sivuanalyysi käynnissä...",
           status_analysis_done: "Sivuanalyysi valmis.",
+          status_configure_ready: "Configure-profiili hyväksytty.",
+          status_configure_pending: "Odottaa configure-hyväksyntää",
+          status_configure_reset: "Configure-profiili palautettu analyysin ehdotukseen.",
           status_analyze_inactive: "Analyysivaihe ei ole aktiivinen. Kytke vaihe päälle ennen ajoa.",
           status_local_inactive: "Paikallinen migraatiovaihe ei ole aktiivinen. Kytke vaihe päälle ennen migraation ajoa.",
           status_folder_picker_fallback: "Selain ei tue kansiovalitsinta tässä ympäristössä. Syötä projektikansio kenttään käsin.",
@@ -2151,6 +2281,7 @@
           ],
           workflow_focus_items: [
             ["Sivuanalyysi", "analyze"],
+            ["Configure-profiili", "configure"],
             ["Paikallinen migraatio", "local"],
             ["Julkaisu ja domain", "publish"]
           ],
@@ -2158,12 +2289,13 @@
           phase_inactive_text: "ei aktiivinen",
           plan_labels: {
             p0_analyze: "Vaihe 1: sivuanalyysi",
-            p1_extract: "Vaihe 2: WordPress -> paikallinen sisältö",
-            p1_output: "Vaihe 2: paikallinen projekti",
-            p1_local: "Vaihe 2: paikallinen ajo",
-            p2_repo: "Vaihe 3: repository ja Pages",
-            p2_actions: "Vaihe 3: GitHub Actions",
-            p2_domain: "Vaihe 3: domain"
+            p0_configure: "Vaihe 2: configure",
+            p1_extract: "Vaihe 3: WordPress -> paikallinen sisältö",
+            p1_output: "Vaihe 3: paikallinen projekti",
+            p1_local: "Vaihe 3: paikallinen ajo",
+            p2_repo: "Vaihe 4: repository ja Pages",
+            p2_actions: "Vaihe 4: GitHub Actions",
+            p2_domain: "Vaihe 4: domain"
           },
           plan_text: {
             missingRepo: "GitHub owner/repo puuttuu",
@@ -2217,7 +2349,7 @@
         en: {
           hero_eyebrow: "Step-by-step migration flow",
           hero_title: "WordPress -> Eleventy -> GitHub Pages",
-          hero_lede: "The interface splits the work into three steps: analyze the source site, migrate the content locally, and then publish to GitHub Pages with an optional custom domain.",
+          hero_lede: "The interface splits the work into four steps: analyze the source site, approve the profile-based configure settings, migrate the content locally, and then publish to GitHub Pages with an optional custom domain.",
           ui_language: "Language",
           ui_theme: "Theme",
           tab_workflow: "Migration workflow",
@@ -2227,13 +2359,13 @@
           chip_1: "Step 1. Analyze the site",
           chip_2: "WordPress source",
           chip_3: "Structure and styles",
-          chip_4: "Step 2. Local migration",
-          chip_5: "Step 3. Publish to GitHub",
+          chip_4: "Step 2. Configure",
+          chip_5: "Step 3. Local migration",
           chip_6: "GitHub Pages + domain",
           hero_card1_title: "Recommended flow",
           hero_card1_body: "Run a dry-run first, review the migrated content locally, and only then publish to GitHub Pages.",
           hero_card2_title: "Publishing model",
-          hero_card2_body: "Step 2 guides the repo setup, GitHub Actions build, GitHub Pages deployment, and optional domain connection.",
+          hero_card2_body: "The configure step turns discovery results into an approved migration profile before local migration and publishing.",
           step0_title: "Step 1: Enter the site URL and analyze it",
           step0_lede: "Inspect the site structure, theme, styles, menus, and plugin signals before the actual migration.",
           step0_note: "This phase builds an upfront picture of what is really on the source site and which preset or style strategy makes sense.",
@@ -2245,14 +2377,34 @@
           analysis_summary_theme: "Theme suggestion",
           analysis_summary_languages: "Detected languages",
           analysis_summary_content: "Detected content volume",
-          step1_title: "Step 2: Migrate the site locally",
-          step1_lede: "Content types, authentication, local project folder, output paths, and local preview.",
-          step1_note: "This phase writes content into a local Eleventy project or into a dry-run report.",
+          step1_title: "Step 2: Approve the profile and configure settings",
+          step1_lede: "Review the detected palette, separators, layouts, and fallback strategy before migration.",
+          step1_note: "This phase turns the discovery result into an approved migration profile used by the actual migration.",
+          configure_disclosure_title: "Show configure settings",
+          configure_disclosure_lede: "Open this if you want to edit the profile before local migration.",
+          configure_profile_section: "Profile and theme.css",
+          configure_fallback_section: "Unknown blocks and fallbacks",
+          configure_box: "The configure phase converts discovery into an approved site profile. Migration uses this profile instead of the raw analysis report.",
+          field_themeCssPath: "Theme.css path",
+          field_separatorList: "Separators",
+          field_colLayoutList: "Column layouts",
+          field_paletteJson: "Palette JSON",
+          field_unknownBlocks: "Unknown blocks",
+          field_unknownKadenceBlockStrategy: "Fallback strategy",
+          option_unknown_strategy_fallback: "Keep fallback HTML",
+          option_unknown_strategy_comment: "Write only a TODO comment",
+          btn_apply_configure: "Approve configure profile",
+          btn_reset_configure: "Reset to analysis suggestion",
+          btn_continue_to_configure: "Continue to configure",
+          btn_continue_to_migration: "Continue to migration",
+          step2_title: "Step 3: Migrate the site locally",
+          step2_lede: "Content types, authentication, local project folder, output paths, and local preview.",
+          step2_note: "This phase writes content into a local Eleventy project or into a dry-run report.",
           migration_disclosure_title: "Show migration advanced settings",
           migration_disclosure_lede: "Open this if you want to adjust content types, authentication, or more detailed output paths.",
-          step2_title: "Step 3: Publish to GitHub and connect a domain",
-          step2_lede: "GitHub Pages, automated Actions deployment, and optional custom domain setup.",
-          step2_note: "This phase defines how the reviewed site will be published automatically.",
+          step3_title: "Step 4: Publish to GitHub and connect a domain",
+          step3_lede: "GitHub Pages, automated Actions deployment, and optional custom domain setup.",
+          step3_note: "This phase defines how the reviewed site will be published automatically.",
           step_toggle: "Open / close",
           phase_toggle_label: "Active",
           source_section: "Source settings",
@@ -2332,7 +2484,7 @@
           toggle_useGitHubActions: "Use GitHub Actions for automated build and deployment.",
           toggle_publishOnPush: "Publish automatically on every push to the default branch.",
           toggle_useCustomDomain: "Include either buying a new domain or pointing an existing domain.",
-          local_box: "The goal of step 2 is to have the migrated content on your machine and the Eleventy site reviewable locally before GitHub publishing.",
+          local_box: "The goal of step 3 is to have the migrated content on your machine and the Eleventy site reviewable locally before GitHub publishing.",
           analysis_box: "The analysis scans the homepage HTML, REST signals, stylesheets, navigation, and plugin traces. Use that signal to decide whether Kadence or Kadence Pro presets are appropriate.",
           github_box: "The goal of step 3 is to commit the reviewed site to GitHub, build it in Actions, and publish it to GitHub Pages without a manual deploy step.",
           domain_box: "The domain step is optional. You can either buy a new domain or point an existing domain to the GitHub Pages site with DNS and CNAME settings.",
@@ -2389,6 +2541,9 @@
           status_defaults_loaded: "Defaults loaded.",
           status_analyzing: "Site analysis running...",
           status_analysis_done: "Site analysis finished.",
+          status_configure_ready: "Configure profile approved.",
+          status_configure_pending: "Waiting for configure approval",
+          status_configure_reset: "Configure profile reset to the analysis suggestion.",
           status_analyze_inactive: "The analysis phase is disabled. Enable it before running site analysis.",
           status_local_inactive: "The local migration phase is disabled. Enable it before running migration.",
           status_folder_picker_fallback: "This browser environment does not support the folder picker. Enter the project folder manually in the field.",
@@ -2478,6 +2633,7 @@
           ],
           workflow_focus_items: [
             ["Site analysis", "analyze"],
+            ["Configure profile", "configure"],
             ["Local migration", "local"],
             ["Publishing and domain", "publish"]
           ],
@@ -2485,12 +2641,13 @@
           phase_inactive_text: "inactive",
           plan_labels: {
             p0_analyze: "Step 1: site analysis",
-            p1_extract: "Step 2: WordPress -> local content",
-            p1_output: "Step 2: local project",
-            p1_local: "Step 2: local run",
-            p2_repo: "Step 3: repository and Pages",
-            p2_actions: "Step 3: GitHub Actions",
-            p2_domain: "Step 3: domain"
+            p0_configure: "Step 2: configure",
+            p1_extract: "Step 3: WordPress -> local content",
+            p1_output: "Step 3: local project",
+            p1_local: "Step 3: local run",
+            p2_repo: "Step 4: repository and Pages",
+            p2_actions: "Step 4: GitHub Actions",
+            p2_domain: "Step 4: domain"
           },
           plan_text: {
             missingRepo: "GitHub owner/repo missing",
@@ -3033,6 +3190,7 @@
         renderStylesPanel();
         renderPluginAudit();
         renderLogSummary();
+        renderConfigureSummary();
         if (latestRunKind === "analysis" && latestAnalysisReport) renderAnalysisResult(latestAnalysisReport);
         if (latestRunKind === "migration" && latestMigrationReport) renderMigrationResult(latestMigrationReport, getPayload().dryRun);
         renderAnalyzeChecklist();
@@ -3175,7 +3333,10 @@
       function updateStepAvailability() {
         const phases = getPhaseState();
         const analysisReady = Boolean(latestAnalysisReport?.analysis);
-        const localEnabled = phases.local && analysisReady;
+        const configureEnabled = phases.configure && analysisReady;
+        const localEnabled = phases.local && analysisReady && Boolean(latestConfiguredProfile);
+        configureStep.setAttribute("aria-disabled", configureEnabled ? "false" : "true");
+        if (!configureEnabled) configureStep.open = false;
         migrationStep.setAttribute("aria-disabled", localEnabled ? "false" : "true");
         if (!localEnabled) migrationStep.open = false;
       }
@@ -3197,21 +3358,60 @@
         applyPresetDefaults();
         applyProjectDefaults(form.elements.namedItem("localProjectFolder").value, false);
         updateNunjucksVisibility();
+        populateConfigureFields(report);
+      }
+
+      function populateConfigureFields(report) {
+        const profile = report?.siteProfile;
+        if (!profile) return;
+        form.elements.namedItem("themeCssPath").value = profile.configure?.themeCssPath || "styles/theme.css";
+        form.elements.namedItem("separatorList").value = (profile.separatorsUsed || []).join(", ");
+        form.elements.namedItem("colLayoutList").value = (profile.colLayouts || []).join(", ");
+        form.elements.namedItem("paletteJson").value = JSON.stringify(profile.palette || {}, null, 2);
+        form.elements.namedItem("unknownBlockList").value = (report.configure?.unknownBlockTypes || []).join(", ");
+        form.elements.namedItem("unknownKadenceBlockStrategy").value = profile.configure?.unknownKadenceBlockStrategy || "fallback-html";
+        latestConfiguredProfile = null;
+        renderConfigureSummary();
+      }
+
+      function renderConfigureSummary() {
+        const profile = getConfiguredSiteProfile();
+        if (!profile) {
+          configureSummaryList.innerHTML = "";
+          applyConfigureProfileButton.disabled = true;
+          resetConfigureProfileButton.disabled = true;
+          continueToMigrationButton.disabled = true;
+          continueToMigrationButton.classList.remove("continue-glow");
+          return;
+        }
+        const summary = [
+          `${t("field_themeCssPath")}: ${profile?.configure?.themeCssPath || "styles/theme.css"}`,
+          `${t("field_separatorList")}: ${(profile?.separatorsUsed || []).join(", ") || "-"}`,
+          `${t("field_colLayoutList")}: ${(profile?.colLayouts || []).join(", ") || "-"}`,
+          `${t("field_unknownBlocks")}: ${(profile?.configure?.unknownBlockTypes || []).join(", ") || "-"}`,
+          `${t("field_unknownKadenceBlockStrategy")}: ${profile?.configure?.unknownKadenceBlockStrategy || "fallback-html"}`
+        ];
+        configureSummaryList.innerHTML = summary.map((item) => `<li>${item}</li>`).join("");
+        const canApply = Boolean(latestAnalysisReport?.siteProfile);
+        applyConfigureProfileButton.disabled = !canApply;
+        resetConfigureProfileButton.disabled = !canApply;
+        continueToMigrationButton.disabled = !latestConfiguredProfile;
+        continueToMigrationButton.classList.toggle("continue-glow", Boolean(latestConfiguredProfile));
       }
 
       function renderAnalysisSuggestions(report) {
         if (!report?.analysis) {
           analysisRecommendations.hidden = true;
           openLogAfterAnalysisButton.disabled = true;
-          continueToMigrationButton.disabled = true;
-          continueToMigrationButton.classList.remove("continue-glow");
+          continueToConfigureButton.disabled = true;
+          continueToConfigureButton.classList.remove("continue-glow");
           return;
         }
         const analysis = report.analysis;
         analysisRecommendations.hidden = false;
         openLogAfterAnalysisButton.disabled = false;
-        continueToMigrationButton.disabled = false;
-        continueToMigrationButton.classList.add("continue-glow");
+        continueToConfigureButton.disabled = false;
+        continueToConfigureButton.classList.add("continue-glow");
         analysisRecommendationList.innerHTML = [
           `${t("analysis_summary_theme")}: ${analysis.theme?.slug || "-"}`,
           `${t("field_restNamespace")}: ${analysis.rest?.recommendedNamespace || "/wp-json/wp/v2"}`,
@@ -3371,7 +3571,8 @@
           kadenceBlocksDir: data.get("kadenceBlocksDir"),
           stylesDir: data.get("stylesDir"),
           eleventyReplacements: getSelectedEleventyReplacements(),
-          siteProfile: latestAnalysisReport?.siteProfile || null,
+          siteProfile: getConfiguredSiteProfile(),
+          unknownKadenceBlockStrategy: data.get("unknownKadenceBlockStrategy"),
           localProjectFolder: data.get("localProjectFolder"),
           outputRoot: data.get("outputRoot"),
           contentDir: data.get("contentDir"),
@@ -3395,9 +3596,31 @@
         const data = new FormData(form);
         return {
           analyze: data.get("phaseAnalyzeActive") === "on",
+          configure: data.get("phaseConfigureActive") === "on",
           local: data.get("phaseLocalActive") === "on",
           publish: data.get("phasePublishActive") === "on"
         };
+      }
+
+      function getConfiguredSiteProfile() {
+        if (!latestAnalysisReport?.siteProfile) return latestConfiguredProfile;
+        const base = JSON.parse(JSON.stringify(latestAnalysisReport.siteProfile));
+        try {
+          base.palette = JSON.parse(form.elements.namedItem("paletteJson").value || "{}");
+        } catch {
+          base.palette = latestConfiguredProfile?.palette || base.palette || {};
+        }
+        base.separatorsUsed = String(form.elements.namedItem("separatorList").value || "")
+          .split(",").map((value) => value.trim()).filter(Boolean);
+        base.colLayouts = String(form.elements.namedItem("colLayoutList").value || "")
+          .split(",").map((value) => value.trim()).filter(Boolean);
+        base.configure = {
+          themeCssPath: String(form.elements.namedItem("themeCssPath").value || "").trim(),
+          unknownKadenceBlockStrategy: String(form.elements.namedItem("unknownKadenceBlockStrategy").value || "fallback-html"),
+          unknownBlockTypes: String(form.elements.namedItem("unknownBlockList").value || "")
+            .split(",").map((value) => value.trim()).filter(Boolean)
+        };
+        return base;
       }
 
       function getPlanState() {
@@ -3440,6 +3663,12 @@
             title: planLabels.p0_analyze,
             text: phases.analyze
               ? `${state.wpBaseUrl || "-"}; ${planText.analysisActive}`
+              : planText.phaseInactive
+          },
+          {
+            title: planLabels.p0_configure,
+            text: phases.configure
+              ? `${latestConfiguredProfile ? t("status_configure_ready") : t("status_configure_pending")}`
               : planText.phaseInactive
           },
           {
@@ -3502,7 +3731,7 @@
         `).join("");
 
         document.querySelectorAll(".step").forEach((step, index) => {
-          const key = index === 0 ? "analyze" : index === 1 ? "local" : "publish";
+          const key = index === 0 ? "analyze" : index === 1 ? "configure" : index === 2 ? "local" : "publish";
           step.classList.toggle("is-inactive", !phases[key]);
         });
       }
@@ -3512,6 +3741,7 @@
           phases: getPhaseState(),
           deploymentPlan: getPlanState(),
           analysisReport: latestAnalysisReport,
+          configuredProfile: latestConfiguredProfile,
           migrationReport: latestMigrationReport
         };
       }
@@ -3526,6 +3756,7 @@
 
         const defaults = {
           phaseAnalyzeActive: true,
+          phaseConfigureActive: false,
           phaseLocalActive: false,
           phasePublishActive: false,
           preset: "none",
@@ -3543,6 +3774,12 @@
           useNunjucksLayouts: false,
           convertKadenceBlocks: false,
           migrateStyles: false,
+          themeCssPath: "styles/theme.css",
+          separatorList: "",
+          colLayoutList: "",
+          paletteJson: "{}",
+          unknownBlockList: "",
+          unknownKadenceBlockStrategy: "fallback-html",
           pageLayout: "layouts/page.njk",
           postLayout: "layouts/post.njk",
           defaultLayout: "",
@@ -3673,11 +3910,12 @@
         renderPlan();
       });
 
-      form.querySelectorAll('input[name="phaseAnalyzeActive"], input[name="phaseLocalActive"], input[name="phasePublishActive"]').forEach((field) => {
+      form.querySelectorAll('input[name="phaseAnalyzeActive"], input[name="phaseConfigureActive"], input[name="phaseLocalActive"], input[name="phasePublishActive"]').forEach((field) => {
         field.addEventListener("change", () => {
           renderPlan();
           renderWorkflowFocus();
           renderLogSummary();
+          updateStepAvailability();
         });
       });
 
@@ -3728,6 +3966,11 @@
       form.addEventListener("input", (event) => {
         if (event.target !== outputRootField) renderPlan();
         renderStylesPanel();
+        if (["themeCssPath", "separatorList", "colLayoutList", "paletteJson", "unknownBlockList", "unknownKadenceBlockStrategy"].includes(event.target.name)) {
+          latestConfiguredProfile = null;
+          renderConfigureSummary();
+          updateStepAvailability();
+        }
       });
 
       document.querySelectorAll("[data-help-topic]").forEach((button) => {
@@ -3814,12 +4057,15 @@
           applyAnalysisSuggestions(result.report);
           renderAnalysisSuggestions(result.report);
           analysisSettingsDisclosure.open = true;
+          form.elements.namedItem("phaseConfigureActive").checked = true;
           setPhaseProgress("analysis", 100, "progress_done_analysis");
           latestRawExport = { ...buildRawExport(), analysisJob: result };
           resultNode.textContent = JSON.stringify(latestRawExport, null, 2);
           renderAnalysisResult(result.report);
+          renderConfigureSummary();
           renderLogSummary();
           renderPlan();
+          updateStepAvailability();
           setStatus(t("status_analysis_done"));
         } catch (error) {
           setPhaseProgress("analysis", 100, "progress_failed_analysis");
@@ -3832,6 +4078,30 @@
       analyzeButton.addEventListener("click", runWorkflowAnalysis);
 
       openLogAfterAnalysisButton.addEventListener("click", () => setActiveTab("log-tab"));
+
+      continueToConfigureButton.addEventListener("click", () => {
+        form.elements.namedItem("phaseConfigureActive").checked = true;
+        configureStep.open = true;
+        continueToConfigureButton.classList.remove("continue-glow");
+        updateStepAvailability();
+        renderPlan();
+        configureStep.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      applyConfigureProfileButton.addEventListener("click", () => {
+        latestConfiguredProfile = getConfiguredSiteProfile();
+        form.elements.namedItem("phaseLocalActive").checked = true;
+        renderConfigureSummary();
+        updateStepAvailability();
+        renderPlan();
+        setStatus(t("status_configure_ready"));
+      });
+
+      resetConfigureProfileButton.addEventListener("click", () => {
+        if (!latestAnalysisReport) return;
+        populateConfigureFields(latestAnalysisReport);
+        setStatus(t("status_configure_reset"));
+      });
 
       continueToMigrationButton.addEventListener("click", () => {
         form.elements.namedItem("phaseLocalActive").checked = true;
@@ -3879,6 +4149,10 @@
       async function runMigrationJob({ dryRunOverride = null } = {}) {
         if (!getPhaseState().local) {
           setStatus(t("status_local_inactive"), true);
+          return;
+        }
+        if (!latestConfiguredProfile) {
+          setStatus(t("status_configure_pending"), true);
           return;
         }
         const originalDryRun = form.elements.namedItem("dryRun").checked;
@@ -4151,12 +4425,13 @@
 
         cards.push(`
           <section class="log-summary-card">
-            <h3>${t("log_card_phases")}</h3>
-            <ul>
-              <li>${t("log_phase_analyze")}: ${phases.analyze ? t("phase_active_text") : t("phase_inactive_text")}</li>
-              <li>${t("log_phase_local")}: ${phases.local ? t("phase_active_text") : t("phase_inactive_text")}</li>
-              <li>${t("log_phase_publish")}: ${phases.publish ? t("phase_active_text") : t("phase_inactive_text")}</li>
-            </ul>
+              <h3>${t("log_card_phases")}</h3>
+              <ul>
+                <li>${t("log_phase_analyze")}: ${phases.analyze ? t("phase_active_text") : t("phase_inactive_text")}</li>
+                <li>Configure: ${phases.configure ? t("phase_active_text") : t("phase_inactive_text")}</li>
+                <li>${t("log_phase_local")}: ${phases.local ? t("phase_active_text") : t("phase_inactive_text")}</li>
+                <li>${t("log_phase_publish")}: ${phases.publish ? t("phase_active_text") : t("phase_inactive_text")}</li>
+              </ul>
           </section>
         `);
 

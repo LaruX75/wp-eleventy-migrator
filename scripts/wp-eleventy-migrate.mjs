@@ -2062,6 +2062,10 @@ function renderBlockTree(nodes, config, warnings, state) {
         warnings.push(`Unsupported Kadence block '${shortName}' left as inner HTML fallback.`);
         state.unknownBlocks.add(shortName);
       }
+      const strategy = String(config.unknownKadenceBlockStrategy || config.siteProfile?.configure?.unknownKadenceBlockStrategy || "fallback-html");
+      if (strategy === "comment-only") {
+        return `<!-- TODO: kadence/${shortName} ei tuettu — alkuperäinen sisältö säilytettävä käsin -->`;
+      }
       return [
         `<!-- TODO: kadence/${shortName} ei tuettu — alkuperäinen sisältö säilytetty -->`,
         `<div class="block-fallback block-fallback--${slugify(shortName)}" data-original-block="${sanitizeHtmlFragment(node.name)}">`,
@@ -3131,6 +3135,11 @@ async function createConfigFromInput(raw = {}) {
     stylesDir: String(raw.stylesDir || presetDefaults.stylesDir || DEFAULT_STYLES_DIR).trim() || DEFAULT_STYLES_DIR,
     eleventyReplacements: normalizeEleventyReplacements(raw.eleventyReplacements),
     siteProfile: raw.siteProfile && typeof raw.siteProfile === "object" ? raw.siteProfile : null,
+    unknownKadenceBlockStrategy: String(
+      raw.unknownKadenceBlockStrategy
+      || raw.siteProfile?.configure?.unknownKadenceBlockStrategy
+      || "fallback-html"
+    ),
     localProjectFolder,
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
