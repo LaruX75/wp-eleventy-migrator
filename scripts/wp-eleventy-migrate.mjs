@@ -2276,7 +2276,7 @@ async function generateLayouts(config, root) {
   const baseLayoutPath = path.join(includesDir, baseLayoutName);
   const pageLayoutPath = path.join(includesDir, config.pageLayout || "layouts/page.njk");
   const postLayoutPath = path.join(includesDir, config.postLayout || "layouts/post.njk");
-  const stylesLine = `${themeCssIncludeLine(config)}${config.migrateStyles ? `  {% include "legacy-styles.njk" %}\n` : ""}`;
+  const stylesLine = `${config.migrateStyles ? `  {% include "legacy-styles.njk" %}\n` : ""}${themeCssIncludeLine(config)}`;
   const enabled = getEnabledReplacementSlugs(config);
   const languageSwitcherLine = enabled.has("wpml") || enabled.has("gtranslate")
     ? `    {% include "partials/language-switcher.njk" %}\n`
@@ -3163,7 +3163,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
               {% endif %}
               <h3 class="kb-query-item__title"><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
               {% if post.data.date %}
-                <time class="kb-query-item__date" datetime="{{ post.data.date }}">{{ post.data.date }}</time>
+                <time class="kb-query-item__date" datetime="{{ post.data.date }}">{{ post.data.date | date("d.m.Y") }}</time>
               {% endif %}
               {% if post.data.excerpt and post.data.excerpt != "[object Object]" %}
                 <p class="kb-query-item__excerpt">{{ post.data.excerpt | truncate(160) }}</p>
