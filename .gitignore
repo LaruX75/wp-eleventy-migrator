@@ -6,3 +6,6 @@ node_modules/
 # Generated migration outputs
 migrations/
 *.log
+
+# Local migration configs
+configs/*.json
