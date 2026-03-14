@@ -1534,6 +1534,124 @@ function safeJsonForNunjucks(value) {
   return JSON.stringify(value, null, 2).replace(/</g, "\\u003c");
 }
 
+const STRIPPED_HTML_ATTRIBUTES = [
+  /\sdata-kb-block=(["'])[\s\S]*?\1/gi,
+  /\sdata-kadence-id=(["'])[\s\S]*?\1/gi
+];
+const STRIPPED_CLASS_NAMES = new Set(["kadence-dynamic-icon", "kt-svg-icon-list-single"]);
+const LEAF_KADENCE_BLOCKS = new Set(["advancedheading", "listitem", "icon", "image", "spacer", "advancedbtn", "infobox", "videopopup", "lottie", "countdown", "form", "identity"]);
+const CONTAINER_KADENCE_BLOCKS = new Set(["rowlayout", "column", "iconlist", "tabs", "tab", "accordion", "pane", "gallery", "splitcontent", "testimonials", "postcarousel", "portfoliogrid"]);
+
+function convertPaletteToken(value) {
+  return String(value || "").replace(/\bpalette([1-9])\b/gi, (_, num) => `var(--global-palette${num})`);
+}
+
+function transformPaletteValues(input) {
+  if (Array.isArray(input)) return input.map((value) => transformPaletteValues(value));
+  if (input && typeof input === "object") {
+    return Object.fromEntries(Object.entries(input).map(([key, value]) => [key, transformPaletteValues(value)]));
+  }
+  return typeof input === "string" ? convertPaletteToken(input) : input;
+}
+
+function sanitizeClassName(value) {
+  return String(value || "")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .filter((token) => !STRIPPED_CLASS_NAMES.has(token))
+    .join(" ");
+}
+
+function sanitizeHtmlFragment(html) {
+  let result = String(html || "");
+  for (const pattern of STRIPPED_HTML_ATTRIBUTES) result = result.replace(pattern, "");
+  result = result.replace(/\sclass=(["'])([\s\S]*?)\1/gi, (_full, quote, classes) => {
+    const cleaned = sanitizeClassName(classes);
+    return cleaned ? ` class=${quote}${cleaned}${quote}` : "";
+  });
+  return convertPaletteToken(result);
+}
+
+function stripOuterWrapperTag(html) {
+  let value = String(html || "").trim();
+  const wrapperPattern = /^<([a-z0-9:-]+)([^>]*)>([\s\S]*)<\/\1>$/i;
+  while (wrapperPattern.test(value)) {
+    const match = value.match(wrapperPattern);
+    const attrs = match?.[2] || "";
+    if (!/(wp-block-kadence|kadence-|kb-|kt-|kt-inside-inner-col|wp-block-heading|kb-buttons-wrap|kt-svg-icon-list)/i.test(attrs)) break;
+    value = String(match?.[3] || "").trim();
+  }
+  return value;
+}
+
+function extractLeafInnerContent(shortName, attrs, innerHtml) {
+  if (shortName === "image" || shortName === "spacer") return "";
+  if (shortName === "listitem" && attrs?.text) return decodeHtml(String(attrs.text));
+  return stripOuterWrapperTag(sanitizeHtmlFragment(innerHtml));
+}
+
+function normalizeKadenceInnerContent(shortName, attrs, innerHtml) {
+  const sanitized = sanitizeHtmlFragment(innerHtml);
+  if (LEAF_KADENCE_BLOCKS.has(shortName)) return extractLeafInnerContent(shortName, attrs, sanitized);
+  if (CONTAINER_KADENCE_BLOCKS.has(shortName)) return stripOuterWrapperTag(sanitized);
+  return stripOuterWrapperTag(sanitized);
+}
+
+function pickDefinedAttrs(attrs, keys) {
+  const source = transformPaletteValues(attrs || {});
+  const out = {};
+  for (const key of keys) {
+    if (source[key] === undefined || source[key] === null || source[key] === "") continue;
+    out[key] = key === "className" ? sanitizeClassName(source[key]) : source[key];
+  }
+  return out;
+}
+
+function sanitizeKadenceAttrs(shortName, attrs = {}) {
+  switch (shortName) {
+    case "advancedheading":
+      return pickDefinedAttrs(attrs, ["uniqueID", "level", "align", "color", "fontSize", "fontSizeType", "textTransform", "fontWeight", "className"]);
+    case "rowlayout":
+      return {
+        ...pickDefinedAttrs(attrs, ["uniqueID", "columns", "colLayout", "bgColor", "background", "backgroundImg", "padding", "margin", "bottomSep", "bottomSepColor", "align", "className"]),
+        ...(attrs.bgColorClass ? { bgColorClass: sanitizeClassName(attrs.bgColorClass) } : {})
+      };
+    case "column":
+      return pickDefinedAttrs(attrs, ["uniqueID", "width", "colLayout", "padding", "margin", "borderWidth", "borderColor", "background", "className", "verticalAlignment"]);
+    case "iconlist":
+      return pickDefinedAttrs(attrs, ["uniqueID", "columns", "iconColor", "size", "className"]);
+    case "listitem":
+      return pickDefinedAttrs(attrs, ["uniqueID", "icon", "text", "iconColor", "className"]);
+    case "advancedbtn":
+      return pickDefinedAttrs(attrs, ["uniqueID", "hAlign", "className"]);
+    case "image":
+      return pickDefinedAttrs(attrs, ["url", "alt", "width", "height", "link", "linkTarget", "caption", "className"]);
+    case "spacer":
+      return pickDefinedAttrs(attrs, ["spacerHeight", "dividerEnable", "dividerStyle", "dividerColor", "dividerWidth", "className"]);
+    case "infobox":
+      return pickDefinedAttrs(attrs, ["uniqueID", "title", "titleLevel", "mediaType", "mediaIcon", "mediaUrl", "linkUrl", "linkTarget", "className"]);
+    case "tabs":
+    case "tab":
+    case "accordion":
+    case "pane":
+    case "gallery":
+    case "splitcontent":
+    case "testimonials":
+    case "postcarousel":
+    case "portfoliogrid":
+    case "form":
+    case "identity":
+    case "videopopup":
+    case "lottie":
+    case "countdown":
+    case "icon":
+      return pickDefinedAttrs(attrs, ["uniqueID", "title", "startOpen", "columns", "images", "className", "icon", "showLogo", "showTitle", "showTagline", "fileUrl", "loop", "autoplay", "date", "timezone", "url", "type", "submitLabel", "formTitle"]);
+    default:
+      return pickDefinedAttrs(attrs, ["uniqueID", "className"]);
+  }
+}
+
 function parseBlockAttrs(rawAttrs) {
   if (!rawAttrs) return {};
   try {
@@ -1663,18 +1781,19 @@ function extractSeoPluginMeta(item) {
 
 function renderBlockTree(nodes, config, warnings, state) {
   return nodes.map((node) => {
-    if (node.type === "html") return node.value;
+    if (node.type === "html") return sanitizeHtmlFragment(node.value);
 
-    const innerHtml = renderBlockTree(node.children || [], config, warnings, state);
+    const renderedChildren = renderBlockTree(node.children || [], config, warnings, state);
     const [namespace, shortName] = String(node.name || "").split("/");
     if (config.convertKadenceBlocks && namespace === "kadence" && shortName && kadenceSupportedBlocks(config).includes(shortName)) {
       state.convertedCount += 1;
       state.seenBlocks.add(shortName);
+      const attrs = sanitizeKadenceAttrs(shortName, node.attrs || {});
+      const innerHtml = normalizeKadenceInnerContent(shortName, attrs, renderedChildren);
       const blockData = safeJsonForNunjucks({
         name: node.name,
         shortName,
-        attrs: node.attrs || {},
-        rawHtml: innerHtml
+        attrs
       });
       return [
         `{% set kadenceBlock = ${blockData} %}`,
@@ -1706,7 +1825,7 @@ function renderBlockTree(nodes, config, warnings, state) {
       }
     }
 
-    return innerHtml;
+    return renderedChildren;
   }).join("");
 }
 
@@ -1737,17 +1856,15 @@ const KADENCE_PARTIAL_TEMPLATES = {
 {% set b = kadenceBlock.attrs %}
 {% set tag = "h" ~ (b.level if b.level else 2) %}
 <{{ tag }}
-  class="kadence-block kadence-advancedheading{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}id="kt-adv-heading_{{ b.uniqueID }}"{% endif %}
-  {% if b.align or b.color %}style="{% if b.align %}text-align:{{ b.align }};{% endif %}{% if b.color %} color:{{ b.color }};{% endif %}"{% endif %}
+  class="kadence-block kadence-advancedheading{% if b.className %} {{ b.className }}{% endif %}{% if b.uniqueID %} kt-adv-heading_{{ b.uniqueID }}{% endif %}"
+  {% if b.align or b.color or b.fontSize or b.textTransform or b.fontWeight %}style="{% if b.align %}text-align:{{ b.align }};{% endif %}{% if b.color %} color:{{ b.color }};{% endif %}{% if b.fontSize %} font-size:{{ b.fontSize }}{% if b.fontSizeType %}{{ b.fontSizeType }}{% endif %};{% endif %}{% if b.textTransform %} text-transform:{{ b.textTransform }};{% endif %}{% if b.fontWeight %} font-weight:{{ b.fontWeight }};{% endif %}"{% endif %}
 >{{ kadenceInnerHtml | safe }}</{{ tag }}>
 `,
 
   advancedbtn: `{# kadence/advancedbtn — Button group; innerHtml contains individual button elements #}
 {% set b = kadenceBlock.attrs %}
 <div
-  class="kadence-block kadence-advancedbtn{% if b.hAlign %} kadence-btn-align-{{ b.hAlign }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  class="kadence-block kadence-advancedbtn kb-btn-align-wrap kb-buttons-wrap{% if b.uniqueID %} kb-btns{{ b.uniqueID }}{% endif %}{% if b.hAlign %} kb-btn-align-{{ b.hAlign }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
 >
   {{ kadenceInnerHtml | safe }}
 </div>
@@ -1756,9 +1873,8 @@ const KADENCE_PARTIAL_TEMPLATES = {
   rowlayout: `{# kadence/rowlayout — Multi-column section; columns are nested kadence/column blocks #}
 {% set b = kadenceBlock.attrs %}
 <section
-  class="kadence-block kadence-rowlayout{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
-  {% if b.background or (b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg) %}style="{% if b.background %}background-color:{{ b.background }};{% endif %}{% if b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg %} background-image:url('{{ b.backgroundImg[0].bgImg }}');{% endif %}"{% endif %}
+  class="kadence-block kadence-rowlayout kb-row-layout-wrap{% if b.uniqueID %} kb-row-layout-id_{{ b.uniqueID }}{% endif %}{% if b.align == "full" %} alignfull{% endif %}{% if b.bgColorClass %} kb-theme-{{ b.bgColorClass }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.background or b.bgColor or (b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg) %}style="{% if b.background %}background-color:{{ b.background }};{% endif %}{% if b.bgColor %} background-color:{{ b.bgColor }};{% endif %}{% if b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg %} background-image:url('{{ b.backgroundImg[0].bgImg }}');{% endif %}"{% endif %}
 >
   {{ kadenceInnerHtml | safe }}
 </section>
@@ -1767,18 +1883,18 @@ const KADENCE_PARTIAL_TEMPLATES = {
   column: `{# kadence/column — Single column within a rowlayout #}
 {% set b = kadenceBlock.attrs %}
 <div
-  class="kadence-block kadence-column{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  class="kadence-block kadence-column wp-block-kadence-column kb-section-container{% if b.uniqueID %} kb-section_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
 >
-  {{ kadenceInnerHtml | safe }}
+  <div class="kt-inside-inner-col">
+    {{ kadenceInnerHtml | safe }}
+  </div>
 </div>
 `,
 
   image: `{# kadence/image — Image with optional link, alt text and caption #}
 {% set b = kadenceBlock.attrs %}
 <figure
-  class="kadence-block kadence-image{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  class="kadence-block kadence-image wp-block-kadence-image kb-image-wrap{% if b.className %} {{ b.className }}{% endif %}"
 >
   {% if b.link %}<a href="{{ b.link }}"{% if b.linkTarget %} target="{{ b.linkTarget }}"{% endif %}>{% endif %}
   {% if b.url %}
@@ -1846,7 +1962,6 @@ const KADENCE_PARTIAL_TEMPLATES = {
 {% set b = kadenceBlock.attrs %}
 <div
   class="kadence-block kadence-accordion{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
   {{ kadenceInnerHtml | safe }}
 </div>
@@ -1871,13 +1986,13 @@ const KADENCE_PARTIAL_TEMPLATES = {
   infobox: `{# kadence/infobox — Info card with optional icon, title and body text #}
 {% set b = kadenceBlock.attrs %}
 <article
-  class="kadence-block kadence-infobox{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  class="kadence-block kadence-infobox kt-blocks-info-box-wrap{% if b.uniqueID %} kt-info-box_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
 >
   {% if b.title %}
-    <h3 class="kadence-infobox-title">{{ b.title }}</h3>
+    {% set tag = "h" ~ (b.titleLevel if b.titleLevel else 3) %}
+    <{{ tag }} class="kadence-infobox-title">{% if b.linkUrl %}<a href="{{ b.linkUrl }}"{% if b.linkTarget %} target="{{ b.linkTarget }}"{% endif %}>{{ b.title }}</a>{% else %}{{ b.title }}{% endif %}</{{ tag }}>
   {% endif %}
-  <div class="kadence-infobox-content">
+  <div class="kt-blocks-info-box-body">
     {{ kadenceInnerHtml | safe }}
   </div>
 </article>
@@ -1885,20 +2000,19 @@ const KADENCE_PARTIAL_TEMPLATES = {
 
   icon: `{# kadence/icon — Single icon; innerHtml contains the rendered SVG or icon font markup #}
 {% set b = kadenceBlock.attrs %}
+{% from "macros/feather-icons.njk" import featherIcon %}
 <span
   class="kadence-block kadence-icon{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
   aria-hidden="true"
 >
-  {{ kadenceInnerHtml | safe }}
+  {% if b.icon %}{{ featherIcon(b.icon) }}{% else %}{{ kadenceInnerHtml | safe }}{% endif %}
 </span>
 `,
 
   iconlist: `{# kadence/iconlist — List with icon bullets; items are kadence/listitem blocks #}
 {% set b = kadenceBlock.attrs %}
 <ul
-  class="kadence-block kadence-iconlist{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  class="kadence-block kadence-iconlist kt-svg-icon-list-items kt-svg-icon-list-columns-{{ b.columns if b.columns else 1 }} alignnone{% if b.className %} {{ b.className }}{% endif %}"
 >
   {{ kadenceInnerHtml | safe }}
 </ul>
@@ -1906,11 +2020,12 @@ const KADENCE_PARTIAL_TEMPLATES = {
 
   listitem: `{# kadence/listitem — Single icon list item #}
 {% set b = kadenceBlock.attrs %}
-<li class="kadence-block kadence-listitem{% if b.className %} {{ b.className }}{% endif %}">
+{% from "macros/feather-icons.njk" import featherIcon %}
+<li class="kadence-block kadence-listitem kt-svg-icon-list-item-wrap{% if b.className %} {{ b.className }}{% endif %}">
   {% if b.icon %}
-    <span class="kadence-listitem-icon" aria-hidden="true">{{ b.icon }}</span>
+    {{ featherIcon(b.icon) }}
   {% endif %}
-  <span class="kadence-listitem-text">{{ kadenceInnerHtml | safe }}</span>
+  <span class="kt-svg-icon-list-text">{{ kadenceInnerHtml | safe }}</span>
 </li>
 `,
 
@@ -1918,8 +2033,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
 {% set b = kadenceBlock.attrs %}
 {% set h = b.spacerHeight[0] if (b.spacerHeight and b.spacerHeight[0]) else 60 %}
 <div
-  class="kadence-block kadence-spacer{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
+  class="kadence-block kadence-spacer kt-block-spacer{% if b.className %} {{ b.className }}{% endif %}"
   style="height:{{ h }}px;"
   aria-hidden="true"
 >
@@ -2168,8 +2282,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
         </li>
       {% endfor %}
     {% else %}
-      {# Fallback: raw inner HTML from block (WP rendered output) #}
-      {{ kadenceBlock.rawHtml | safe }}
+      {{ kadenceInnerHtml | safe }}
     {% endif %}
   </ul>
 </nav>
@@ -2304,9 +2417,10 @@ const KADENCE_PARTIAL_TEMPLATES = {
 };
 
 function kadencePartialTemplate(name) {
-  const raw = Object.prototype.hasOwnProperty.call(KADENCE_PARTIAL_TEMPLATES, name)
+  const rawBase = Object.prototype.hasOwnProperty.call(KADENCE_PARTIAL_TEMPLATES, name)
     ? KADENCE_PARTIAL_TEMPLATES[name]
     : `{# kadence/${name} — Generic fallback. Customize this partial. #}\n{% set b = kadenceBlock.attrs %}\n<div\n  class="kadence-block kadence-${name}{% if b.className %} {{ b.className }}{% endif %}"\n  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}\n>\n  {{ kadenceInnerHtml | safe }}\n</div>\n`;
+  const raw = rawBase.replace(/\n\s*\{% if b\.uniqueID %\}data-kadence-id="\{\{ b\.uniqueID \}\}"\{% endif %\}/g, "");
 
   // Inject standard WordPress block class, Kadence kb-* class and uniqueID-scoped class.
   // All three together ensure that CSS downloaded from the WordPress site still applies.
@@ -2324,6 +2438,28 @@ function kadencePartialTemplate(name) {
   return raw.replace(needle, replacement);
 }
 
+function featherIconMacroTemplate() {
+  return `{% macro featherIcon(name) -%}
+{% set iconName = (name | replace("fe_", "") | lower) %}
+<span class="feather-icon feather-icon-{{ iconName }}" aria-hidden="true">
+  {% if iconName == "check" %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+  {% elif iconName == "star" %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9 16.5 14 18.5 22 12 17.8 5.5 22 7.5 14 2 9 9 9 12 2"></polygon></svg>
+  {% elif iconName == "menu" %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+  {% elif iconName == "x" %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+  {% elif iconName == "arrow-right" %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+  {% else %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle></svg>
+  {% endif %}
+</span>
+{%- endmacro %}
+`;
+}
+
 async function writeKadencePartials(outputRoot, blocksDir, preset) {
   const absoluteDir = path.join(outputRoot, blocksDir);
   await fs.mkdir(absoluteDir, { recursive: true });
@@ -2334,6 +2470,9 @@ async function writeKadencePartials(outputRoot, blocksDir, preset) {
     const filePath = path.join(absoluteDir, `${name}.njk`);
     return fs.writeFile(filePath, kadencePartialTemplate(name), "utf8");
   }));
+  const macroDir = path.join(outputRoot, "_includes", "macros");
+  await fs.mkdir(macroDir, { recursive: true });
+  await fs.writeFile(path.join(macroDir, "feather-icons.njk"), featherIconMacroTemplate(), "utf8");
   return absoluteDir;
 }
 
