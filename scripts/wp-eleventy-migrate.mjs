@@ -3195,9 +3195,12 @@ const KADENCE_PARTIAL_TEMPLATES = {
       if (!grid) return;
       var observer = new IntersectionObserver(function (entries) {
         if (!entries[0].isIntersecting) return;
+        observer.disconnect();
         var hidden = Array.from(grid.querySelectorAll('.kb-query-hidden'));
         hidden.slice(0, pageSize).forEach(function (el) { el.classList.remove('kb-query-hidden'); });
-        if (!grid.querySelector('.kb-query-hidden')) observer.disconnect();
+        if (grid.querySelector('.kb-query-hidden')) {
+          requestAnimationFrame(function () { observer.observe(sentinel); });
+        }
       }, { rootMargin: '200px' });
       observer.observe(sentinel);
     });
