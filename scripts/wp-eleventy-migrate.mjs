@@ -598,7 +598,15 @@ async function analyzeSite(config, progress = () => {}) {
   ]);
 
   const contentCounts = {};
-  const baseApi = joinUrl(config.wpBaseUrl, config.restNamespace || DEFAULT_NAMESPACE);
+  const detectedNamespaces = Array.isArray(restRoot?.namespaces)
+    ? restRoot.namespaces.map((value) => String(value || "").trim()).filter(Boolean)
+    : [];
+  const recommendedNamespace = detectedNamespaces.find((ns) => ns === "wp/v2")
+    ? "/wp-json/wp/v2"
+    : detectedNamespaces.find((ns) => /\/v\d+$/i.test(ns))
+      ? `/wp-json/${detectedNamespaces.find((ns) => /\/v\d+$/i.test(ns))}`
+      : (config.restNamespace || DEFAULT_NAMESPACE);
+  const baseApi = joinUrl(config.wpBaseUrl, recommendedNamespace);
   for (const type of DEFAULT_TYPES) {
     try {
       progress("info", `Lasketaan ${type} REST API:n kautta…`);
@@ -641,7 +649,9 @@ async function analyzeSite(config, progress = () => {}) {
     theme,
     rest: {
       available: Boolean(restRoot),
-      namespaceCount: Array.isArray(restRoot?.namespaces) ? restRoot.namespaces.length : 0
+      namespaceCount: Array.isArray(restRoot?.namespaces) ? restRoot.namespaces.length : 0,
+      namespaces: detectedNamespaces,
+      recommendedNamespace
     },
     menus: {
       source: menus.source || "unavailable",

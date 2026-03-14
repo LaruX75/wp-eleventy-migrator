@@ -3146,6 +3146,7 @@
         const analysis = report.analysis;
         const recommendedPreset = analysis.theme?.proSignals ? "kadence-pro" : analysis.theme?.kadence ? "kadence" : "none";
         presetSelect.value = recommendedPreset;
+        form.elements.namedItem("restNamespace").value = analysis.rest?.recommendedNamespace || "/wp-json/wp/v2";
         form.elements.namedItem("useNunjucksLayouts").checked = recommendedPreset !== "none";
         form.elements.namedItem("convertKadenceBlocks").checked = recommendedPreset === "kadence" || recommendedPreset === "kadence-pro";
         form.elements.namedItem("migrateStyles").checked = recommendedPreset === "kadence" || recommendedPreset === "kadence-pro";
@@ -3174,6 +3175,7 @@
         continueToMigrationButton.classList.add("continue-glow");
         analysisRecommendationList.innerHTML = [
           `${t("analysis_summary_theme")}: ${analysis.theme?.slug || "-"}`,
+          `${t("field_restNamespace")}: ${analysis.rest?.recommendedNamespace || "/wp-json/wp/v2"}`,
           `${t("analysis_summary_languages")}: ${(analysis.structure?.languages || []).join(", ") || "-"}`,
           `${t("analysis_summary_content")}: posts ${analysis.structure?.contentCounts?.posts ?? 0}, pages ${analysis.structure?.contentCounts?.pages ?? 0}`,
           ...((analysis.recommendations || []).slice(0, 3))
