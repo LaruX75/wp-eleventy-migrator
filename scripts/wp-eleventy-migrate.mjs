@@ -22,10 +22,13 @@ const CONFIGURE_THEME_FILE = "styles/theme.css";
 const SUPPORTED_KADENCE_BLOCKS = [
   "advancedheading",
   "advancedbtn",
+  "singlebtn",
   "rowlayout",
   "column",
   "image",
   "gallery",
+  "slider",
+  "slide",
   "tabs",
   "tab",
   "accordion",
@@ -35,6 +38,9 @@ const SUPPORTED_KADENCE_BLOCKS = [
   "iconlist",
   "listitem",
   "spacer",
+  "posts",
+  "postgrid",
+  "query",
   "testimonials",
   "testimonial",
   "form"
@@ -46,10 +52,13 @@ const SUPPORTED_KADENCE_BLOCKS = [
 const KADENCE_BLOCK_CSS = {
   advancedheading:      { wrap: "kb-adv-heading",           uid: "kt-adv-heading" },
   advancedbtn:          { wrap: "kb-btn-align-wrap" },
+  singlebtn:            { wrap: "kb-btn-wrap" },
   rowlayout:            { wrap: "kb-row-layout-wrap",        uid: "kb-row-layout-id" },
   column:               { wrap: "kb-section-container",     uid: "kb-section" },
   image:                { wrap: "kb-image-wrap" },
   gallery:              { wrap: "kb-gallery-wrap",           uid: "kb-gallery-id" },
+  slider:               { wrap: "kb-slider-wrap",            uid: "kb-slider-id" },
+  slide:                { wrap: "kb-slide-item" },
   tabs:                 { wrap: "kb-tabs",                   uid: "kb-tabs-id" },
   tab:                  { wrap: "kb-tab-panel" },
   accordion:            { wrap: "kb-accordion",              uid: "kb-accordion-id" },
@@ -59,6 +68,9 @@ const KADENCE_BLOCK_CSS = {
   iconlist:             { wrap: "kb-icon-list",              uid: "kb-icon-list-id" },
   listitem:             { wrap: "kb-icon-list-item" },
   spacer:               { wrap: "kt-block-spacer",           uid: "kt-block-spacer-id" },
+  posts:                { wrap: "kb-posts" },
+  postgrid:             { wrap: "kb-post-grid" },
+  query:                { wrap: "kb-query-loop" },
   testimonials:         { wrap: "kb-testimonial-wrap",       uid: "kb-testimonial-id" },
   testimonial:          { wrap: "kb-testimonial-bg-wrap" },
   form:                 { wrap: "kb-form",                   uid: "kb-form-id" },
@@ -1792,8 +1804,8 @@ const STRIPPED_HTML_ATTRIBUTES = [
   /\sdata-kadence-id=(["'])[\s\S]*?\1/gi
 ];
 const STRIPPED_CLASS_NAMES = new Set(["kadence-dynamic-icon", "kt-svg-icon-list-single"]);
-const LEAF_KADENCE_BLOCKS = new Set(["advancedheading", "listitem", "icon", "image", "spacer", "advancedbtn", "infobox", "videopopup", "lottie", "countdown", "form", "identity"]);
-const CONTAINER_KADENCE_BLOCKS = new Set(["rowlayout", "column", "iconlist", "tabs", "tab", "accordion", "pane", "gallery", "splitcontent", "testimonials", "postcarousel", "portfoliogrid"]);
+const LEAF_KADENCE_BLOCKS = new Set(["advancedheading", "listitem", "icon", "image", "spacer", "advancedbtn", "singlebtn", "infobox", "videopopup", "lottie", "countdown", "form", "identity", "posts", "postgrid", "query"]);
+const CONTAINER_KADENCE_BLOCKS = new Set(["rowlayout", "column", "iconlist", "tabs", "tab", "accordion", "pane", "gallery", "slider", "slide", "splitcontent", "testimonials", "postcarousel", "portfoliogrid"]);
 
 function convertPaletteToken(value) {
   return String(value || "").replace(/\bpalette([1-9])\b/gi, (_, num) => `var(--global-palette${num})`);
@@ -1878,6 +1890,8 @@ function sanitizeKadenceAttrs(shortName, attrs = {}) {
       return pickDefinedAttrs(attrs, ["uniqueID", "icon", "text", "iconColor", "className"]);
     case "advancedbtn":
       return pickDefinedAttrs(attrs, ["uniqueID", "hAlign", "className"]);
+    case "singlebtn":
+      return pickDefinedAttrs(attrs, ["uniqueID", "text", "link", "target", "size", "style", "color", "background", "hAlign", "className"]);
     case "image":
       return pickDefinedAttrs(attrs, ["url", "alt", "width", "height", "link", "linkTarget", "caption", "className"]);
     case "spacer":
@@ -1889,10 +1903,15 @@ function sanitizeKadenceAttrs(shortName, attrs = {}) {
     case "accordion":
     case "pane":
     case "gallery":
+    case "slider":
+    case "slide":
     case "splitcontent":
     case "testimonials":
     case "postcarousel":
     case "portfoliogrid":
+    case "posts":
+    case "postgrid":
+    case "query":
     case "form":
     case "identity":
     case "videopopup":
@@ -2133,6 +2152,20 @@ const KADENCE_PARTIAL_TEMPLATES = {
 </div>
 `,
 
+  singlebtn: `{# kadence/singlebtn — Single button block #}
+{% set b = kadenceBlock.attrs %}
+<div
+  class="kadence-block kadence-singlebtn kb-btn-wrap{% if b.hAlign %} kb-btn-align-{{ b.hAlign }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
+>
+  <a
+    class="kb-button kb-btn{% if b.size %} kb-btn-size-{{ b.size }}{% endif %}{% if b.style %} kb-btn-style-{{ b.style }}{% endif %}"
+    href="{{ b.link if b.link else '#' }}"
+    {% if b.target and b.target != "_self" %}target="{{ b.target }}"{% endif %}
+    {% if b.color or b.background %}style="{% if b.color %}color:{{ b.color }};{% endif %}{% if b.background %} background-color:{{ b.background }};{% endif %}"{% endif %}
+  >{{ b.text if b.text else (kadenceInnerHtml | safe) }}</a>
+</div>
+`,
+
   rowlayout: `{# kadence/rowlayout — Multi-column section; columns are nested kadence/column blocks #}
 {% set b = kadenceBlock.attrs %}
 <section
@@ -2196,6 +2229,31 @@ const KADENCE_PARTIAL_TEMPLATES = {
     {{ kadenceInnerHtml | safe }}
   {% endif %}
 </figure>
+`,
+
+  slider: `{# kadence/slider — CSS scroll-snap slider fallback #}
+{% set b = kadenceBlock.attrs %}
+<section
+  class="kadence-block kadence-slider splide kb-slider-container{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.uniqueID %}id="kb-slider-{{ b.uniqueID }}"{% endif %}
+  data-slider-mode="css-snap"
+>
+  <div class="splide__track">
+    <ul class="splide__list" style="display:flex;gap:0;overflow-x:auto;scroll-snap-type:x mandatory;list-style:none;padding:0;margin:0;">
+      {{ kadenceInnerHtml | safe }}
+    </ul>
+  </div>
+</section>
+`,
+
+  slide: `{# kadence/slide — Single slide item #}
+{% set b = kadenceBlock.attrs %}
+<li
+  class="kadence-block kadence-slide splide__slide{% if b.className %} {{ b.className }}{% endif %}"
+  style="scroll-snap-align:start;flex:0 0 100%;"
+>
+  {{ kadenceInnerHtml | safe }}
+</li>
 `,
 
   tabs: `{# kadence/tabs — Tab group container; tab titles and panels in innerHtml; add JS for interactivity #}
@@ -2307,6 +2365,65 @@ const KADENCE_PARTIAL_TEMPLATES = {
     >
   {% endif %}
 </div>
+`,
+
+  posts: `{# kadence/posts — Eleventy collection fallback for dynamic posts block #}
+{% set b = kadenceBlock.attrs %}
+{% set count = b.postsToShow if b.postsToShow else (b.numberOfItems if b.numberOfItems else 3) %}
+<section class="kadence-block kadence-posts kb-posts-block{% if b.className %} {{ b.className }}{% endif %}">
+  {% if kadenceInnerHtml | trim %}
+    {{ kadenceInnerHtml | safe }}
+  {% else %}
+    {% for post in collections.posts | reverse %}
+      {% if loop.index <= count %}
+        <article class="kb-posts-item">
+          <h3><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
+          {% if post.data.excerpt %}<p>{{ post.data.excerpt }}</p>{% endif %}
+        </article>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+</section>
+`,
+
+  postgrid: `{# kadence/postgrid — Eleventy collection grid fallback for dynamic posts block #}
+{% set b = kadenceBlock.attrs %}
+{% set count = b.postsToShow if b.postsToShow else (b.numberOfItems if b.numberOfItems else 6) %}
+<section class="kadence-block kadence-postgrid kb-post-grid{% if b.className %} {{ b.className }}{% endif %}">
+  {% if kadenceInnerHtml | trim %}
+    {{ kadenceInnerHtml | safe }}
+  {% else %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1.25rem;">
+      {% for post in collections.posts | reverse %}
+        {% if loop.index <= count %}
+          <article class="kb-post-grid-item">
+            <h3><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
+            {% if post.data.excerpt %}<p>{{ post.data.excerpt }}</p>{% endif %}
+          </article>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+`,
+
+  query: `{# kadence/query — Generic Eleventy query loop fallback #}
+{% set b = kadenceBlock.attrs %}
+{% set count = b.postsToShow if b.postsToShow else (b.numberOfItems if b.numberOfItems else 5) %}
+<section class="kadence-block kadence-query kb-query-loop{% if b.className %} {{ b.className }}{% endif %}">
+  {% if kadenceInnerHtml | trim %}
+    {{ kadenceInnerHtml | safe }}
+  {% else %}
+    {% for post in collections.posts | reverse %}
+      {% if loop.index <= count %}
+        <article class="kb-query-item">
+          <h3><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
+          {% if post.data.excerpt %}<p>{{ post.data.excerpt }}</p>{% endif %}
+        </article>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+</section>
 `,
 
   testimonials: `{# kadence/testimonials — Testimonials grid; items are kadence/testimonial blocks #}
@@ -2759,6 +2876,7 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   let body = config.htmlMode === "basic-markdown" ? basicHtmlToMarkdown(renderedHtml) : String(renderedHtml).trim();
   let fileExtension = "md";
   let kadenceBlocks = [];
+  let unknownKadenceBlocks = [];
   let convertedKadenceBlocks = false;
 
   if (config.convertKadenceBlocks) {
@@ -2768,6 +2886,7 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
         body = converted.body;
         fileExtension = "njk";
         kadenceBlocks = converted.seenBlocks;
+        unknownKadenceBlocks = converted.unknownBlocks;
         convertedKadenceBlocks = true;
       }
     } else {
@@ -2830,7 +2949,9 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
     frontMatter,
     body,
     fileExtension,
-    convertedKadenceBlocks
+    convertedKadenceBlocks,
+    unknownKadenceBlocks,
+    shortcodes
   };
 }
 
@@ -2843,6 +2964,11 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     totals: {},
     redirects: [],
     warnings: [],
+    actionItems: {
+      unsupportedBlocks: [],
+      shortcodes: [],
+      suggestions: []
+    },
     workflow: ["discover", "configure", "migrate"],
     styles: { enabled: Boolean(config.migrateStyles) },
     kadenceBlocks: { enabled: Boolean(config.convertKadenceBlocks) }
@@ -3034,6 +3160,24 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       written += 1;
       progress("item", `${typeSlug}/${fileName}`);
 
+      if (doc.unknownKadenceBlocks?.length) {
+        report.actionItems.unsupportedBlocks.push({
+          document: `${typeSlug}/${fileName}`,
+          sourceUrl: item?.link || "",
+          blocks: doc.unknownKadenceBlocks,
+          suggestion: doc.unknownKadenceBlocks.some((name) => name === "slider" || name === "slide")
+            ? "Tarkista slider-rakenne ja harkitse Splide JS -integraatiota, jos CSS-scroll-snap ei riita."
+            : "Luo puuttuva Nunjucks-partial tai pidä fallback-HTML valiaikaisena ratkaisuna."
+        });
+      }
+      if (doc.shortcodes?.length) {
+        report.actionItems.shortcodes.push({
+          document: `${typeSlug}/${fileName}`,
+          sourceUrl: item?.link || "",
+          shortcodes: doc.shortcodes
+        });
+      }
+
       if (config.createRedirects && item?.link) report.redirects.push({ from: item.link, to: doc.permalink });
 
       if (config.downloadMedia && !config.dryRun) {
@@ -3064,6 +3208,16 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     if (!config.dryRun) await fs.writeFile(redirectsPath, `${csv}\n`, "utf8");
     report.redirectsPath = redirectsPath;
     progress("ok", `Uudelleenohjaukset: ${report.redirects.length} kpl → redirects.csv`);
+  }
+
+  if (report.actionItems.unsupportedBlocks.some((entry) => entry.blocks.includes("slider") || entry.blocks.includes("slide"))) {
+    report.actionItems.suggestions.push("Kadence slider/slide on muutettu CSS scroll-snap -versioksi. Jos alkuperainen Splide-kayttaytyminen tarvitaan, lisaa Splide JS base-layoutiin.");
+  }
+  if (report.actionItems.unsupportedBlocks.length) {
+    report.actionItems.suggestions.push("Tarkista report.actionItems.unsupportedBlocks ja toteuta puuttuvat blokkipartiaalit ensiksi eniten kaytettyihin lohkoihin.");
+  }
+  if (report.actionItems.shortcodes.length) {
+    report.actionItems.suggestions.push("Shortcode-viittaukset vaativat manuaalista korvausta Eleventy-komponenteilla tai staattisella HTML:lla.");
   }
 
   await verifyProjectOutput(root, config, report, progress);
