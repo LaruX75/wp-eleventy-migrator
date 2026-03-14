@@ -1003,9 +1003,7 @@ function themeCssFromProfile(profile) {
     ".wp-block-kadence-query.kb-query-loop { margin: 1rem 0; }",
     ".kb-query-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }",
     ".kb-query-hidden { display: none; }",
-    ".kb-query-load-more { text-align: center; margin-top: 1.5rem; }",
-    ".kb-load-more-btn { background: var(--global-palette1, #314e25); color: var(--global-palette9, #fff); border: none; border-radius: 6px; padding: .6rem 1.75rem; font-size: .95rem; font-weight: 600; cursor: pointer; transition: background .15s; }",
-    ".kb-load-more-btn:hover { background: var(--global-palette2, #446d33); }",
+    ".kb-query-sentinel { height: 1px; }",
     ".kb-query-item { background: var(--global-palette9, #fff); border: 1px solid var(--global-palette7, #eee); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }",
     ".kb-query-item__thumb img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }",
     ".kb-query-item__body { padding: 1rem; display: flex; flex-direction: column; flex: 1; }",
@@ -3178,27 +3176,30 @@ const KADENCE_PARTIAL_TEMPLATES = {
     </div>
     {% set _total = collections[_col] | length %}
     {% if _total > _pageSize %}
-      <div class="kb-query-load-more" id="kb-query-more-{{ _uid }}" data-grid="kb-query-grid-{{ _uid }}" data-page-size="{{ _pageSize }}">
-        <button class="kb-load-more-btn" type="button">Lataa lisää</button>
-      </div>
+      <div class="kb-query-sentinel" id="kb-query-sentinel-{{ _uid }}" data-grid="kb-query-grid-{{ _uid }}" data-page-size="{{ _pageSize }}" aria-hidden="true"></div>
     {% endif %}
   {% endif %}
 </section>
 <script>
 (function () {
-  if (window._kbLoadMoreInit) return;
-  window._kbLoadMoreInit = true;
+  if (window._kbInfiniteInit) return;
+  window._kbInfiniteInit = true;
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.kb-query-load-more').forEach(function (wrap) {
-      var btn = wrap.querySelector('.kb-load-more-btn');
-      var grid = document.getElementById(wrap.dataset.grid);
-      var pageSize = parseInt(wrap.dataset.pageSize, 10) || 10;
-      if (!btn || !grid) return;
-      btn.addEventListener('click', function () {
+    if (!('IntersectionObserver' in window)) {
+      document.querySelectorAll('.kb-query-hidden').forEach(function (el) { el.classList.remove('kb-query-hidden'); });
+      return;
+    }
+    document.querySelectorAll('.kb-query-sentinel').forEach(function (sentinel) {
+      var grid = document.getElementById(sentinel.dataset.grid);
+      var pageSize = parseInt(sentinel.dataset.pageSize, 10) || 10;
+      if (!grid) return;
+      var observer = new IntersectionObserver(function (entries) {
+        if (!entries[0].isIntersecting) return;
         var hidden = Array.from(grid.querySelectorAll('.kb-query-hidden'));
         hidden.slice(0, pageSize).forEach(function (el) { el.classList.remove('kb-query-hidden'); });
-        if (!grid.querySelector('.kb-query-hidden')) wrap.remove();
-      });
+        if (!grid.querySelector('.kb-query-hidden')) observer.disconnect();
+      }, { rootMargin: '200px' });
+      observer.observe(sentinel);
     });
   });
 }());
