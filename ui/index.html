@@ -3217,6 +3217,9 @@
           `${t("field_restNamespace")}: ${analysis.rest?.recommendedNamespace || "/wp-json/wp/v2"}`,
           `${t("analysis_summary_languages")}: ${(analysis.structure?.languages || []).join(", ") || "-"}`,
           `${t("analysis_summary_content")}: posts ${analysis.structure?.contentCounts?.posts ?? 0}, pages ${analysis.structure?.contentCounts?.pages ?? 0}`,
+          `Palette: ${Object.keys(report.siteProfile?.palette || {}).length}`,
+          `Separators: ${(report.siteProfile?.separatorsUsed || []).join(", ") || "-"}`,
+          `Unknown Kadence blocks: ${(report.configure?.unknownBlockTypes || []).join(", ") || "-"}`,
           ...((analysis.recommendations || []).slice(0, 3))
         ].map((item) => `<li>${item}</li>`).join("");
 
@@ -3368,6 +3371,7 @@
           kadenceBlocksDir: data.get("kadenceBlocksDir"),
           stylesDir: data.get("stylesDir"),
           eleventyReplacements: getSelectedEleventyReplacements(),
+          siteProfile: latestAnalysisReport?.siteProfile || null,
           localProjectFolder: data.get("localProjectFolder"),
           outputRoot: data.get("outputRoot"),
           contentDir: data.get("contentDir"),
@@ -4036,7 +4040,9 @@
       }
 
       function renderAnalysisResult(result) {
-        if (!result?.siteInfo) { resultViewNode.hidden = true; return; }
+        const discovery = result?.analysis ? result : null;
+        const legacy = result?.siteInfo ? result : null;
+        if (!discovery && !legacy) { resultViewNode.hidden = true; return; }
 
         const h = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; return el; };
         const div = (cls) => h("div", cls);
@@ -4045,16 +4051,48 @@
 
         // Title row
         const titleRow = div("rv-title");
-        titleRow.appendChild(document.createTextNode(result.siteInfo.title || result.siteInfo.url));
-        if (result.detectedPreset && result.detectedPreset !== "none") {
-          titleRow.appendChild(h("span", "rv-badge", result.detectedPreset));
+        titleRow.appendChild(document.createTextNode(
+          discovery ? (discovery.wpBaseUrl || "Discovery profile") : (legacy.siteInfo.title || legacy.siteInfo.url)
+        ));
+        if (discovery?.siteProfile?.preset && discovery.siteProfile.preset !== "none") {
+          titleRow.appendChild(h("span", "rv-badge", discovery.siteProfile.preset));
+        } else if (legacy?.detectedPreset && legacy.detectedPreset !== "none") {
+          titleRow.appendChild(h("span", "rv-badge", legacy.detectedPreset));
         }
         root.appendChild(titleRow);
 
+        if (discovery) {
+          root.appendChild(p("rv-section", "Discovery"));
+          [
+            ["REST namespace", discovery.analysis?.rest?.recommendedNamespace || "/wp-json/wp/v2"],
+            ["Profile", discovery.profilePath || "-"],
+            ["Palette", `${Object.keys(discovery.siteProfile?.palette || {}).length} colors`],
+            ["Separators", (discovery.siteProfile?.separatorsUsed || []).join(", ") || "-"],
+            ["Layouts", (discovery.siteProfile?.colLayouts || []).join(", ") || "-"]
+          ].forEach(([label, value]) => {
+            const row = div("rv-row");
+            row.appendChild(h("span", null, label));
+            row.appendChild(h("span", null, value));
+            root.appendChild(row);
+          });
+
+          root.appendChild(p("rv-section", "Configure"));
+          [
+            ["Known Kadence blocks", String(discovery.configure?.knownBlocks ?? 0)],
+            ["Unknown Kadence blocks", String(discovery.configure?.unknownBlocks ?? 0)],
+            ["Unknown block types", (discovery.configure?.unknownBlockTypes || []).join(", ") || "-"]
+          ].forEach(([label, value]) => {
+            const row = div("rv-row");
+            row.appendChild(h("span", null, label));
+            row.appendChild(h("span", null, value));
+            root.appendChild(row);
+          });
+        }
+
         // Content inventory
-        if (result.contentInventory && Object.keys(result.contentInventory).length) {
+        if (legacy?.contentInventory && Object.keys(legacy.contentInventory).length) {
           root.appendChild(p("rv-section", t("result_content")));
-          for (const [, info] of Object.entries(result.contentInventory)) {
+          for (const [, info] of Object.entries(legacy.contentInventory)) {
             if (info.count === 0) continue;
             const row = div("rv-row");
             row.appendChild(h("span", null, info.label || info.restBase));
@@ -4065,9 +4103,17 @@
 
         // Detected plugins
         root.appendChild(p("rv-section", t("analyze_plugins_title")));
-        if (result.detectedPlugins?.length) {
+        if (discovery?.analysis?.plugins?.length) {
           const ul = document.createElement("ul");
-          for (const plugin of result.detectedPlugins) {
+          for (const plugin of discovery.analysis.plugins) {
+            const li = document.createElement("li");
+            li.textContent = `${plugin.name} -> ${(eleventyReplacementCatalog[plugin.slug]?.eleventy || t("plugin_compare_fallback"))}`;
+            ul.appendChild(li);
+          }
+          root.appendChild(ul);
+        } else if (legacy?.detectedPlugins?.length) {
+          const ul = document.createElement("ul");
+          for (const plugin of legacy.detectedPlugins) {
             const li = document.createElement("li");
             li.textContent = `${plugin.name} — ${plugin.replacement}`;
             ul.appendChild(li);
@@ -4126,6 +4172,8 @@
                 <li>${t("analysis_result_stylesheets")}: ${analysis.styles?.stylesheetCount ?? 0}</li>
                 <li>${t("analysis_result_navigation")}: ${analysis.structure?.navigationCount ?? 0}</li>
                 <li>${t("analysis_result_plugins")}: ${(analysis.plugins || []).length}</li>
+                <li>Palette: ${Object.keys(latestAnalysisReport.siteProfile?.palette || {}).length}</li>
+                <li>Unknown blocks: ${(latestAnalysisReport.configure?.unknownBlockTypes || []).length}</li>
                 <li>${t("plugin_compare_eleventy")}: ${enabledReplacements.length}/${selectedReplacements.length}</li>
               </ul>
             </section>
