@@ -3322,6 +3322,7 @@
           kadenceBlocksDir: data.get("kadenceBlocksDir"),
           stylesDir: data.get("stylesDir"),
           eleventyReplacements: getSelectedEleventyReplacements(),
+          localProjectFolder: data.get("localProjectFolder"),
           outputRoot: data.get("outputRoot"),
           contentDir: data.get("contentDir"),
           mediaDir: data.get("mediaDir"),
@@ -3788,14 +3789,14 @@
         migrationSettingsDisclosure.open = true;
         const folderField = form.elements.namedItem("localProjectFolder");
         try {
-          if (window.showDirectoryPicker) {
-            const handle = await window.showDirectoryPicker();
-            folderField.value = handle.name || folderField.value;
-          } else {
+          const response = await callApi("/api/pick-folder", {});
+          if (response.cancelled) return;
+          if (!response.folderPath) {
             folderField.focus();
             setStatus(t("status_folder_picker_fallback"));
             return;
           }
+          folderField.value = response.folderPath;
         } catch (error) {
           if (error?.name !== "AbortError") setStatus(String(error.message || error), true);
           return;

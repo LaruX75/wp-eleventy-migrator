@@ -5,6 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import http from "node:http";
 import readline from "node:readline/promises";
+import { execFile } from "node:child_process";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -2279,7 +2280,8 @@ async function createConfigFromInput(raw = {}) {
     ? String(raw.authMode || "none")
     : "none";
   const htmlMode = String(raw.htmlMode || "keep-html") === "basic-markdown" ? "basic-markdown" : "keep-html";
-  const outputRoot = String(raw.outputRoot || `./migrations/wp-to-eleventy-${stamp}`).trim() || `./migrations/wp-to-eleventy-${stamp}`;
+  const localProjectFolder = String(raw.localProjectFolder || "").trim();
+  const outputRoot = resolveOutputRoot(raw.outputRoot, localProjectFolder, stamp);
   const contentTypes = parseCsvList(raw.contentTypes || DEFAULT_TYPES.join(","));
   const presetDefaults = preset === "kadence" ? {
     useNunjucksLayouts: true,
@@ -2327,6 +2329,7 @@ async function createConfigFromInput(raw = {}) {
     migrateStyles: Boolean(raw.migrateStyles ?? presetDefaults.migrateStyles),
     stylesDir: String(raw.stylesDir || presetDefaults.stylesDir || DEFAULT_STYLES_DIR).trim() || DEFAULT_STYLES_DIR,
     eleventyReplacements: normalizeEleventyReplacements(raw.eleventyReplacements),
+    localProjectFolder,
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
     mediaDir: String(raw.mediaDir || "media").trim() || "media",
@@ -2343,6 +2346,85 @@ async function saveConfig(config, configPath) {
 
 function defaultConfigPathFor(outputRoot) {
   return path.join(outputRoot, "migration-config.json");
+}
+
+function resolveOutputRoot(rawOutputRoot, localProjectFolder, stamp = nowStamp()) {
+  const fallback = `./migrations/wp-to-eleventy-${stamp}`;
+  const localRoot = String(localProjectFolder || "").trim();
+  const rawRoot = String(rawOutputRoot || "").trim();
+  if (!rawRoot) return localRoot || fallback;
+  if (path.isAbsolute(rawRoot)) return rawRoot;
+  if (localRoot && path.isAbsolute(localRoot)) {
+    if (rawRoot === path.basename(localRoot)) return localRoot;
+    if (rawRoot === "." || rawRoot === "./") return localRoot;
+  }
+  return rawRoot;
+}
+
+async function pickFolderPath() {
+  const platform = process.platform;
+  if (platform === "darwin") {
+    const script = 'POSIX path of (choose folder with prompt "Valitse projektikansio")';
+    const folder = await new Promise((resolve, reject) => {
+      execFile("osascript", ["-e", script], { encoding: "utf8" }, (error, stdout, stderr) => {
+        if (error) {
+          if (String(stderr || error.message || "").includes("User canceled")) {
+            const cancelError = new Error("Folder picker cancelled");
+            cancelError.code = "ABORT_ERR";
+            reject(cancelError);
+            return;
+          }
+          reject(error);
+          return;
+        }
+        resolve(String(stdout || "").trim());
+      });
+    });
+    return folder.replace(/\/+$/, "");
+  }
+
+  if (platform === "win32") {
+    const command = [
+      "Add-Type -AssemblyName System.Windows.Forms",
+      "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
+      '$dialog.Description = "Select project folder"',
+      "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }"
+    ].join("; ");
+    const folder = await new Promise((resolve, reject) => {
+      execFile("powershell", ["-NoProfile", "-Command", command], { encoding: "utf8" }, (error, stdout) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const value = String(stdout || "").trim();
+        if (!value) {
+          const cancelError = new Error("Folder picker cancelled");
+          cancelError.code = "ABORT_ERR";
+          reject(cancelError);
+          return;
+        }
+        resolve(value);
+      });
+    });
+    return String(folder).replace(/[\\/]+$/, "");
+  }
+
+  const folder = await new Promise((resolve, reject) => {
+    execFile("zenity", ["--file-selection", "--directory", "--title=Select project folder"], { encoding: "utf8" }, (error, stdout) => {
+      if (error) {
+        if (error.code === 1) {
+          const cancelError = new Error("Folder picker cancelled");
+          cancelError.code = "ABORT_ERR";
+          reject(cancelError);
+          return;
+        }
+        reject(error);
+        return;
+      }
+      resolve(String(stdout || "").trim());
+    });
+  });
+  return String(folder).replace(/\/+$/, "");
 }
 
 async function readJsonBody(req) {
@@ -2613,6 +2695,20 @@ async function serveUi(port = 4173) {
           dataDir: DEFAULT_DATA_DIR,
           configPath: defaultConfigPathFor(outputRoot)
         });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/pick-folder") {
+        try {
+          const folderPath = await pickFolderPath();
+          sendJson(res, 200, { ok: true, folderPath });
+        } catch (err) {
+          if (err?.code === "ABORT_ERR") {
+            sendJson(res, 200, { ok: false, cancelled: true });
+            return;
+          }
+          sendJson(res, 500, { error: String(err?.message || err) });
+        }
         return;
       }
 
