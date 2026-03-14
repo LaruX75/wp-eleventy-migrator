@@ -1253,6 +1253,45 @@
                       </div>
                     </details>
 
+                    <details class="subsection-disclosure">
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="auth_section"></h3>
+                          <button type="button" class="help-button" data-help-topic="auth-overview">?</button>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_authMode"></span> <button type="button" class="help-button" data-help-topic="authMode">?</button></span>
+                            <select name="authMode" id="authMode">
+                              <option value="none" data-i18n="option_auth_none"></option>
+                              <option value="app-password" data-i18n="option_auth_app_password"></option>
+                              <option value="bearer" data-i18n="option_auth_bearer"></option>
+                            </select>
+                            <span data-i18n="hint_authMode"></span>
+                          </label>
+                        </div>
+                        <div id="app-password-fields" class="grid auth-fields" hidden>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_wpUser"></span> <button type="button" class="help-button" data-help-topic="wpUser">?</button></span>
+                            <input name="wpUser">
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_wpAppPassword"></span> <button type="button" class="help-button" data-help-topic="wpAppPassword">?</button></span>
+                            <input name="wpAppPassword" type="password">
+                          </label>
+                        </div>
+                        <div id="bearer-fields" class="grid auth-fields" hidden>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_wpBearerToken"></span> <button type="button" class="help-button" data-help-topic="wpBearerToken">?</button></span>
+                            <input name="wpBearerToken" type="password">
+                          </label>
+                        </div>
+                      </div>
+                    </details>
+
                     <div id="analysis-recommendations" hidden>
                       <details class="subsection-disclosure" open>
                         <summary>
@@ -1572,45 +1611,6 @@
                           <label class="toggle">
                             <input name="dryRun" type="checkbox">
                             <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
-                          </label>
-                        </div>
-                      </div>
-                    </details>
-
-                    <details class="subsection-disclosure">
-                      <summary>
-                        <div class="subsection-head">
-                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                          <h3 class="section-title" data-i18n="auth_section"></h3>
-                          <button type="button" class="help-button" data-help-topic="auth-overview">?</button>
-                        </div>
-                      </summary>
-                      <div class="subsection-body">
-                        <div class="grid">
-                          <label>
-                            <span class="field-head"><span data-i18n="field_authMode"></span> <button type="button" class="help-button" data-help-topic="authMode">?</button></span>
-                            <select name="authMode" id="authMode">
-                              <option value="none" data-i18n="option_auth_none"></option>
-                              <option value="app-password" data-i18n="option_auth_app_password"></option>
-                              <option value="bearer" data-i18n="option_auth_bearer"></option>
-                            </select>
-                            <span data-i18n="hint_authMode"></span>
-                          </label>
-                        </div>
-                        <div id="app-password-fields" class="grid auth-fields" hidden>
-                          <label>
-                            <span class="field-head"><span data-i18n="field_wpUser"></span> <button type="button" class="help-button" data-help-topic="wpUser">?</button></span>
-                            <input name="wpUser">
-                          </label>
-                          <label>
-                            <span class="field-head"><span data-i18n="field_wpAppPassword"></span> <button type="button" class="help-button" data-help-topic="wpAppPassword">?</button></span>
-                            <input name="wpAppPassword" type="password">
-                          </label>
-                        </div>
-                        <div id="bearer-fields" class="grid auth-fields" hidden>
-                          <label>
-                            <span class="field-head"><span data-i18n="field_wpBearerToken"></span> <button type="button" class="help-button" data-help-topic="wpBearerToken">?</button></span>
-                            <input name="wpBearerToken" type="password">
                           </label>
                         </div>
                       </div>
