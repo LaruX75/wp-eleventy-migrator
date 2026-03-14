@@ -2040,8 +2040,15 @@ async function readJsonBody(req) {
 }
 
 function sendJson(res, status, payload) {
+  let body;
+  try {
+    body = `${JSON.stringify(payload, null, 2)}\n`;
+  } catch {
+    body = `${JSON.stringify({ error: "Response serialization failed" })}\n`;
+    status = 500;
+  }
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-  res.end(`${JSON.stringify(payload, null, 2)}\n`);
+  res.end(body);
 }
 
 function extractDeploymentPlan(body) {
@@ -2073,6 +2080,11 @@ async function serveUi(port = 4173) {
       if (req.method === "GET" && url.pathname === "/") {
         res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         res.end(html);
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/ping") {
+        sendJson(res, 200, { ok: true });
         return;
       }
 

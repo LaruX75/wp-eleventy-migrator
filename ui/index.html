@@ -1436,6 +1436,7 @@
           status_running: "Migraatio käynnissä...",
           status_done: "Migraatio valmis.",
           result_loading: "Ladataan oletusarvot...",
+          error_server_down: "Palvelin ei vastaa. Varmista, että `npm run migrate:wp:gui` on käynnissä.",
           result_raw_json: "Raaka JSON-raportti",
           result_content: "Siirretty sisältö",
           result_styles: "Tyylitiedostot",
@@ -1642,6 +1643,7 @@
           status_saving: "Saving configuration...",
           status_saved: "Configuration saved.",
           status_running: "Migration running...",
+          error_server_down: "Server not responding. Make sure `npm run migrate:wp:gui` is running.",
           status_done: "Migration finished.",
           result_loading: "Loading defaults...",
           result_raw_json: "Raw JSON report",
@@ -2469,21 +2471,29 @@
         updateNunjucksVisibility();
       }
 
+      async function fetchJson(url, options = {}) {
+        let response;
+        try {
+          response = await fetch(url, options);
+        } catch {
+          throw new Error(t("error_server_down"));
+        }
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        return data;
+      }
+
       async function callApi(url, payload) {
-        const response = await fetch(url, {
+        return fetchJson(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Request failed");
-        return data;
       }
 
       async function loadDefaults() {
         resultNode.textContent = t("result_loading");
-        const response = await fetch("/api/defaults");
-        const data = await response.json();
+        const data = await fetchJson("/api/defaults");
         fillForm(data);
         resultNode.textContent = JSON.stringify(data, null, 2);
         setStatus(t("status_defaults_loaded"));
@@ -2697,9 +2707,19 @@
           lastSuggestedConfigPath = startData.configPath;
 
           let result;
+          let pollErrors = 0;
           while (true) {
             await new Promise((resolve) => setTimeout(resolve, 1500));
-            const statusData = await fetch(`/api/run/${startData.jobId}`).then((r) => r.json());
+            let statusData;
+            try {
+              statusData = await fetchJson(`/api/run/${startData.jobId}`);
+              pollErrors = 0;
+            } catch (pollErr) {
+              pollErrors += 1;
+              if (pollErrors >= 4) throw pollErr;
+              appendLogItems([{ level: "warn", msg: `Yhteysongelma, yritetään uudelleen… (${pollErrors}/3)` }]);
+              continue;
+            }
 
             // Append any new log entries
             const newItems = (statusData.log ?? []).slice(logSeenCount);
