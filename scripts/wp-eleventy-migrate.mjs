@@ -16,6 +16,9 @@ const DEFAULT_KADENCE_BLOCKS_DIR = "_includes/blocks/kadence";
 const DEFAULT_STYLES_DIR = "styles/legacy";
 const DEFAULT_KADENCE_STYLES_DIR = "styles/kadence-legacy";
 const DEFAULT_KADENCE_PRO_STYLES_DIR = "styles/kadence-pro-legacy";
+const PROFILE_FILE_NAME = "site-profile.json";
+const PROFILE_SUMMARY_FILE_NAME = "site-profile-summary.json";
+const CONFIGURE_THEME_FILE = "styles/theme.css";
 const SUPPORTED_KADENCE_BLOCKS = [
   "advancedheading",
   "advancedbtn",
@@ -94,6 +97,13 @@ const SUPPORTED_KADENCE_PRO_BLOCKS = [
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
+const SEPARATOR_SVG_TEMPLATES = {
+  mtns: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,96L80,80C160,64,320,32,480,32C640,32,800,64,960,74.7C1120,85,1280,75,1360,69.3L1440,64L1440,160L1360,160C1280,160,1120,160,960,160C800,160,640,160,480,160C320,160,160,160,80,160L0,160Z"/></svg>`,
+  waves: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,128L48,122.7C96,117,192,107,288,85.3C384,64,480,32,576,32C672,32,768,64,864,80C960,96,1056,96,1152,80C1248,64,1344,32,1392,16L1440,0L1440,160L1392,160C1344,160,1248,160,1152,160C1056,160,960,160,864,160C768,160,672,160,576,160C480,160,384,160,288,160C192,160,96,160,48,160L0,160Z"/></svg>`,
+  tilt: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,0 1440,96 1440,160 0,160"/></svg>`,
+  curve: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,128C180,85,360,64,540,74.7C720,85,900,128,1080,133.3C1260,139,1350,107,1440,80L1440,160L0,160Z"/></svg>`,
+  triangle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,160 720,0 1440,160"/></svg>`
+};
 
 function nowStamp() {
   const d = new Date();
@@ -520,6 +530,210 @@ function extractInlineStyles(html) {
   return styles;
 }
 
+function mergeCounter(target, additions) {
+  for (const [key, value] of Object.entries(additions || {})) {
+    target[key] = (target[key] || 0) + Number(value || 0);
+  }
+  return target;
+}
+
+function uniqueSorted(values) {
+  const list = Array.isArray(values)
+    ? values
+    : values && typeof values[Symbol.iterator] === "function"
+      ? [...values]
+      : [];
+  return [...new Set(list.map((value) => String(value || "").trim()).filter(Boolean))].sort();
+}
+
+function extractPaletteFromVariables(variableMap = {}) {
+  const palette = {};
+  for (const [name, value] of Object.entries(variableMap)) {
+    const match = String(name).match(/^--global-palette([1-9])$/);
+    if (!match) continue;
+    palette[`palette${match[1]}`] = String(value || "").trim();
+  }
+  return palette;
+}
+
+function summarizeKnownVsUnknownBlocks(blocksUsed = {}) {
+  const supported = new Set([
+    ...SUPPORTED_KADENCE_BLOCKS.map((name) => `kadence/${name}`),
+    ...SUPPORTED_KADENCE_PRO_BLOCKS.map((name) => `kadence/${name}`)
+  ]);
+  let known = 0;
+  let unknown = 0;
+  const unknownBlocks = [];
+  for (const [name, count] of Object.entries(blocksUsed)) {
+    if (!name.startsWith("kadence/")) continue;
+    if (supported.has(name)) known += count;
+    else {
+      unknown += count;
+      unknownBlocks.push(name);
+    }
+  }
+  return { known, unknown, unknownBlocks: uniqueSorted(unknownBlocks) };
+}
+
+function collectBlockProfile(nodes, profile, pathname = "/") {
+  for (const node of nodes || []) {
+    if (node?.type !== "block") continue;
+    const blockName = String(node.name || "").trim();
+    if (blockName) {
+      profile.blocksUsed[blockName] = (profile.blocksUsed[blockName] || 0) + 1;
+      if (blockName === "kadence/rowlayout") {
+        const attrs = node.attrs || {};
+        if (attrs.colLayout) profile.colLayouts.add(String(attrs.colLayout));
+        if (attrs.bottomSep) profile.separatorsUsed.add(String(attrs.bottomSep));
+        if (attrs.topSep) profile.separatorsUsed.add(String(attrs.topSep));
+        if (attrs.align === "full" || attrs.backgroundImg || attrs.bgColor || attrs.bgColorClass) {
+          profile.heroPages.add(pathname);
+        }
+      } else if (blockName === "kadence/advancedheading") {
+        const attrs = node.attrs || {};
+        if (attrs.color) profile.headingColors.add(String(attrs.color));
+        if (attrs.fontSize) profile.headingSizes.add(String(attrs.fontSize));
+      } else if (blockName === "kadence/advancedbtn") {
+        const attrs = node.attrs || {};
+        const btnKey = JSON.stringify({
+          hAlign: attrs.hAlign || "",
+          size: attrs.size || "",
+          style: attrs.btnStyle || attrs.style || "",
+          className: attrs.className || ""
+        });
+        profile.buttonStyles.add(btnKey);
+      }
+    }
+    collectBlockProfile(node.children || [], profile, pathname);
+  }
+}
+
+async function discoverContentProfile(baseApi, headers, progress, warnings) {
+  const profile = {
+    blocksUsed: {},
+    separatorsUsed: new Set(),
+    colLayouts: new Set(),
+    heroPages: new Set(),
+    headingColors: new Set(),
+    headingSizes: new Set(),
+    buttonStyles: new Set(),
+    scannedTypes: []
+  };
+
+  for (const type of DEFAULT_TYPES) {
+    try {
+      progress("info", `DISCOVER: skannataan ${type}-lohkorakenne…`);
+      const items = await fetchAllPages(`${baseApi}/${type}?context=edit&_embed=1`, headers);
+      profile.scannedTypes.push(type);
+      for (const item of items) {
+        const rawContent = String(item?.content?.raw || "");
+        if (!rawContent) continue;
+        const pathname = (() => {
+          try {
+            return normalizePathnameToPermalink(new URL(item?.link || "/").pathname || "/");
+          } catch {
+            return "/";
+          }
+        })();
+        collectBlockProfile(parseWpBlocks(rawContent), profile, pathname);
+      }
+      progress("ok", `DISCOVER: ${type} skannattu (${items.length} kohdetta)`);
+    } catch (err) {
+      warnings.push(`Block discovery for ${type} failed: ${String(err.message || err)}`);
+      progress("warn", `DISCOVER: ${type}-lohkoja ei saatu skannattua`);
+    }
+  }
+
+  return {
+    blocksUsed: profile.blocksUsed,
+    separatorsUsed: uniqueSorted(profile.separatorsUsed),
+    colLayouts: uniqueSorted(profile.colLayouts),
+    heroPages: uniqueSorted(profile.heroPages),
+    headingColors: uniqueSorted(profile.headingColors),
+    headingSizes: uniqueSorted(profile.headingSizes),
+    buttonStyles: [...profile.buttonStyles].map((entry) => JSON.parse(entry)),
+    scannedTypes: profile.scannedTypes
+  };
+}
+
+function buildConfigureSummary(siteProfile) {
+  const coverage = summarizeKnownVsUnknownBlocks(siteProfile.blocksUsed);
+  return {
+    paletteDetected: Object.keys(siteProfile.palette || {}).length,
+    separatorsGenerated: (siteProfile.separatorsUsed || []).length,
+    layoutsDetected: (siteProfile.colLayouts || []).length,
+    knownBlocks: coverage.known,
+    unknownBlocks: coverage.unknown,
+    unknownBlockTypes: coverage.unknownBlocks
+  };
+}
+
+async function writeSiteProfileArtifacts(outputRoot, profile, progress = () => {}) {
+  if (!outputRoot || !profile) return {};
+  const absoluteRoot = path.resolve(process.cwd(), outputRoot);
+  await fs.mkdir(absoluteRoot, { recursive: true });
+  const profilePath = path.join(absoluteRoot, PROFILE_FILE_NAME);
+  const summaryPath = path.join(absoluteRoot, PROFILE_SUMMARY_FILE_NAME);
+  const configureSummary = buildConfigureSummary(profile);
+  await fs.writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  await fs.writeFile(summaryPath, `${JSON.stringify(configureSummary, null, 2)}\n`, "utf8");
+  progress("ok", `DISCOVER: profiili tallennettu (${PROFILE_FILE_NAME})`);
+  return { profilePath, summaryPath, configureSummary };
+}
+
+function themeCssFromProfile(profile) {
+  const paletteEntries = Object.entries(profile?.palette || {});
+  const lines = [
+    "/* Auto-generated by wp-eleventy-migrator from site-profile.json */",
+    ":root {",
+    ...paletteEntries.map(([token, value]) => `  --global-${token}: ${value};`),
+    "}",
+    ""
+  ];
+  return lines.join("\n");
+}
+
+async function configureProjectFromProfile(root, config, report, progress = () => {}) {
+  const profile = config.siteProfile;
+  if (!profile || config.dryRun) {
+    if (profile) {
+      report.configure = {
+        ...(report.configure || {}),
+        themeCssPath: path.join(root, CONFIGURE_THEME_FILE),
+        separatorsDir: path.join(root, "assets", "separators"),
+        summary: buildConfigureSummary(profile),
+        note: "Configure artifacts will be written on non-dry-run"
+      };
+      progress("ok", "CONFIGURE: profiilipohjaiset asetukset valmiina (dry run)");
+    }
+    return;
+  }
+
+  const themePath = path.join(root, CONFIGURE_THEME_FILE);
+  const separatorDir = path.join(root, "assets", "separators");
+  await fs.mkdir(path.dirname(themePath), { recursive: true });
+  await fs.mkdir(separatorDir, { recursive: true });
+  await fs.writeFile(themePath, themeCssFromProfile(profile), "utf8");
+
+  const writtenSeparators = [];
+  for (const name of profile.separatorsUsed || []) {
+    if (!SEPARATOR_SVG_TEMPLATES[name]) continue;
+    const filePath = path.join(separatorDir, `${name}.svg`);
+    await fs.writeFile(filePath, `${SEPARATOR_SVG_TEMPLATES[name]}\n`, "utf8");
+    writtenSeparators.push(filePath);
+  }
+
+  report.configure = {
+    ...(report.configure || {}),
+    themeCssPath: themePath,
+    separatorsDir: separatorDir,
+    separatorsGenerated: writtenSeparators,
+    summary: buildConfigureSummary(profile)
+  };
+  progress("ok", `CONFIGURE: theme.css generoitu (${Object.keys(profile.palette || {}).length} palette-arvoa)`);
+  if (writtenSeparators.length) progress("ok", `CONFIGURE: separatorit generoitu (${writtenSeparators.length} kpl)`);
+}
+
 function uniqueNonEmpty(values = []) {
   return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
 }
@@ -581,26 +795,29 @@ async function analyzeSite(config, progress = () => {}) {
   const report = {
     startedAt: new Date().toISOString(),
     wpBaseUrl: config.wpBaseUrl,
-    warnings
+    warnings,
+    workflow: ["discover", "configure", "migrate"]
   };
 
-  progress("info", `Analysoidaan sivusto → ${config.wpBaseUrl}`);
-  progress("info", "Haetaan etusivun HTML ja tunnisteet…");
+  progress("info", `DISCOVER: analysoidaan sivusto → ${config.wpBaseUrl}`);
+  progress("info", "DISCOVER: haetaan etusivun HTML ja tunnisteet…");
   const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
   const stylesheetUrls = extractStylesheetUrls(homepageHtml, config.wpBaseUrl);
   const inlineStyles = extractInlineStyles(homepageHtml);
   const navs = extractNavFromHtml(homepageHtml, config.wpBaseUrl);
+  const cssVariableMap = {};
+  for (const inlineStyle of inlineStyles) Object.assign(cssVariableMap, extractCssVariables(inlineStyle));
 
-  progress("ok", `Etusivu haettu: ${stylesheetUrls.length} stylesheetiä, ${navs.length} navigaatiota`);
+  progress("ok", `DISCOVER: etusivu haettu (${stylesheetUrls.length} stylesheetiä, ${navs.length} navigaatiota)`);
 
   let restRoot = null;
   try {
-    progress("info", "Tarkistetaan WordPress REST -juuri…");
+    progress("info", "DISCOVER: tarkistetaan WordPress REST -juuri…");
     restRoot = await fetchJson(joinUrl(config.wpBaseUrl, "/wp-json/"), headers);
-    progress("ok", `REST juuri löytyi: ${(restRoot?.namespaces || []).length} namespacea`);
+    progress("ok", `DISCOVER: REST juuri löytyi (${(restRoot?.namespaces || []).length} namespacea)`);
   } catch (err) {
     warnings.push(`REST root failed: ${String(err.message || err)}`);
-    progress("warn", "REST-juurta ei saatu luettua");
+    progress("warn", "DISCOVER: REST-juurta ei saatu luettua");
   }
 
   const theme = detectThemeFromSignals(homepageHtml, stylesheetUrls);
@@ -624,25 +841,53 @@ async function analyzeSite(config, progress = () => {}) {
   const baseApi = joinUrl(config.wpBaseUrl, recommendedNamespace);
   for (const type of DEFAULT_TYPES) {
     try {
-      progress("info", `Lasketaan ${type} REST API:n kautta…`);
+      progress("info", `DISCOVER: lasketaan ${type} REST API:n kautta…`);
       const items = await fetchAllPages(`${baseApi}/${type}`, headers);
       contentCounts[type] = items.length;
-      progress("ok", `${type}: ${items.length} kohdetta`);
+      progress("ok", `DISCOVER: ${type} ${items.length} kohdetta`);
     } catch (err) {
       warnings.push(`Count fetch for ${type} failed: ${String(err.message || err)}`);
-      progress("warn", `${type}-määrää ei saatu laskettua`);
+      progress("warn", `DISCOVER: ${type}-määrää ei saatu laskettua`);
     }
   }
 
   const menus = await fetchMenus(config.wpBaseUrl, headers, warnings);
-  if (menus.menus.length) progress("ok", `Valikot löydetty REST API:sta (${menus.menus.length} kpl)`);
-  else progress("warn", "Valikot eivät olleet saatavilla REST API:sta");
+  if (menus.menus.length) progress("ok", `DISCOVER: valikot löydetty REST API:sta (${menus.menus.length} kpl)`);
+  else progress("warn", "DISCOVER: valikot eivät olleet saatavilla REST API:sta");
+
+  for (const stylesheetUrl of stylesheetUrls.slice(0, 8)) {
+    try {
+      const css = await fetchText(stylesheetUrl, headers);
+      Object.assign(cssVariableMap, extractCssVariables(css));
+    } catch (err) {
+      warnings.push(`Stylesheet scan failed for ${stylesheetUrl}: ${String(err.message || err)}`);
+    }
+  }
 
   const recommendedPreset = theme.proSignals
     ? "kadence-pro"
     : theme.kadence || plugins.some((plugin) => plugin.slug === "kadence-blocks")
       ? "kadence"
       : "none";
+  const discoveredContentProfile = await discoverContentProfile(baseApi, headers, progress, warnings);
+  const palette = extractPaletteFromVariables(cssVariableMap);
+  const siteProfile = {
+    generatedAt: new Date().toISOString(),
+    wpBaseUrl: config.wpBaseUrl,
+    restNamespace: recommendedNamespace,
+    preset: recommendedPreset,
+    palette,
+    separatorsUsed: discoveredContentProfile.separatorsUsed,
+    colLayouts: discoveredContentProfile.colLayouts,
+    blocksUsed: discoveredContentProfile.blocksUsed,
+    heroPages: discoveredContentProfile.heroPages,
+    headingColors: discoveredContentProfile.headingColors,
+    headingSizes: discoveredContentProfile.headingSizes,
+    buttonStyles: discoveredContentProfile.buttonStyles,
+    inlineStylesSource: inlineStyles.length ? "homepage-inline-style" : "",
+    scannedTypes: discoveredContentProfile.scannedTypes
+  };
+  const configureSummary = buildConfigureSummary(siteProfile);
 
   report.analysis = {
     structure: {
@@ -685,11 +930,14 @@ async function analyzeSite(config, progress = () => {}) {
       menus.menus.length
         ? "Valikkorakennetta näyttää olevan saatavilla. Tarkista silti HTML-fallbackin tai REST-valikkojen laatu migraation jälkeen."
         : "Valikkojen automaattinen tuonti voi vaatia fallback-parsintaa tai manuaalista täydentämistä."
-    ]
+    ],
+    configure: configureSummary
   };
+  report.siteProfile = siteProfile;
+  report.configure = configureSummary;
 
   report.finishedAt = new Date().toISOString();
-  progress("ok", "Sivuanalyysi valmis");
+  progress("ok", "DISCOVER: sivustoprofiili valmis");
   return report;
 }
 
@@ -1426,6 +1674,11 @@ function normalizePathnameToPermalink(pathname) {
   return clean === "//" ? "/" : clean;
 }
 
+function themeCssIncludeLine(config) {
+  if (!config.siteProfile) return "";
+  return `  <link rel="stylesheet" href="/${CONFIGURE_THEME_FILE.replace(/\\/g, "/")}">\n`;
+}
+
 function buildTargetPermalink(type, slug, config, sourceUrl = "") {
   if (sourceUrl) {
     try {
@@ -1449,7 +1702,7 @@ async function generateLayouts(config, root) {
   const baseLayoutPath = path.join(includesDir, baseLayoutName);
   const pageLayoutPath = path.join(includesDir, config.pageLayout || "layouts/page.njk");
   const postLayoutPath = path.join(includesDir, config.postLayout || "layouts/post.njk");
-  const stylesLine = config.migrateStyles ? `  {% include "legacy-styles.njk" %}\n` : "";
+  const stylesLine = `${themeCssIncludeLine(config)}${config.migrateStyles ? `  {% include "legacy-styles.njk" %}\n` : ""}`;
   const enabled = getEnabledReplacementSlugs(config);
   const languageSwitcherLine = enabled.has("wpml") || enabled.has("gtranslate")
     ? `    {% include "partials/language-switcher.njk" %}\n`
@@ -1809,6 +2062,12 @@ function renderBlockTree(nodes, config, warnings, state) {
         warnings.push(`Unsupported Kadence block '${shortName}' left as inner HTML fallback.`);
         state.unknownBlocks.add(shortName);
       }
+      return [
+        `<!-- TODO: kadence/${shortName} ei tuettu — alkuperäinen sisältö säilytetty -->`,
+        `<div class="block-fallback block-fallback--${slugify(shortName)}" data-original-block="${sanitizeHtmlFragment(node.name)}">`,
+        renderedChildren || sanitizeHtmlFragment(String(node.children || "")),
+        "</div>"
+      ].join("\n");
     }
 
     // Core block self-closing / semantic fallbacks
@@ -2580,6 +2839,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     totals: {},
     redirects: [],
     warnings: [],
+    workflow: ["discover", "configure", "migrate"],
     styles: { enabled: Boolean(config.migrateStyles) },
     kadenceBlocks: { enabled: Boolean(config.convertKadenceBlocks) }
   };
@@ -2600,6 +2860,16 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   await fs.mkdir(contentRoot, { recursive: true });
   if (config.downloadMedia) await fs.mkdir(mediaRoot, { recursive: true });
   if (config.importMenus) await fs.mkdir(dataRoot, { recursive: true });
+
+  if (config.siteProfile) {
+    const artifacts = config.dryRun ? { configureSummary: buildConfigureSummary(config.siteProfile) } : await writeSiteProfileArtifacts(root, config.siteProfile, progress);
+    report.siteProfile = {
+      profilePath: artifacts.profilePath || path.join(root, PROFILE_FILE_NAME),
+      summaryPath: artifacts.summaryPath || path.join(root, PROFILE_SUMMARY_FILE_NAME),
+      summary: artifacts.configureSummary || buildConfigureSummary(config.siteProfile)
+    };
+    await configureProjectFromProfile(root, config, report, progress);
+  }
 
   await bootstrapEleventyProject(root, config, report, progress);
   await installProjectDependencies(root, config, report, progress);
@@ -2860,6 +3130,7 @@ async function createConfigFromInput(raw = {}) {
     migrateStyles: Boolean(raw.migrateStyles ?? presetDefaults.migrateStyles),
     stylesDir: String(raw.stylesDir || presetDefaults.stylesDir || DEFAULT_STYLES_DIR).trim() || DEFAULT_STYLES_DIR,
     eleventyReplacements: normalizeEleventyReplacements(raw.eleventyReplacements),
+    siteProfile: raw.siteProfile && typeof raw.siteProfile === "object" ? raw.siteProfile : null,
     localProjectFolder,
     outputRoot,
     contentDir: String(raw.contentDir || "content").trim() || "content",
@@ -3300,7 +3571,19 @@ async function serveUi(port = 4173) {
         };
         jobs.set(jobId, { status: "running", kind: "analysis", log });
         analyzeSite(config, progress).then((report) => {
-          jobs.set(jobId, { status: "done", kind: "analysis", report, log });
+          writeSiteProfileArtifacts(config.outputRoot, report.siteProfile, progress).then((artifacts) => {
+            if (artifacts.profilePath) report.profilePath = artifacts.profilePath;
+            if (artifacts.summaryPath) report.profileSummaryPath = artifacts.summaryPath;
+            if (artifacts.configureSummary) report.configure = artifacts.configureSummary;
+            jobs.set(jobId, { status: "done", kind: "analysis", report, log });
+          }).catch((artifactErr) => {
+            log.push({
+              level: "warn",
+              msg: `DISCOVER: profiilin tallennus epäonnistui: ${String(artifactErr?.message || artifactErr)}`,
+              t: new Date().toISOString()
+            });
+            jobs.set(jobId, { status: "done", kind: "analysis", report, log });
+          });
         }).catch((err) => {
           jobs.set(jobId, { status: "error", kind: "analysis", error: String(err?.message || err), detail: String(err?.stack || err), log });
         });
