@@ -866,7 +866,8 @@ async function bootstrapEleventyProject(root, config, report, progress = () => {
   const dependencies = inferBootstrapDependencies(config);
   const usesNavigation = Object.prototype.hasOwnProperty.call(dependencies, "@11ty/eleventy-navigation");
   const packageJsonPath = path.join(root, "package.json");
-  const configJsPath = path.join(root, ".eleventy.js");
+  const configJsPath = path.join(root, "eleventy.config.js");
+  const legacyConfigJsPath = path.join(root, ".eleventy.js");
   const gitignorePath = path.join(root, ".gitignore");
   const notesPath = path.join(root, "MIGRATION-NOTES.md");
 
@@ -920,6 +921,7 @@ async function bootstrapEleventyProject(root, config, report, progress = () => {
   const bootstrap = {
     packageJsonPath,
     configJsPath,
+    legacyConfigJsPath,
     gitignorePath,
     notesPath,
     dependencies: Object.keys(dependencies),
@@ -934,6 +936,7 @@ async function bootstrapEleventyProject(root, config, report, progress = () => {
 
   if (await writeIfMissing(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)) bootstrap.created.push(packageJsonPath);
   if (await writeIfMissing(configJsPath, configLines.join("\n"))) bootstrap.created.push(configJsPath);
+  if (await writeIfMissing(legacyConfigJsPath, 'module.exports = require("./eleventy.config.js");\n')) bootstrap.created.push(legacyConfigJsPath);
   if (await writeIfMissing(gitignorePath, "_site/\nnode_modules/\n.DS_Store\n")) bootstrap.created.push(gitignorePath);
   if (await writeIfMissing(notesPath, notes)) bootstrap.created.push(notesPath);
 
@@ -1030,6 +1033,44 @@ async function installProjectDependencies(root, config, report, progress = () =>
     report.warnings.push(`npm install failed: ${detail}`);
     progress("warn", "Riippuvuuksien asennus epäonnistui, tarkista loki");
   }
+}
+
+async function verifyProjectOutput(root, config, report, progress = () => {}) {
+  const requiredForNew = [
+    path.join(root, "package.json"),
+    path.join(root, "eleventy.config.js")
+  ];
+  const missing = [];
+  for (const filePath of requiredForNew) {
+    if (!(await fileExists(filePath))) missing.push(filePath);
+  }
+
+  report.outputVerification = {
+    siteMode: config.siteMode,
+    missing
+  };
+
+  if (config.siteMode === "new") {
+    if (!missing.length) {
+      report.outputVerification.ok = true;
+      progress("ok", "Output-verifiointi: Eleventy-projektin perusrunko löytyi");
+      return;
+    }
+    report.outputVerification.ok = false;
+    for (const filePath of missing) {
+      progress("warn", `Output-verifiointi: puuttuu ${path.basename(filePath)}`);
+    }
+    throw new Error(`Migraation output on vajaa: ${missing.map((filePath) => path.basename(filePath)).join(", ")} puuttuu kohdeprojektista`);
+  }
+
+  if (missing.length) {
+    report.outputVerification.ok = false;
+    progress("warn", "Olemassa olevan projektin juuresta puuttuu package.json tai eleventy.config.js. Jos tämä ei ollut tarkoitus, käytä tilaa 'Luo uusi sivusto'.");
+    return;
+  }
+
+  report.outputVerification.ok = true;
+  progress("ok", "Output-verifiointi: olemassa olevan projektin Eleventy-runko löytyi");
 }
 
 // Common words that look like shortcodes but aren't — Finnish, English, JS artifacts
@@ -2331,6 +2372,7 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
     date: item?.date || "",
     updated: item?.modified || "",
     slug,
+    permalink,
     status: item?.status || "publish",
     sourceType: type,
     sourceId: item?.id || "",
@@ -2587,6 +2629,8 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     report.redirectsPath = redirectsPath;
     progress("ok", `Uudelleenohjaukset: ${report.redirects.length} kpl → redirects.csv`);
   }
+
+  await verifyProjectOutput(root, config, report, progress);
 
   report.finishedAt = new Date().toISOString();
   report.outputRoot = root;
