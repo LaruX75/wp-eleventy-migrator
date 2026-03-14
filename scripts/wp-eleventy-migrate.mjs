@@ -1656,8 +1656,17 @@ function renderBlockTree(nodes, config, warnings, state) {
     if (config.convertKadenceBlocks && namespace === "kadence" && shortName && kadenceSupportedBlocks(config).includes(shortName)) {
       state.convertedCount += 1;
       state.seenBlocks.add(shortName);
+      const blockData = safeJsonForNunjucks({
+        name: node.name,
+        shortName,
+        attrs: node.attrs || {},
+        rawHtml: innerHtml
+      });
       return [
-        `{% set kadenceBlock = ${safeJsonForNunjucks({ name: node.name, shortName, attrs: node.attrs || {}, innerHtml })} %}`,
+        `{% set kadenceBlock = ${blockData} %}`,
+        "{% set kadenceInnerHtml %}",
+        innerHtml,
+        "{% endset %}",
         `{% include "blocks/kadence/${shortName}.njk" %}`
       ].join("\n");
     }
@@ -1717,7 +1726,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   class="kadence-block kadence-advancedheading{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}id="kt-adv-heading_{{ b.uniqueID }}"{% endif %}
   {% if b.align or b.color %}style="{% if b.align %}text-align:{{ b.align }};{% endif %}{% if b.color %} color:{{ b.color }};{% endif %}"{% endif %}
->{{ kadenceBlock.innerHtml | safe }}</{{ tag }}>
+>{{ kadenceInnerHtml | safe }}</{{ tag }}>
 `,
 
   advancedbtn: `{# kadence/advancedbtn — Button group; innerHtml contains individual button elements #}
@@ -1726,7 +1735,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   class="kadence-block kadence-advancedbtn{% if b.hAlign %} kadence-btn-align-{{ b.hAlign }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
@@ -1737,7 +1746,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
   {% if b.background or (b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg) %}style="{% if b.background %}background-color:{{ b.background }};{% endif %}{% if b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg %} background-image:url('{{ b.backgroundImg[0].bgImg }}');{% endif %}"{% endif %}
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </section>
 `,
 
@@ -1747,7 +1756,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   class="kadence-block kadence-column{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
@@ -1766,7 +1775,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
       {% if b.height %}height="{{ b.height }}"{% endif %}
     >
   {% else %}
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   {% endif %}
   {% if b.link %}</a>{% endif %}
   {% if b.caption %}<figcaption>{{ b.caption }}</figcaption>{% endif %}
@@ -1791,7 +1800,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
       {% endfor %}
     </ul>
   {% else %}
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   {% endif %}
 </figure>
 `,
@@ -1803,7 +1812,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
   role="tablist"
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
@@ -1815,7 +1824,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   role="tabpanel"
 >
   {% if b.title %}<div class="kadence-tab-title">{{ b.title }}</div>{% endif %}
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
@@ -1825,7 +1834,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   class="kadence-block kadence-accordion{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
@@ -1840,7 +1849,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
     <summary class="kadence-pane-title">{{ b.title }}</summary>
   {% endif %}
   <div class="kadence-pane-content">
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   </div>
 </details>
 `,
@@ -1855,7 +1864,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
     <h3 class="kadence-infobox-title">{{ b.title }}</h3>
   {% endif %}
   <div class="kadence-infobox-content">
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   </div>
 </article>
 `,
@@ -1867,7 +1876,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
   aria-hidden="true"
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </span>
 `,
 
@@ -1877,7 +1886,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   class="kadence-block kadence-iconlist{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </ul>
 `,
 
@@ -1887,7 +1896,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.icon %}
     <span class="kadence-listitem-icon" aria-hidden="true">{{ b.icon }}</span>
   {% endif %}
-  <span class="kadence-listitem-text">{{ kadenceBlock.innerHtml | safe }}</span>
+  <span class="kadence-listitem-text">{{ kadenceInnerHtml | safe }}</span>
 </li>
 `,
 
@@ -1915,7 +1924,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   class="kadence-block kadence-testimonials{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </section>
 `,
 
@@ -1933,7 +1942,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
     </div>
   {% endif %}
   <blockquote class="kadence-testimonial-content">
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   </blockquote>
   <figcaption class="kadence-testimonial-author">
     {% if b.url %}
@@ -1954,7 +1963,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.formTitle %}<h2 class="kadence-form-title">{{ b.formTitle }}</h2>{% endif %}
   {# TODO: set action/method/data-netlify for your static site form handler #}
   <form method="post" data-netlify="true">
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
     <button type="submit">{{ b.submitLabel if b.submitLabel else "Submit" }}</button>
   </form>
 </section>
@@ -1976,7 +1985,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
     <span class="kadence-countdown-minutes">--</span><span class="kadence-countdown-label">m</span>
     <span class="kadence-countdown-seconds">--</span><span class="kadence-countdown-label">s</span>
   </div>
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
@@ -1993,10 +2002,10 @@ const KADENCE_PARTIAL_TEMPLATES = {
       {% if b.type %}data-video-type="{{ b.type }}"{% endif %}
       aria-label="Play video"
     >
-      {{ kadenceBlock.innerHtml | safe }}
+      {{ kadenceInnerHtml | safe }}
     </a>
   {% else %}
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   {% endif %}
 </div>
 `,
@@ -2015,7 +2024,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
       style="width:100%"
     ></lottie-player>
   {% else %}
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   {% endif %}
 </div>
 `,
@@ -2039,7 +2048,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
       <button class="kadence-modal-close" aria-label="Close">×</button>
     </form>
     <div class="kadence-modal-content">
-      {{ kadenceBlock.innerHtml | safe }}
+      {{ kadenceInnerHtml | safe }}
     </div>
   </dialog>
 </div>
@@ -2168,7 +2177,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   >☰</button>
   <div id="{{ drawerId }}" class="kadence-off-canvas-drawer" hidden>
     <button class="kadence-off-canvas-close" type="button" aria-label="Close menu">×</button>
-    {{ kadenceBlock.innerHtml | safe }}
+    {{ kadenceInnerHtml | safe }}
   </div>
 </div>
 `,
@@ -2182,7 +2191,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   <summary class="kadence-show-more-toggle">
     {{ b.showHideMore if b.showHideMore else "Show more" }}
   </summary>
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </details>
 `,
 
@@ -2193,7 +2202,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
   {# TODO: replace with Eleventy collection loop — e.g. {% for post in collections.posts %} #}
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
@@ -2228,7 +2237,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
   {# TODO: replace with your sidebar partial — {% include "partials/sidebar.njk" %} #}
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </aside>
 `,
 
@@ -2238,7 +2247,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   class="kadence-block kadence-splitcontent{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </section>
 `,
 
@@ -2250,7 +2259,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   aria-label="Table of contents"
 >
   {# TODO: generate with eleventy-plugin-toc or a custom Nunjucks macro #}
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </nav>
 `,
 
@@ -2264,7 +2273,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
      {% for post in collections.posts | reverse | limit(b.postsToShow | default(3)) %}
        <article><a href="{{ post.url }}">{{ post.data.title }}</a></article>
      {% endfor %} #}
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </section>
 `,
 
@@ -2275,7 +2284,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
 >
   {# TODO: replace with Eleventy portfolio collection loop #}
-  {{ kadenceBlock.innerHtml | safe }}
+  {{ kadenceInnerHtml | safe }}
 </section>
 `
 };
@@ -2283,7 +2292,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
 function kadencePartialTemplate(name) {
   const raw = Object.prototype.hasOwnProperty.call(KADENCE_PARTIAL_TEMPLATES, name)
     ? KADENCE_PARTIAL_TEMPLATES[name]
-    : `{# kadence/${name} — Generic fallback. Customize this partial. #}\n{% set b = kadenceBlock.attrs %}\n<div\n  class="kadence-block kadence-${name}{% if b.className %} {{ b.className }}{% endif %}"\n  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}\n>\n  {{ kadenceBlock.innerHtml | safe }}\n</div>\n`;
+    : `{# kadence/${name} — Generic fallback. Customize this partial. #}\n{% set b = kadenceBlock.attrs %}\n<div\n  class="kadence-block kadence-${name}{% if b.className %} {{ b.className }}{% endif %}"\n  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}\n>\n  {{ kadenceInnerHtml | safe }}\n</div>\n`;
 
   // Inject standard WordPress block class, Kadence kb-* class and uniqueID-scoped class.
   // All three together ensure that CSS downloaded from the WordPress site still applies.
