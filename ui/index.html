@@ -431,6 +431,47 @@
         gap: 18px;
       }
 
+      .subsection-disclosure {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--panel-strong);
+        overflow: hidden;
+      }
+
+      .subsection-disclosure summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 14px 16px;
+      }
+
+      .subsection-disclosure summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .subsection-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .subsection-chevron {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        color: var(--accent-strong);
+        transition: transform 180ms ease;
+      }
+
+      .subsection-disclosure[open] .subsection-chevron {
+        transform: rotate(90deg);
+      }
+
+      .subsection-body {
+        padding: 0 16px 16px;
+        display: grid;
+        gap: 18px;
+      }
+
       .recommendation-list,
       .plugin-check-grid {
         display: grid;
@@ -1129,97 +1170,132 @@
                   </summary>
                   <div class="phase-disclosure-body">
                     <p class="step-phase-note" data-i18n="step0_note"></p>
-                    <div class="section-head">
-                      <h3 class="section-title" data-i18n="source_section"></h3>
-                      <button type="button" class="help-button" data-help-topic="source-overview">?</button>
-                    </div>
-                    <div class="grid">
-                      <label>
-                        <span class="field-head"><span data-i18n="field_restNamespace"></span> <button type="button" class="help-button" data-help-topic="restNamespace">?</button></span>
-                        <input name="restNamespace" required>
-                        <span data-i18n="hint_restNamespace"></span>
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_sourceType"></span> <button type="button" class="help-button" data-help-topic="sourceType">?</button></span>
-                        <select name="sourceType">
-                          <option value="rest">rest</option>
-                          <option value="xml">xml</option>
-                          <option value="json">json</option>
-                        </select>
-                        <span data-i18n="hint_sourceType"></span>
-                      </label>
-                    </div>
+                    <details class="subsection-disclosure" open>
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="source_section"></h3>
+                          <button type="button" class="help-button" data-help-topic="source-overview">?</button>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_restNamespace"></span> <button type="button" class="help-button" data-help-topic="restNamespace">?</button></span>
+                            <input name="restNamespace" required>
+                            <span data-i18n="hint_restNamespace"></span>
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_sourceType"></span> <button type="button" class="help-button" data-help-topic="sourceType">?</button></span>
+                            <select name="sourceType">
+                              <option value="rest">rest</option>
+                              <option value="xml">xml</option>
+                              <option value="json">json</option>
+                            </select>
+                            <span data-i18n="hint_sourceType"></span>
+                          </label>
+                        </div>
+                      </div>
+                    </details>
 
                     <div id="analysis-recommendations" hidden>
-                      <div class="section-head">
-                        <h3 class="section-title" data-i18n="analysis_recommendations_title"></h3>
-                      </div>
-                      <ul class="recommendation-list" id="analysis-recommendation-list"></ul>
+                      <details class="subsection-disclosure" open>
+                        <summary>
+                          <div class="subsection-head">
+                            <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            <h3 class="section-title" data-i18n="analysis_recommendations_title"></h3>
+                          </div>
+                        </summary>
+                        <div class="subsection-body">
+                          <ul class="recommendation-list" id="analysis-recommendation-list"></ul>
+                        </div>
+                      </details>
 
-                      <div class="section-head">
-                        <h3 class="section-title" data-i18n="analysis_structures_title"></h3>
-                      </div>
-                      <div class="toggle-row">
-                        <label class="toggle">
-                          <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts">
-                          <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
-                        </label>
-                        <label class="toggle">
-                          <input name="convertKadenceBlocks" type="checkbox" id="convertKadenceBlocks">
-                          <span data-i18n="toggle_convertKadenceBlocks"></span> <button type="button" class="help-button" data-help-topic="convertKadenceBlocks">?</button>
-                        </label>
-                        <label class="toggle">
-                          <input name="migrateStyles" type="checkbox" id="migrateStyles">
-                          <span data-i18n="toggle_migrateStyles"></span> <button type="button" class="help-button" data-help-topic="migrateStyles">?</button>
-                        </label>
-                      </div>
+                      <details class="subsection-disclosure" open>
+                        <summary>
+                          <div class="subsection-head">
+                            <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            <h3 class="section-title" data-i18n="analysis_structures_title"></h3>
+                          </div>
+                        </summary>
+                        <div class="subsection-body">
+                          <div class="toggle-row">
+                            <label class="toggle">
+                              <input name="useNunjucksLayouts" type="checkbox" id="useNunjucksLayouts">
+                              <span data-i18n="toggle_useNunjucksLayouts"></span> <button type="button" class="help-button" data-help-topic="useNunjucksLayouts">?</button>
+                            </label>
+                            <label class="toggle">
+                              <input name="convertKadenceBlocks" type="checkbox" id="convertKadenceBlocks">
+                              <span data-i18n="toggle_convertKadenceBlocks"></span> <button type="button" class="help-button" data-help-topic="convertKadenceBlocks">?</button>
+                            </label>
+                            <label class="toggle">
+                              <input name="migrateStyles" type="checkbox" id="migrateStyles">
+                              <span data-i18n="toggle_migrateStyles"></span> <button type="button" class="help-button" data-help-topic="migrateStyles">?</button>
+                            </label>
+                          </div>
+                        </div>
+                      </details>
 
-                      <div class="section-head">
-                        <h3 class="section-title" data-i18n="analysis_presets_title"></h3>
-                      </div>
-                      <div class="grid">
-                        <label>
-                          <span class="field-head"><span data-i18n="field_preset"></span> <button type="button" class="help-button" data-help-topic="preset">?</button></span>
-                          <select name="preset" id="preset">
-                            <option value="none" data-i18n="option_preset_none"></option>
-                            <option value="kadence" data-i18n="option_preset_kadence"></option>
-                            <option value="kadence-pro" data-i18n="option_preset_kadence_pro"></option>
-                          </select>
-                          <span data-i18n="hint_preset"></span>
-                        </label>
-                        <label>
-                          <span class="field-head"><span data-i18n="field_stylesDir"></span> <button type="button" class="help-button" data-help-topic="stylesDir">?</button></span>
-                          <input name="stylesDir" data-i18n-placeholder="placeholder_stylesDir">
-                          <span data-i18n="hint_stylesDir"></span>
-                        </label>
-                      </div>
-                      <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
-                        <label>
-                          <span class="field-head"><span data-i18n="field_pageLayout"></span> <button type="button" class="help-button" data-help-topic="pageLayout">?</button></span>
-                          <input name="pageLayout" data-i18n-placeholder="placeholder_pageLayout">
-                          <span data-i18n="hint_pageLayout"></span>
-                        </label>
-                        <label>
-                          <span class="field-head"><span data-i18n="field_postLayout"></span> <button type="button" class="help-button" data-help-topic="postLayout">?</button></span>
-                          <input name="postLayout" data-i18n-placeholder="placeholder_postLayout">
-                          <span data-i18n="hint_postLayout"></span>
-                        </label>
-                        <label>
-                          <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
-                          <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout">
-                          <span data-i18n="hint_defaultLayout"></span>
-                        </label>
-                        <label>
-                          <span class="field-head"><span data-i18n="field_kadenceBlocksDir"></span> <button type="button" class="help-button" data-help-topic="kadenceBlocksDir">?</button></span>
-                          <input name="kadenceBlocksDir" data-i18n-placeholder="placeholder_kadenceBlocksDir">
-                          <span data-i18n="hint_kadenceBlocksDir"></span>
-                        </label>
-                      </div>
+                      <details class="subsection-disclosure" open>
+                        <summary>
+                          <div class="subsection-head">
+                            <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            <h3 class="section-title" data-i18n="analysis_presets_title"></h3>
+                          </div>
+                        </summary>
+                        <div class="subsection-body">
+                          <div class="grid">
+                            <label>
+                              <span class="field-head"><span data-i18n="field_preset"></span> <button type="button" class="help-button" data-help-topic="preset">?</button></span>
+                              <select name="preset" id="preset">
+                                <option value="none" data-i18n="option_preset_none"></option>
+                                <option value="kadence" data-i18n="option_preset_kadence"></option>
+                                <option value="kadence-pro" data-i18n="option_preset_kadence_pro"></option>
+                              </select>
+                              <span data-i18n="hint_preset"></span>
+                            </label>
+                            <label>
+                              <span class="field-head"><span data-i18n="field_stylesDir"></span> <button type="button" class="help-button" data-help-topic="stylesDir">?</button></span>
+                              <input name="stylesDir" data-i18n-placeholder="placeholder_stylesDir">
+                              <span data-i18n="hint_stylesDir"></span>
+                            </label>
+                          </div>
+                          <div id="nunjucks-fields" class="grid nunjucks-fields" hidden>
+                            <label>
+                              <span class="field-head"><span data-i18n="field_pageLayout"></span> <button type="button" class="help-button" data-help-topic="pageLayout">?</button></span>
+                              <input name="pageLayout" data-i18n-placeholder="placeholder_pageLayout">
+                              <span data-i18n="hint_pageLayout"></span>
+                            </label>
+                            <label>
+                              <span class="field-head"><span data-i18n="field_postLayout"></span> <button type="button" class="help-button" data-help-topic="postLayout">?</button></span>
+                              <input name="postLayout" data-i18n-placeholder="placeholder_postLayout">
+                              <span data-i18n="hint_postLayout"></span>
+                            </label>
+                            <label>
+                              <span class="field-head"><span data-i18n="field_defaultLayout"></span> <button type="button" class="help-button" data-help-topic="defaultLayout">?</button></span>
+                              <input name="defaultLayout" data-i18n-placeholder="placeholder_defaultLayout">
+                              <span data-i18n="hint_defaultLayout"></span>
+                            </label>
+                            <label>
+                              <span class="field-head"><span data-i18n="field_kadenceBlocksDir"></span> <button type="button" class="help-button" data-help-topic="kadenceBlocksDir">?</button></span>
+                              <input name="kadenceBlocksDir" data-i18n-placeholder="placeholder_kadenceBlocksDir">
+                              <span data-i18n="hint_kadenceBlocksDir"></span>
+                            </label>
+                          </div>
+                        </div>
+                      </details>
 
-                      <div class="section-head">
-                        <h3 class="section-title" data-i18n="analysis_plugins_title"></h3>
-                      </div>
-                      <div id="analysis-plugin-checkboxes" class="plugin-check-grid"></div>
+                      <details class="subsection-disclosure" open>
+                        <summary>
+                          <div class="subsection-head">
+                            <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            <h3 class="section-title" data-i18n="analysis_plugins_title"></h3>
+                          </div>
+                        </summary>
+                        <div class="subsection-body">
+                          <div id="analysis-plugin-checkboxes" class="plugin-check-grid"></div>
+                        </div>
+                      </details>
                     </div>
 
                     <div class="subtle-box">
@@ -1284,130 +1360,157 @@
                   </summary>
                   <div class="phase-disclosure-body">
                     <p class="step-phase-note" data-i18n="step1_note"></p>
+                    <details class="subsection-disclosure" open>
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="content_section"></h3>
+                          <button type="button" class="help-button" data-help-topic="content-overview">?</button>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_contentTypes"></span> <button type="button" class="help-button" data-help-topic="contentTypes">?</button></span>
+                            <input name="contentTypes" data-i18n-placeholder="placeholder_contentTypes">
+                            <span data-i18n="hint_contentTypes"></span>
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_htmlMode"></span> <button type="button" class="help-button" data-help-topic="htmlMode">?</button></span>
+                            <select name="htmlMode">
+                              <option value="keep-html" data-i18n="option_keep_html"></option>
+                              <option value="basic-markdown" data-i18n="option_basic_markdown"></option>
+                            </select>
+                            <span data-i18n="hint_htmlMode"></span>
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_permalink"></span> <button type="button" class="help-button" data-help-topic="targetPermalinkPattern">?</button></span>
+                            <input name="targetPermalinkPattern" data-i18n-placeholder="placeholder_permalink">
+                            <span data-i18n="hint_permalink"></span>
+                          </label>
+                        </div>
+                        <div class="toggle-row">
+                          <label class="toggle">
+                            <input name="includeDrafts" type="checkbox">
+                            <span data-i18n="toggle_includeDrafts"></span> <button type="button" class="help-button" data-help-topic="includeDrafts">?</button>
+                          </label>
+                          <label class="toggle">
+                            <input name="downloadMedia" type="checkbox">
+                            <span data-i18n="toggle_downloadMedia"></span> <button type="button" class="help-button" data-help-topic="downloadMedia">?</button>
+                          </label>
+                          <label class="toggle">
+                            <input name="createRedirects" type="checkbox">
+                            <span data-i18n="toggle_createRedirects"></span> <button type="button" class="help-button" data-help-topic="createRedirects">?</button>
+                          </label>
+                          <label class="toggle">
+                            <input name="importMenus" type="checkbox" checked>
+                            <span data-i18n="toggle_importMenus"></span> <button type="button" class="help-button" data-help-topic="importMenus">?</button>
+                          </label>
+                          <label class="toggle">
+                            <input name="dryRun" type="checkbox">
+                            <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
+                          </label>
+                        </div>
+                      </div>
+                    </details>
 
-                    <div class="section-head">
-                      <h3 class="section-title" data-i18n="content_section"></h3>
-                      <button type="button" class="help-button" data-help-topic="content-overview">?</button>
-                    </div>
-                    <div class="grid">
-                      <label>
-                        <span class="field-head"><span data-i18n="field_contentTypes"></span> <button type="button" class="help-button" data-help-topic="contentTypes">?</button></span>
-                        <input name="contentTypes" data-i18n-placeholder="placeholder_contentTypes">
-                        <span data-i18n="hint_contentTypes"></span>
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_htmlMode"></span> <button type="button" class="help-button" data-help-topic="htmlMode">?</button></span>
-                        <select name="htmlMode">
-                          <option value="keep-html" data-i18n="option_keep_html"></option>
-                          <option value="basic-markdown" data-i18n="option_basic_markdown"></option>
-                        </select>
-                        <span data-i18n="hint_htmlMode"></span>
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_permalink"></span> <button type="button" class="help-button" data-help-topic="targetPermalinkPattern">?</button></span>
-                        <input name="targetPermalinkPattern" data-i18n-placeholder="placeholder_permalink">
-                        <span data-i18n="hint_permalink"></span>
-                      </label>
-                    </div>
-                    <div class="toggle-row">
-                      <label class="toggle">
-                        <input name="includeDrafts" type="checkbox">
-                        <span data-i18n="toggle_includeDrafts"></span> <button type="button" class="help-button" data-help-topic="includeDrafts">?</button>
-                      </label>
-                      <label class="toggle">
-                        <input name="downloadMedia" type="checkbox">
-                        <span data-i18n="toggle_downloadMedia"></span> <button type="button" class="help-button" data-help-topic="downloadMedia">?</button>
-                      </label>
-                      <label class="toggle">
-                        <input name="createRedirects" type="checkbox">
-                        <span data-i18n="toggle_createRedirects"></span> <button type="button" class="help-button" data-help-topic="createRedirects">?</button>
-                      </label>
-                      <label class="toggle">
-                        <input name="importMenus" type="checkbox" checked>
-                        <span data-i18n="toggle_importMenus"></span> <button type="button" class="help-button" data-help-topic="importMenus">?</button>
-                      </label>
-                      <label class="toggle">
-                        <input name="dryRun" type="checkbox">
-                        <span data-i18n="toggle_dryRun"></span> <button type="button" class="help-button" data-help-topic="dryRun">?</button>
-                      </label>
-                    </div>
+                    <details class="subsection-disclosure">
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="auth_section"></h3>
+                          <button type="button" class="help-button" data-help-topic="auth-overview">?</button>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_authMode"></span> <button type="button" class="help-button" data-help-topic="authMode">?</button></span>
+                            <select name="authMode" id="authMode">
+                              <option value="none" data-i18n="option_auth_none"></option>
+                              <option value="app-password" data-i18n="option_auth_app_password"></option>
+                              <option value="bearer" data-i18n="option_auth_bearer"></option>
+                            </select>
+                            <span data-i18n="hint_authMode"></span>
+                          </label>
+                        </div>
+                        <div id="app-password-fields" class="grid auth-fields" hidden>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_wpUser"></span> <button type="button" class="help-button" data-help-topic="wpUser">?</button></span>
+                            <input name="wpUser">
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_wpAppPassword"></span> <button type="button" class="help-button" data-help-topic="wpAppPassword">?</button></span>
+                            <input name="wpAppPassword" type="password">
+                          </label>
+                        </div>
+                        <div id="bearer-fields" class="grid auth-fields" hidden>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_wpBearerToken"></span> <button type="button" class="help-button" data-help-topic="wpBearerToken">?</button></span>
+                            <input name="wpBearerToken" type="password">
+                          </label>
+                        </div>
+                      </div>
+                    </details>
 
-                    <div class="section-head">
-                      <h3 class="section-title" data-i18n="auth_section"></h3>
-                      <button type="button" class="help-button" data-help-topic="auth-overview">?</button>
-                    </div>
-                    <div class="grid">
-                      <label>
-                        <span class="field-head"><span data-i18n="field_authMode"></span> <button type="button" class="help-button" data-help-topic="authMode">?</button></span>
-                        <select name="authMode" id="authMode">
-                          <option value="none" data-i18n="option_auth_none"></option>
-                          <option value="app-password" data-i18n="option_auth_app_password"></option>
-                          <option value="bearer" data-i18n="option_auth_bearer"></option>
-                        </select>
-                        <span data-i18n="hint_authMode"></span>
-                      </label>
-                    </div>
-                    <div id="app-password-fields" class="grid auth-fields" hidden>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_wpUser"></span> <button type="button" class="help-button" data-help-topic="wpUser">?</button></span>
-                        <input name="wpUser">
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_wpAppPassword"></span> <button type="button" class="help-button" data-help-topic="wpAppPassword">?</button></span>
-                        <input name="wpAppPassword" type="password">
-                      </label>
-                    </div>
-                    <div id="bearer-fields" class="grid auth-fields" hidden>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_wpBearerToken"></span> <button type="button" class="help-button" data-help-topic="wpBearerToken">?</button></span>
-                        <input name="wpBearerToken" type="password">
-                      </label>
-                    </div>
+                    <details class="subsection-disclosure" open>
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="output_section"></h3>
+                          <button type="button" class="help-button" data-help-topic="output-overview">?</button>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_outputRoot"></span> <button type="button" class="help-button" data-help-topic="outputRoot">?</button></span>
+                            <input name="outputRoot" required>
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_configPath"></span> <button type="button" class="help-button" data-help-topic="configPath">?</button></span>
+                            <input name="configPath" required>
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_contentDir"></span> <button type="button" class="help-button" data-help-topic="contentDir">?</button></span>
+                            <input name="contentDir" required>
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_mediaDir"></span> <button type="button" class="help-button" data-help-topic="mediaDir">?</button></span>
+                            <input name="mediaDir" required>
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_dataDir"></span> <button type="button" class="help-button" data-help-topic="dataDir">?</button></span>
+                            <input name="dataDir" required>
+                          </label>
+                        </div>
+                      </div>
+                    </details>
 
-                    <div class="section-head">
-                      <h3 class="section-title" data-i18n="output_section"></h3>
-                      <button type="button" class="help-button" data-help-topic="output-overview">?</button>
-                    </div>
-                    <div class="grid">
-                      <label>
-                        <span class="field-head"><span data-i18n="field_outputRoot"></span> <button type="button" class="help-button" data-help-topic="outputRoot">?</button></span>
-                        <input name="outputRoot" required>
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_configPath"></span> <button type="button" class="help-button" data-help-topic="configPath">?</button></span>
-                        <input name="configPath" required>
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_contentDir"></span> <button type="button" class="help-button" data-help-topic="contentDir">?</button></span>
-                        <input name="contentDir" required>
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_mediaDir"></span> <button type="button" class="help-button" data-help-topic="mediaDir">?</button></span>
-                        <input name="mediaDir" required>
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_dataDir"></span> <button type="button" class="help-button" data-help-topic="dataDir">?</button></span>
-                        <input name="dataDir" required>
-                      </label>
-                    </div>
-
-                    <div class="section-head">
-                      <h3 class="section-title" data-i18n="local_section"></h3>
-                      <button type="button" class="help-button" data-help-topic="local-overview">?</button>
-                    </div>
-                    <div class="grid">
-                      <label>
-                        <span class="field-head"><span data-i18n="field_localDevCommand"></span> <button type="button" class="help-button" data-help-topic="localDevCommand">?</button></span>
-                        <input name="localDevCommand">
-                      </label>
-                      <label>
-                        <span class="field-head"><span data-i18n="field_localSiteUrl"></span> <button type="button" class="help-button" data-help-topic="localSiteUrl">?</button></span>
-                        <input name="localSiteUrl">
-                      </label>
-                    </div>
-                    <div class="subtle-box">
-                      <p data-i18n="local_box"></p>
-                    </div>
+                    <details class="subsection-disclosure">
+                      <summary>
+                        <div class="subsection-head">
+                          <svg class="subsection-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          <h3 class="section-title" data-i18n="local_section"></h3>
+                          <button type="button" class="help-button" data-help-topic="local-overview">?</button>
+                        </div>
+                      </summary>
+                      <div class="subsection-body">
+                        <div class="grid">
+                          <label>
+                            <span class="field-head"><span data-i18n="field_localDevCommand"></span> <button type="button" class="help-button" data-help-topic="localDevCommand">?</button></span>
+                            <input name="localDevCommand">
+                          </label>
+                          <label>
+                            <span class="field-head"><span data-i18n="field_localSiteUrl"></span> <button type="button" class="help-button" data-help-topic="localSiteUrl">?</button></span>
+                            <input name="localSiteUrl">
+                          </label>
+                        </div>
+                        <div class="subtle-box">
+                          <p data-i18n="local_box"></p>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 </details>
               </div>
@@ -2937,8 +3040,13 @@
         form.elements.namedItem("useNunjucksLayouts").checked = recommendedPreset !== "none";
         form.elements.namedItem("convertKadenceBlocks").checked = recommendedPreset === "kadence" || recommendedPreset === "kadence-pro";
         form.elements.namedItem("migrateStyles").checked = recommendedPreset === "kadence" || recommendedPreset === "kadence-pro";
+        form.elements.namedItem("contentTypes").value = Object.keys(analysis.structure?.contentCounts || {}).join(",") || "posts,pages";
+        form.elements.namedItem("htmlMode").value = recommendedPreset === "none" ? "keep-html" : "keep-html";
+        form.elements.namedItem("createRedirects").checked = true;
+        form.elements.namedItem("importMenus").checked = true;
         if (analysis.menus?.detected === 0) form.elements.namedItem("importMenus").checked = true;
         applyPresetDefaults();
+        applyProjectDefaults(form.elements.namedItem("localProjectFolder").value, false);
         updateNunjucksVisibility();
       }
 
@@ -2986,6 +3094,62 @@
       function suggestConfigPath(outputRoot) {
         const base = String(outputRoot || "").replace(/\/+$/, "");
         return base ? `${base}/migration-config.json` : "./migrations/wp-to-eleventy/migration-config.json";
+      }
+
+      function slugFromUrl(url) {
+        try {
+          return new URL(String(url || "")).hostname.replace(/^www\./, "").replace(/[^a-z0-9.-]+/gi, "-");
+        } catch {
+          return "site";
+        }
+      }
+
+      function deriveProjectDefaults(folderValue = "") {
+        const folder = String(folderValue || "").trim().replace(/\/+$/, "");
+        const siteSlug = slugFromUrl(form.elements.namedItem("wpBaseUrl").value || "");
+        if (!folder) {
+          return {
+            outputRoot: "",
+            configPath: "",
+            contentDir: "content",
+            mediaDir: "media",
+            dataDir: "_data",
+            localDevCommand: "npx @11ty/eleventy --serve",
+            localSiteUrl: "http://127.0.0.1:8080/"
+          };
+        }
+        return {
+          outputRoot: folder,
+          configPath: `${folder}/migration-config.json`,
+          contentDir: "content",
+          mediaDir: "media",
+          dataDir: "_data",
+          localDevCommand: "npx @11ty/eleventy --serve",
+          localSiteUrl: "http://127.0.0.1:8080/",
+          githubRepo: siteSlug
+        };
+      }
+
+      function applyProjectDefaults(folderValue, force = false) {
+        const defaults = deriveProjectDefaults(folderValue);
+        const mappings = [
+          ["outputRoot", defaults.outputRoot],
+          ["configPath", defaults.configPath],
+          ["contentDir", defaults.contentDir],
+          ["mediaDir", defaults.mediaDir],
+          ["dataDir", defaults.dataDir],
+          ["localDevCommand", defaults.localDevCommand],
+          ["localSiteUrl", defaults.localSiteUrl],
+          ["githubRepo", defaults.githubRepo]
+        ];
+        for (const [name, value] of mappings) {
+          const field = form.elements.namedItem(name);
+          if (!field || value == null) continue;
+          const empty = !String(field.value || "").trim();
+          if (force || empty) field.value = value;
+        }
+        lastSuggestedConfigPath = form.elements.namedItem("configPath").value;
+        renderPlan();
       }
 
       function openHelp(topic) {
@@ -3354,6 +3518,10 @@
         renderPlan();
       });
 
+      form.elements.namedItem("localProjectFolder").addEventListener("input", (event) => {
+        applyProjectDefaults(event.target.value, true);
+      });
+
       form.addEventListener("input", (event) => {
         if (event.target !== outputRootField) renderPlan();
         renderStylesPanel();
@@ -3487,7 +3655,7 @@
           if (error?.name !== "AbortError") setStatus(String(error.message || error), true);
           return;
         }
-        renderPlan();
+        applyProjectDefaults(folderField.value, true);
       });
 
       async function runMigrationJob({ dryRunOverride = null } = {}) {
