@@ -502,6 +502,45 @@
         margin-top: 2px;
       }
 
+      .plugin-compare-table {
+        display: grid;
+        gap: 10px;
+      }
+
+      .plugin-compare-row,
+      .plugin-compare-head {
+        display: grid;
+        grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel-strong);
+      }
+
+      .plugin-compare-head {
+        background: color-mix(in srgb, var(--accent-soft) 78%, transparent);
+        color: var(--accent-strong);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 0.78rem;
+      }
+
+      .plugin-compare-row strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .plugin-compare-row .meta {
+        font-size: 0.82rem;
+      }
+
+      .plugin-switch {
+        justify-self: end;
+      }
+
       .phase-actions-footer {
         display: flex;
         flex-wrap: wrap;
@@ -1293,7 +1332,14 @@
                           </div>
                         </summary>
                         <div class="subsection-body">
-                          <div id="analysis-plugin-checkboxes" class="plugin-check-grid"></div>
+                          <div class="plugin-compare-table">
+                            <div class="plugin-compare-head">
+                              <span data-i18n="plugin_compare_wp"></span>
+                              <span data-i18n="plugin_compare_eleventy"></span>
+                              <span data-i18n="plugin_compare_enabled"></span>
+                            </div>
+                            <div id="analysis-plugin-checkboxes"></div>
+                          </div>
                         </div>
                       </details>
                     </div>
@@ -1975,6 +2021,10 @@
           btn_prev: "Edellinen",
           btn_next: "Seuraava",
           plugin_page_status: "Sivu {page} / {pages} ({count} osumaa)",
+          plugin_compare_wp: "WordPress-plugin",
+          plugin_compare_eleventy: "Eleventy-ratkaisu",
+          plugin_compare_enabled: "Käytä",
+          plugin_compare_fallback: "Mukautettu Eleventy-integraatio",
           log_title: "Loki ja selkokielinen yhteenveto",
           log_intro: "Tällä välilehdellä näet analyysin tai migraation etenemisen lokina, ihmiskielisen tulkinnan sekä vietävän raaka-JSONin.",
           help_eyebrow: "Kenttäohje",
@@ -2292,6 +2342,10 @@
           btn_prev: "Previous",
           btn_next: "Next",
           plugin_page_status: "Page {page} / {pages} ({count} matches)",
+          plugin_compare_wp: "WordPress plugin",
+          plugin_compare_eleventy: "Eleventy solution",
+          plugin_compare_enabled: "Use",
+          plugin_compare_fallback: "Custom Eleventy integration",
           log_title: "Logs and plain-language summary",
           log_intro: "This tab shows the live log, a human-readable interpretation of the latest analysis or migration, and the raw JSON export.",
           help_eyebrow: "Field help",
@@ -2595,6 +2649,61 @@
             note: "These may contain content, business logic, or functionality that is not visible from the page HTML alone."
           }
         ]
+      };
+
+      const eleventyReplacementCatalog = {
+        wpml: {
+          eleventy: "Monikieliset kokoelmat, kielireitit ja language switcher",
+          packageName: "@11ty/eleventy + custom i18n collections"
+        },
+        gtranslate: {
+          eleventy: "Kielivalitsin templateihin ilman runtime-käännöspluginia",
+          packageName: "@11ty/eleventy + custom language switcher"
+        },
+        aioseo: {
+          eleventy: "SEO-meta, sitemap ja robots staattisesti",
+          packageName: "@quasibit/eleventy-plugin-sitemap"
+        },
+        complianz: {
+          eleventy: "Kevyt consent-banneri tai ulkoinen palvelu",
+          packageName: "No Eleventy plugin / external consent tool"
+        },
+        newsletter: {
+          eleventy: "Embed-lomake tai oma shortcode",
+          packageName: "@11ty/eleventy + form embed partial"
+        },
+        betterdocs: {
+          eleventy: "Docs-kokoelmat ja navigaatiodata",
+          packageName: "@11ty/eleventy-navigation"
+        },
+        embedpress: {
+          eleventy: "Upotus-shortcodet ja include-komponentit",
+          packageName: "@11ty/eleventy + custom shortcodes"
+        },
+        iawp: {
+          eleventy: "Kevyt ulkoinen analytiikka",
+          packageName: "External analytics snippet"
+        },
+        "kadence-blocks": {
+          eleventy: "Nunjucks-layoutit ja Kadence-lohkomuunnos",
+          packageName: "@11ty/eleventy + generated Nunjucks partials"
+        },
+        "kadence-pro": {
+          eleventy: "Nunjucks-layoutit, Kadence Pro -lohkomuunnos ja legacy-tyylit",
+          packageName: "@11ty/eleventy + generated Nunjucks partials"
+        },
+        mailerlite: {
+          eleventy: "MailerLite-upotus komponenttina",
+          packageName: "@11ty/eleventy + embed partial"
+        },
+        mailchimp: {
+          eleventy: "Mailchimp-upotus komponenttina",
+          packageName: "@11ty/eleventy + embed partial"
+        },
+        woocommerce: {
+          eleventy: "Headless-kaupparatkaisu, ei suoraa Eleventy-pluginia",
+          packageName: "Headless commerce integration"
+        }
       };
 
       const commonPluginAuditData = {
@@ -3070,12 +3179,35 @@
           ...((analysis.recommendations || []).slice(0, 3))
         ].map((item) => `<li>${item}</li>`).join("");
 
-        analysisPluginCheckboxes.innerHTML = (analysis.plugins || []).map((plugin) => `
-          <label>
-            <input type="checkbox" checked data-plugin-slug="${plugin.slug}">
-            <span><strong>${plugin.name}</strong><br><span class="meta">${plugin.signal}</span></span>
-          </label>
-        `).join("");
+        analysisPluginCheckboxes.innerHTML = (analysis.plugins || []).map((plugin) => {
+          const replacement = eleventyReplacementCatalog[plugin.slug] || {
+            eleventy: t("plugin_compare_fallback"),
+            packageName: "@11ty/eleventy + custom integration"
+          };
+          return `
+            <div class="plugin-compare-row">
+              <div>
+                <strong>${plugin.name}</strong>
+                <span class="meta">${plugin.signal}</span>
+              </div>
+              <div>
+                <strong>${replacement.eleventy}</strong>
+                <span class="meta">${replacement.packageName}</span>
+              </div>
+              <label class="phase-switch plugin-switch">
+                <input
+                  type="checkbox"
+                  checked
+                  data-plugin-slug="${plugin.slug}"
+                  data-plugin-name="${plugin.name}"
+                  data-eleventy-solution="${replacement.eleventy}"
+                  data-package-name="${replacement.packageName}"
+                >
+                <span class="phase-switch-ui" aria-hidden="true"></span>
+              </label>
+            </div>
+          `;
+        }).join("");
       }
 
       function updateAuthVisibility() {
@@ -3187,12 +3319,23 @@
           defaultLayout: data.get("defaultLayout"),
           kadenceBlocksDir: data.get("kadenceBlocksDir"),
           stylesDir: data.get("stylesDir"),
+          eleventyReplacements: getSelectedEleventyReplacements(),
           outputRoot: data.get("outputRoot"),
           contentDir: data.get("contentDir"),
           mediaDir: data.get("mediaDir"),
           dataDir: data.get("dataDir"),
           configPath: data.get("configPath")
         };
+      }
+
+      function getSelectedEleventyReplacements() {
+        return Array.from(document.querySelectorAll("#analysis-plugin-checkboxes [data-plugin-slug]")).map((input) => ({
+          slug: input.dataset.pluginSlug,
+          wordpressPlugin: input.dataset.pluginName,
+          eleventySolution: input.dataset.eleventySolution,
+          packageName: input.dataset.packageName,
+          enabled: input.checked
+        }));
       }
 
       function getPhaseState() {
@@ -3900,6 +4043,8 @@
 
         if (latestAnalysisReport?.analysis) {
           const analysis = latestAnalysisReport.analysis;
+          const selectedReplacements = getSelectedEleventyReplacements();
+          const enabledReplacements = selectedReplacements.filter((item) => item.enabled);
           cards.push(`
             <section class="log-summary-card">
               <h3>${t("log_card_analysis")}</h3>
@@ -3908,6 +4053,7 @@
                 <li>${t("analysis_result_stylesheets")}: ${analysis.styles?.stylesheetCount ?? 0}</li>
                 <li>${t("analysis_result_navigation")}: ${analysis.structure?.navigationCount ?? 0}</li>
                 <li>${t("analysis_result_plugins")}: ${(analysis.plugins || []).length}</li>
+                <li>${t("plugin_compare_eleventy")}: ${enabledReplacements.length}/${selectedReplacements.length}</li>
               </ul>
             </section>
           `);
@@ -3923,6 +4069,7 @@
                 <li>${t("log_redirects")}: ${(latestMigrationReport.redirects || []).length}</li>
                 <li>${t("result_warnings")}: ${(latestMigrationReport.warnings || []).length}</li>
                 <li>${t("log_output_root")}: ${latestMigrationReport.outputRoot || plan.outputRoot || "-"}</li>
+                <li>${t("plugin_compare_eleventy")}: ${latestMigrationReport.eleventyPlugins?.enabled ?? 0}/${latestMigrationReport.eleventyPlugins?.selected ?? 0}</li>
               </ul>
             </section>
           `);
