@@ -297,12 +297,26 @@ function menuItemOrder(item) {
   return item?.menu_order ?? item?.order ?? item?.position ?? 0;
 }
 
-function normalizeMenuItems(items = []) {
+function localizeSiteUrl(rawUrl, wpBaseUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) return "";
+  try {
+    const resolved = new URL(value, ensureTrailingSlash(wpBaseUrl));
+    const wpOrigin = new URL(wpBaseUrl).origin;
+    if (resolved.origin !== wpOrigin) return resolved.toString();
+    return normalizePathnameToPermalink(resolved.pathname || "/");
+  } catch {
+    if (/^(#|mailto:|tel:)/i.test(value)) return value;
+    return value.startsWith("/") ? normalizePathnameToPermalink(value) : value;
+  }
+}
+
+function normalizeMenuItems(items = [], wpBaseUrl = "") {
   return items.map((item) => ({
     id: item?.id ?? item?.ID ?? `${menuItemOrder(item)}-${slugify(menuItemLabel(item))}`,
     parent: menuItemParent(item),
     title: menuItemLabel(item),
-    url: menuItemUrl(item),
+    url: localizeSiteUrl(menuItemUrl(item), wpBaseUrl),
     type: item?.type || item?.object || "",
     object: item?.object || "",
     objectId: item?.object_id || item?.objectId || "",
@@ -336,10 +350,10 @@ function buildMenuTree(items = []) {
   return roots;
 }
 
-function normalizeMenuRecord(menu, items) {
+function normalizeMenuRecord(menu, items, wpBaseUrl = "") {
   const title = decodeHtml(menu?.name || menu?.title?.rendered || menu?.title || menu?.slug || "menu");
   const slug = slugify(menu?.slug || menu?.name || menu?.title?.rendered || menu?.title || "menu");
-  const normalizedItems = normalizeMenuItems(items);
+  const normalizedItems = normalizeMenuItems(items, wpBaseUrl);
   return {
     id: menu?.id || slug,
     slug,
@@ -359,7 +373,7 @@ async function tryFetchMenusFromMenusV1(wpBaseUrl, headers) {
     const detailUrl = joinUrl(wpBaseUrl, `/wp-json/menus/v1/menus/${menu.id}`);
     const detail = await fetchJson(detailUrl, headers);
     const items = Array.isArray(detail?.items) ? detail.items : [];
-    resolved.push(normalizeMenuRecord(detail, items));
+    resolved.push(normalizeMenuRecord(detail, items, wpBaseUrl));
   }
   return resolved;
 }
@@ -374,12 +388,12 @@ async function tryFetchMenusFromWpApiMenusV2(wpBaseUrl, headers) {
   for (const menu of menuList) {
     const items = Array.isArray(menu?.items) ? menu.items : [];
     if (items.length) {
-      resolved.push(normalizeMenuRecord(menu, items));
+      resolved.push(normalizeMenuRecord(menu, items, wpBaseUrl));
       continue;
     }
     const detailUrl = joinUrl(wpBaseUrl, `/wp-json/wp-api-menus/v2/menus/${menu.id}`);
     const detail = await fetchJson(detailUrl, headers);
-    resolved.push(normalizeMenuRecord(detail, Array.isArray(detail?.items) ? detail.items : []));
+    resolved.push(normalizeMenuRecord(detail, Array.isArray(detail?.items) ? detail.items : [], wpBaseUrl));
   }
   return resolved;
 }
@@ -404,7 +418,7 @@ async function tryFetchMenusFromWpV2(wpBaseUrl, headers) {
           : [menusValue];
       return menuRefs.includes(menuId) || item?.menu === menuId;
     });
-    return normalizeMenuRecord(menu, menuItems);
+    return normalizeMenuRecord(menu, menuItems, wpBaseUrl);
   }).filter((menu) => menu.items.length > 0);
 }
 
@@ -1197,7 +1211,7 @@ function extractNavFromHtml(html, baseUrl) {
       for (const subLi of liBody.matchAll(/<li[^>]*>[\s\S]*?<a([^>]*)>([^<]*)<\/a>/gi)) {
         const subHref  = subLi[1].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
         const subTitle = subLi[2].trim();
-        if (subTitle) children.push({ title: subTitle, url: subHref });
+      if (subTitle) children.push({ title: subTitle, url: localizeSiteUrl(subHref, baseUrl) });
       }
 
       // Extract megamenu columns (divs with mega-column classes)
@@ -1208,13 +1222,13 @@ function extractNavFromHtml(html, baseUrl) {
           for (const colA of colMatch[1].matchAll(/<a([^>]*)>([^<]*)<\/a>/gi)) {
             const colHref  = colA[1].match(/href=["']([^"']+)["']/i)?.[1] ?? "";
             const colTitle = colA[2].trim();
-            if (colTitle) colItems.push({ title: colTitle, url: colHref });
+            if (colTitle) colItems.push({ title: colTitle, url: localizeSiteUrl(colHref, baseUrl) });
           }
           if (colItems.length) megaColumns.push({ items: colItems });
         }
       }
 
-      if (title) items.push({ title, url, classes: liClasses, megamenu: isMega, megamenuColumns: megaColumns, children });
+      if (title) items.push({ title, url: localizeSiteUrl(url, baseUrl), classes: liClasses, megamenu: isMega, megamenuColumns: megaColumns, children });
     }
 
     if (items.length) {
