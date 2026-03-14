@@ -5,8 +5,7 @@ import path from "node:path";
 import process from "node:process";
 import http from "node:http";
 import readline from "node:readline/promises";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { execFile, spawn } from "node:child_process";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -95,7 +94,6 @@ const SUPPORTED_KADENCE_PRO_BLOCKS = [
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
-const execFileAsync = promisify(execFile);
 
 function nowStamp() {
   const d = new Date();
@@ -966,11 +964,68 @@ async function installProjectDependencies(root, config, report, progress = () =>
 
   try {
     progress("info", "Asennetaan Eleventy-riippuvuudet…");
-    await execFileAsync("npm", ["install"], { cwd: root, encoding: "utf8", maxBuffer: 1024 * 1024 * 8 });
+    await new Promise((resolve, reject) => {
+      const child = spawn("npm", ["install", "--no-fund", "--no-audit"], {
+        cwd: root,
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+
+      let stdoutBuffer = "";
+      let stderrBuffer = "";
+      let lastOutputAt = Date.now();
+      const captured = [];
+      const heartbeat = setInterval(() => {
+        if (Date.now() - lastOutputAt > 8000) {
+          progress("info", "npm install yhä käynnissä… odotetaan paketinhallinnan vastausta");
+          lastOutputAt = Date.now();
+        }
+      }, 4000);
+
+      const emitLines = (chunk, level, bufferRef) => {
+        lastOutputAt = Date.now();
+        bufferRef.value += chunk;
+        const parts = bufferRef.value.split(/\r?\n/);
+        bufferRef.value = parts.pop() || "";
+        for (const line of parts) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          captured.push(trimmed);
+          progress(level, `npm: ${trimmed}`);
+        }
+      };
+
+      child.stdout.on("data", (chunk) => emitLines(String(chunk), "info", { get value() { return stdoutBuffer; }, set value(v) { stdoutBuffer = v; } }));
+      child.stderr.on("data", (chunk) => emitLines(String(chunk), "warn", { get value() { return stderrBuffer; }, set value(v) { stderrBuffer = v; } }));
+
+      child.on("error", (error) => {
+        clearInterval(heartbeat);
+        reject(error);
+      });
+
+      child.on("close", (code) => {
+        clearInterval(heartbeat);
+        const flush = (rest, level) => {
+          const trimmed = String(rest || "").trim();
+          if (!trimmed) return;
+          captured.push(trimmed);
+          progress(level, `npm: ${trimmed}`);
+        };
+        flush(stdoutBuffer, "info");
+        flush(stderrBuffer, "warn");
+        if (code === 0) {
+          resolve(captured);
+          return;
+        }
+        const error = new Error(`npm install exited with code ${code}`);
+        error.detail = captured.slice(-20).join("\n");
+        reject(error);
+      });
+    });
     report.install = { ran: true, command: "npm install" };
     progress("ok", "Riippuvuudet asennettu: npm install");
   } catch (err) {
-    const detail = String(err?.stderr || err?.stdout || err?.message || err);
+    const detail = String(err?.detail || err?.stderr || err?.stdout || err?.message || err);
     report.install = { ran: true, failed: true, command: "npm install", detail };
     report.warnings.push(`npm install failed: ${detail}`);
     progress("warn", "Riippuvuuksien asennus epäonnistui, tarkista loki");
