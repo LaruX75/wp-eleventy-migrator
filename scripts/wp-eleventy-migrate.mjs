@@ -678,6 +678,54 @@ const SHORTCODE_BLOCKLIST = new Set([
   "luovat","luova","hyvä","hyvät","uusi","uudet","uutta",
 ]);
 
+const NAMESPACE_TO_PLUGIN = {
+  "kadence-pro/v1":        { name: "Kadence Pro",           slug: "kadence-pro",              effort: "medium" },
+  "kadence-blocks/v1":     { name: "Kadence Blocks",         slug: "kadence-blocks",           effort: "low" },
+  "kadence/v1":            { name: "Kadence Theme",          slug: "kadence",                  effort: "low" },
+  "wc/v3":                 { name: "WooCommerce",            slug: "woocommerce",              effort: "high" },
+  "wpcf7/v1":              { name: "Contact Form 7",         slug: "contact-form-7",           effort: "medium" },
+  "yoast/v1":              { name: "Yoast SEO",              slug: "wordpress-seo",            effort: "low" },
+  "yoast/v1/analyze":      { name: "Yoast SEO",              slug: "wordpress-seo",            effort: "low" },
+  "rankmath/v1":           { name: "Rank Math SEO",          slug: "seo-by-rank-math",         effort: "low" },
+  "elementor/v1":          { name: "Elementor",              slug: "elementor",                effort: "high" },
+  "wp-block-editor/v1":    null,
+  "acf/v3":                { name: "Advanced Custom Fields", slug: "advanced-custom-fields",   effort: "medium" },
+  "pods/v1":               { name: "Pods",                   slug: "pods",                     effort: "medium" },
+  "wpml/v1":               { name: "WPML (Multilingual)",   slug: "sitepress-multilingual-cms",effort: "high" },
+  "polylang/v2":           { name: "Polylang",               slug: "polylang",                 effort: "high" },
+  "wp-job-manager/v1":     { name: "WP Job Manager",         slug: "wp-job-manager",           effort: "high" },
+  "gravityforms/v2":       { name: "Gravity Forms",          slug: "gravityforms",             effort: "medium" },
+  "ninja-forms/v3":        { name: "Ninja Forms",            slug: "ninja-forms",              effort: "medium" },
+  "mc4wp/v1":              { name: "Mailchimp for WP",       slug: "mailchimp-for-wp",         effort: "medium" },
+  "bbp/v1":                { name: "bbPress",                slug: "bbpress",                  effort: "high" },
+  "buddypress/v1":         { name: "BuddyPress",             slug: "buddypress",               effort: "high" },
+  "loftocean/v1":          { name: "Loftocean (custom)",     slug: "loftocean",                effort: "high" },
+  "betterdocs/v1":         { name: "BetterDocs",             slug: "betterdocs",               effort: "high" },
+};
+
+const PLUGIN_REPLACEMENTS = {
+  "kadence-pro":            "Kadence-lohkot muutetaan Nunjucks-partiaaleiksi (preset: kadence-pro).",
+  "kadence-blocks":         "Kadence-lohkot muutetaan Nunjucks-partiaaleiksi (preset: kadence).",
+  "kadence":                "Kadence-teema → Eleventy-pohja. Tyylit migratoidaan best-effort-mallilla.",
+  "woocommerce":            "WooCommerce → erillinen staattinen catalog (esim. Snipcart/Stripe Checkout) tai erillinen backend.",
+  "contact-form-7":         "CF7-lomakkeet → staattinen HTML-lomake + Netlify Forms / Formspree / Web3Forms.",
+  "wordpress-seo":          "Yoast SEO → Eleventy SEO -plugin tai meta-tiedot front matterissa.",
+  "seo-by-rank-math":       "Rank Math SEO → Eleventy SEO -plugin tai meta-tiedot front matterissa.",
+  "elementor":              "Elementor-rakenteet täytyy rakentaa uudelleen Eleventy-pohjina (korkea työmäärä).",
+  "advanced-custom-fields": "ACF-kentät tallennetaan front matteriin migraation aikana jos ne löytyvät REST API:sta.",
+  "pods":                   "Pods custom types → Eleventy data files + custom collections.",
+  "sitepress-multilingual-cms": "WPML → Eleventy i18n (korkea työmäärä, vaatii erikseen suunnittelun).",
+  "polylang":               "Polylang → Eleventy i18n (korkea työmäärä).",
+  "wp-job-manager":         "WP Job Manager → staattinen JSON data + Eleventy template.",
+  "gravityforms":           "Gravity Forms → Formspree / Netlify Forms / Web3Forms.",
+  "ninja-forms":            "Ninja Forms → Formspree / Netlify Forms / Web3Forms.",
+  "mailchimp-for-wp":       "Mailchimp subscribe-widget → uppotettu Mailchimp-lomake tai API-kutsu.",
+  "bbpress":                "bbPress-keskustelut eivät sovi staattiselle sivustolle — harkitse Discourse/Disqus.",
+  "buddypress":             "BuddyPress-yhteisöominaisuudet eivät sovi staattiselle sivustolle.",
+  "betterdocs":             "BetterDocs-dokumentaatio → erillinen Eleventy-collection tai erillinen dokumentaatiosivusto.",
+  "loftocean":              "Loftocean-custom → analysoi rakenne erikseen, luo vastaava Eleventy-komponentti.",
+};
+
 function detectShortcodes(content) {
   const found = new Set();
   for (const m of String(content || "").matchAll(/\[([a-z_][a-z0-9_-]*)(?:\s[^\]]*)?]/gi)) {
@@ -2269,6 +2317,173 @@ function extractDeploymentPlan(body) {
   return plan;
 }
 
+async function analyzeWordPressSite(raw) {
+  const wpBaseUrl = String(raw.wpBaseUrl || "").trim().replace(/\/+$/, "");
+  if (!wpBaseUrl) throw new Error("wpBaseUrl puuttuu");
+
+  const authMode = String(raw.authMode || "none");
+  const headers = {};
+  if (authMode === "app-password" && raw.wpUser && raw.wpAppPassword) {
+    headers.Authorization = `Basic ${Buffer.from(`${raw.wpUser}:${raw.wpAppPassword}`).toString("base64")}`;
+  } else if (authMode === "bearer" && raw.wpBearerToken) {
+    headers.Authorization = `Bearer ${raw.wpBearerToken}`;
+  }
+
+  const warnings = [];
+
+  // 1. WP REST root
+  let root;
+  try {
+    root = await fetchJson(`${wpBaseUrl}/wp-json`, headers);
+  } catch (err) {
+    throw new Error(`WP REST API ei vastaa: ${err.message}`);
+  }
+
+  const namespaces = root.namespaces || [];
+  const siteInfo = {
+    title: root.name || "",
+    description: root.description || "",
+    url: root.url || wpBaseUrl,
+    home: root.home || wpBaseUrl,
+    gmtOffset: root.gmt_offset,
+    timezone: root.timezone_string || "",
+  };
+
+  // 2. Content types and counts
+  let typesData = {};
+  try {
+    typesData = await fetchJson(`${wpBaseUrl}/wp-json/wp/v2/types`, headers);
+  } catch {
+    warnings.push("Sisältötyyppien haku epäonnistui — käytetään oletuksia (posts, pages).");
+  }
+
+  const contentInventory = {};
+  const publicTypes = Object.entries(typesData).filter(([, t]) => t?.rest_base);
+  for (const [slug, typeInfo] of publicTypes) {
+    try {
+      const resp = await fetch(`${wpBaseUrl}/wp-json/wp/v2/${typeInfo.rest_base}?per_page=1&status=publish`, { headers });
+      const total = parseInt(resp.headers.get("X-WP-Total") || "0", 10);
+      contentInventory[slug] = { count: total, label: typeInfo.name || slug, restBase: typeInfo.rest_base };
+    } catch {
+      contentInventory[slug] = { count: 0, label: typeInfo.name || slug, restBase: typeInfo.rest_base };
+    }
+  }
+  if (!Object.keys(contentInventory).length) {
+    contentInventory.posts = { count: 0, label: "Posts", restBase: "posts" };
+    contentInventory.pages = { count: 0, label: "Pages", restBase: "pages" };
+  }
+
+  // 3. Detect preset from namespaces
+  const hasKadencePro = namespaces.some((ns) => ns.startsWith("kadence-pro"));
+  const hasKadence = namespaces.some((ns) => ns.startsWith("kadence"));
+  const detectedPreset = hasKadencePro ? "kadence-pro" : hasKadence ? "kadence" : "none";
+
+  // 4. Detect plugins from namespaces
+  const seen = new Set();
+  const detectedPlugins = [];
+  for (const ns of namespaces) {
+    const info = NAMESPACE_TO_PLUGIN[ns];
+    if (!info) continue;
+    if (seen.has(info.slug)) continue;
+    seen.add(info.slug);
+    detectedPlugins.push({
+      slug: info.slug,
+      name: info.name,
+      detectedFrom: `REST namespace: ${ns}`,
+      effort: info.effort || "medium",
+      replacement: PLUGIN_REPLACEMENTS[info.slug] || "Ei automaattista korvausehdotusta — arvioi erikseen.",
+    });
+  }
+
+  // 5. Taxonomy detection
+  let taxonomies = [];
+  try {
+    const taxData = await fetchJson(`${wpBaseUrl}/wp-json/wp/v2/taxonomies`, headers);
+    taxonomies = Object.keys(taxData);
+  } catch { /* ignore */ }
+
+  // 6. Menu count (best-effort)
+  let menuCount = 0;
+  try {
+    const menuResp = await fetch(`${wpBaseUrl}/wp-json/wp/v2/menus`, { headers });
+    if (menuResp.ok) {
+      const menus = await menuResp.json();
+      menuCount = Array.isArray(menus) ? menus.length : 0;
+    }
+  } catch { /* ignore */ }
+
+  // 7. Build suggested config
+  const nonDefaultTypes = Object.keys(contentInventory).filter(
+    (s) => !["post", "page", "attachment", "nav_menu_item", "wp_block", "wp_template", "wp_template_part", "wp_navigation", "wp_global_styles", "wp_font_face", "wp_font_family"].includes(s) && contentInventory[s].count > 0
+  );
+  const contentTypes = ["posts", "pages", ...nonDefaultTypes.map((s) => contentInventory[s]?.restBase || s)].join(",");
+
+  const suggestedConfig = {
+    wpBaseUrl,
+    restNamespace: "/wp-json/wp/v2",
+    contentTypes,
+    preset: detectedPreset,
+    htmlMode: "keep-html",
+    authMode,
+    wpUser: raw.wpUser || "",
+    wpAppPassword: raw.wpAppPassword || "",
+    wpBearerToken: raw.wpBearerToken || "",
+    downloadMedia: false,
+    createRedirects: true,
+    importMenus: true,
+    dryRun: true,
+    useNunjucksLayouts: detectedPreset !== "none",
+    convertKadenceBlocks: hasKadence,
+    migrateStyles: hasKadence,
+  };
+
+  // 8. Plain-language report lines
+  const totalItems = Object.values(contentInventory).reduce((s, t) => s + t.count, 0);
+  const contentLines = Object.entries(contentInventory)
+    .filter(([, t]) => t.count > 0)
+    .map(([, t]) => `  • ${t.label}: ${t.count} kpl`);
+  const pluginLines = detectedPlugins.length
+    ? detectedPlugins.map((p) => `  • ${p.name} (${p.effort === "high" ? "korkea" : p.effort === "medium" ? "kohtalainen" : "matala"} työmäärä)`)
+    : ["  • Ei tunnistettuja lisäosia REST API:n perusteella"];
+
+  const report = [
+    `Sivusto: ${siteInfo.title} (${siteInfo.url})`,
+    siteInfo.description ? `Kuvaus: ${siteInfo.description}` : null,
+    "",
+    `Sisältö (${totalItems} kohdetta yhteensä):`,
+    ...contentLines,
+    contentLines.length === 0 ? "  • Julkaistua sisältöä ei löydy tai REST API vaatii kirjautumisen." : null,
+    "",
+    `Havaittu teema/preset: ${detectedPreset === "none" ? "Ei tunnistettu (käytetään oletuksia)" : detectedPreset}`,
+    `Valikot: ${menuCount > 0 ? `${menuCount} kpl löydetty` : "Ei löydetty REST API:sta (tuodaan HTML-fallbackilla)"}`,
+    `Taksonomiit: ${taxonomies.join(", ") || "ei havaittu"}`,
+    "",
+    `Havaitut lisäosat (${detectedPlugins.length} kpl):`,
+    ...pluginLines,
+    "",
+    warnings.length ? `Huomiot:\n${warnings.map((w) => `  ! ${w}`).join("\n")}` : null,
+    "",
+    "Ehdotettu seuraava askel:",
+    "  1. Tarkista ehdotettu konfiguraatio alla.",
+    "  2. Käytä 'Täytä lomake analyysin perusteella' -painiketta.",
+    "  3. Aja ensin dry-run.",
+  ].filter((l) => l !== null).join("\n");
+
+  return {
+    ok: true,
+    siteInfo,
+    namespaces,
+    contentInventory,
+    detectedPreset,
+    detectedPlugins,
+    taxonomies,
+    menuCount,
+    suggestedConfig,
+    report,
+    warnings,
+  };
+}
+
 async function serveUi(port = 4173) {
   const indexPath = path.join(UI_ROOT, "index.html");
   const html = await fs.readFile(indexPath, "utf8");
@@ -2291,6 +2506,17 @@ async function serveUi(port = 4173) {
 
       if (req.method === "GET" && url.pathname === "/api/ping") {
         sendJson(res, 200, { ok: true });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/wp-analyze") {
+        const body = await readJsonBody(req);
+        try {
+          const result = await analyzeWordPressSite(body);
+          sendJson(res, 200, result);
+        } catch (err) {
+          sendJson(res, 500, { error: String(err?.message || err) });
+        }
         return;
       }
 

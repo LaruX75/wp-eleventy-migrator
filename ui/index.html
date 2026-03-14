@@ -891,6 +891,16 @@
           justify-content: center;
         }
       }
+
+      /* ── Analysis result card tweaks ───────────────────────────────── */
+      #analyze-result-area .result { min-height: unset; }
+      #analyze-plugin-grid .plugin-card { font-size: 0.9rem; }
+      .effort-high   { background: color-mix(in srgb, #fee2e2 80%, transparent); color: #991b1b; }
+      .effort-medium { background: color-mix(in srgb, #fef9c3 80%, transparent); color: #92400e; }
+      .effort-low    { background: color-mix(in srgb, #dcfce7 80%, transparent); color: #166534; }
+      body[data-theme="dark"] .effort-high   { background: color-mix(in srgb, #7f1d1d 60%, transparent); color: #fca5a5; }
+      body[data-theme="dark"] .effort-medium { background: color-mix(in srgb, #78350f 60%, transparent); color: #fde68a; }
+      body[data-theme="dark"] .effort-low    { background: color-mix(in srgb, #14532d 60%, transparent); color: #86efac; }
     </style>
   </head>
   <body data-theme="light">
@@ -944,6 +954,7 @@
 
       <div class="panel tab-nav-panel">
         <div class="tabs">
+          <button type="button" class="tab-button" data-tab-target="analyze-tab" id="analyze-tab-button" data-i18n="tab_analyze"></button>
           <button type="button" class="tab-button is-active" data-tab-target="workflow-tab" id="workflow-tab-button" data-i18n="tab_workflow"></button>
           <button type="button" class="tab-button" data-tab-target="styles-tab" id="styles-tab-button" data-i18n="tab_styles"></button>
           <button type="button" class="tab-button" data-tab-target="plugins-tab" id="plugins-tab-button" data-i18n="tab_plugins"></button>
@@ -951,9 +962,97 @@
         </div>
       </div>
 
+      <section class="layout tab-panel" id="analyze-tab" hidden>
+        <div class="panel">
+          <div class="section-head">
+            <h2 class="section-title" data-i18n="analyze_title"></h2>
+            <button type="button" class="help-button" data-help-topic="analyze-overview">?</button>
+          </div>
+          <p class="hint" data-i18n="analyze_intro"></p>
+
+          <div class="grid grid-1" style="margin-bottom:14px">
+            <label>
+              <span class="field-head"><span data-i18n="field_wpBaseUrl"></span></span>
+              <input id="analyze-url" type="url" data-i18n-placeholder="placeholder_wpBaseUrl">
+            </label>
+          </div>
+
+          <details class="step" id="analyze-auth-details">
+            <summary>
+              <div class="step-head">
+                <div class="step-number" style="width:28px;height:28px;font-size:0.82rem">⚙</div>
+                <div>
+                  <h3 class="step-title" style="font-size:0.95rem" data-i18n="analyze_auth_section"></h3>
+                  <p class="step-lede" style="font-size:0.85rem" data-i18n="analyze_auth_lede"></p>
+                </div>
+                <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+              </div>
+            </summary>
+            <div class="step-body">
+              <div class="grid">
+                <label>
+                  <span data-i18n="field_authMode"></span>
+                  <select id="analyze-authMode">
+                    <option value="none" data-i18n="option_auth_none"></option>
+                    <option value="app-password" data-i18n="option_auth_app_password"></option>
+                    <option value="bearer" data-i18n="option_auth_bearer"></option>
+                  </select>
+                </label>
+              </div>
+              <div id="analyze-app-password-fields" class="grid auth-fields" hidden>
+                <label>
+                  <span data-i18n="field_wpUser"></span>
+                  <input id="analyze-wpUser">
+                </label>
+                <label>
+                  <span data-i18n="field_wpAppPassword"></span>
+                  <input id="analyze-wpAppPassword" type="password">
+                </label>
+              </div>
+              <div id="analyze-bearer-fields" class="grid auth-fields" hidden>
+                <label>
+                  <span data-i18n="field_wpBearerToken"></span>
+                  <input id="analyze-wpBearerToken" type="password">
+                </label>
+              </div>
+            </div>
+          </details>
+
+          <div class="actions" style="margin-top:14px">
+            <button type="button" class="primary" id="run-analyze-button" data-i18n="btn_analyze"></button>
+          </div>
+          <div id="analyze-status" class="status" aria-live="polite" style="margin-top:8px"></div>
+
+          <div id="analyze-result-area" hidden>
+            <div id="analyze-report-card" class="result" style="margin-top:16px;min-height:unset"><pre id="analyze-report-pre" style="margin:0;white-space:pre-wrap;word-break:break-word;font-family:'SFMono-Regular',monospace;font-size:0.85rem;line-height:1.6"></pre></div>
+
+            <div id="analyze-plugins-section" style="margin-top:16px" hidden>
+              <h3 style="margin:0 0 10px;font-size:1rem" data-i18n="analyze_plugins_title"></h3>
+              <div id="analyze-plugin-grid" class="plugin-grid"></div>
+            </div>
+
+            <div class="actions" style="margin-top:16px">
+              <button type="button" class="primary" id="apply-analysis-button" data-i18n="btn_apply_analysis"></button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel">
+            <h2 class="side-title" data-i18n="analyze_side_title"></h2>
+            <p class="hint" data-i18n="analyze_side_hint"></p>
+            <ul class="check-list" id="analyze-checklist"></ul>
+          </section>
+        </aside>
+      </section>
+
       <section class="layout tab-panel" id="workflow-tab">
         <div class="panel">
           <form id="migration-form">
+            <div class="subtle-box" id="analyze-promo" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <p style="margin:0" data-i18n="analyze_promo_text"></p>
+              <button type="button" class="secondary" id="go-to-analyze-button" data-i18n="btn_go_to_analyze" style="flex-shrink:0;white-space:nowrap"></button>
+            </div>
             <details class="step" open>
               <summary>
                 <div class="step-head">
@@ -1473,6 +1572,7 @@
       const languageSelect = document.getElementById("language-select");
       const themeSelect = document.getElementById("theme-select");
       const tabButtons = document.querySelectorAll("[data-tab-target]");
+      const analyzeTab = document.getElementById("analyze-tab");
       const workflowTab = document.getElementById("workflow-tab");
       const stylesTab = document.getElementById("styles-tab");
       const pluginsTab = document.getElementById("plugins-tab");
@@ -1686,6 +1786,28 @@
           analysis_result_no_plugins: "Ei tunnistettuja plugin-signaaleja",
           analysis_result_recommendations: "Suositukset",
           field_dataDir: "Data-hakemisto",
+          tab_analyze: "Analyysi",
+          analyze_title: "WordPress-sivuston analyysi",
+          analyze_intro: "Syötä sivuston URL. Analyysi hakee REST API:n kautta sisältötyypit, lisäosat ja teema-asetukset ja ehdottaa migraatiokonfiguraatiota automaattisesti.",
+          analyze_auth_section: "Autentikointi (valinnainen)",
+          analyze_auth_lede: "Tarvitaan vain jos sisältö on yksityistä tai haluat context=edit -tason tiedon.",
+          analyze_side_title: "Mitä analyysi tekee?",
+          analyze_side_hint: "Analyysi on lukukäyttöistä — se ei muuta sivustoa.",
+          analyze_plugins_title: "Havaitut lisäosat ja korvaavuudet",
+          btn_analyze: "Aja analyysi",
+          btn_analyzing: "Analysoidaan…",
+          btn_apply_analysis: "Täytä lomake analyysin perusteella",
+          btn_go_to_analyze: "Analysoi ensin →",
+          analyze_promo_text: "Suositus: aja analyysi ennen migraatiota. Se tunnistaa lisäosat, sisältötyypit ja teeman, ja täyttää asetukset automaattisesti.",
+          analyze_status_done: "Analyysi valmis.",
+          analyze_status_applied: "Asetukset täytetty analyysin perusteella.",
+          analyze_checklist_items: [
+            ["REST API -tunnistus", "Haetaan /wp-json ja tunnistetaan namespaces."],
+            ["Sisältöinventaario", "Lasketaan julkaistujen kohteiden määrät kaikista tyypeistä."],
+            ["Teema/preset-tunnistus", "Kadence, Kadence Pro tai geneerinen."],
+            ["Lisäosat", "Tunnistetaan lisäosat REST-namespacesista."],
+            ["Automaattinen config", "Ehdotetaan migraatiokonfiguraatiota tunnistettujen tietojen perusteella."],
+          ],
           placeholder_wpBaseUrl: "https://example.com",
           placeholder_contentTypes: "posts,pages",
           placeholder_permalink: "/{type}/{slug}/",
@@ -1960,6 +2082,28 @@
           analysis_result_no_plugins: "No detected plugin signals",
           analysis_result_recommendations: "Recommendations",
           field_dataDir: "Data directory",
+          tab_analyze: "Analysis",
+          analyze_title: "WordPress site analysis",
+          analyze_intro: "Enter the site URL. The analysis fetches content types, plugins, and theme settings via the REST API and automatically suggests a migration configuration.",
+          analyze_auth_section: "Authentication (optional)",
+          analyze_auth_lede: "Only needed for private content or context=edit level details.",
+          analyze_side_title: "What does the analysis do?",
+          analyze_side_hint: "Read-only — does not modify the site in any way.",
+          analyze_plugins_title: "Detected plugins and replacements",
+          btn_analyze: "Run analysis",
+          btn_analyzing: "Analysing…",
+          btn_apply_analysis: "Fill form from analysis",
+          btn_go_to_analyze: "Run analysis first →",
+          analyze_promo_text: "Recommended: run the analysis before migrating. It detects plugins, content types, and theme, then pre-fills the settings automatically.",
+          analyze_status_done: "Analysis complete.",
+          analyze_status_applied: "Settings filled from analysis.",
+          analyze_checklist_items: [
+            ["REST API detection", "Fetch /wp-json and detect namespaces."],
+            ["Content inventory", "Count published items across all content types."],
+            ["Theme/preset detection", "Kadence, Kadence Pro, or generic."],
+            ["Plugins", "Detect plugins from REST namespaces."],
+            ["Auto config", "Suggest a migration config based on detected info."],
+          ],
           placeholder_wpBaseUrl: "https://example.com",
           placeholder_contentTypes: "posts,pages",
           placeholder_permalink: "/{type}/{slug}/",
@@ -2486,6 +2630,7 @@
         renderLogSummary();
         if (latestRunKind === "analysis" && latestAnalysisReport) renderAnalysisResult(latestAnalysisReport);
         if (latestRunKind === "migration" && latestMigrationReport) renderMigrationResult(latestMigrationReport, getPayload().dryRun);
+        renderAnalyzeChecklist();
       }
 
       function renderChecklist() {
@@ -2585,6 +2730,7 @@
 
       function setActiveTab(tabId) {
         currentTab = tabId;
+        analyzeTab.hidden = tabId !== "analyze-tab";
         workflowTab.hidden = tabId !== "workflow-tab";
         stylesTab.hidden = tabId !== "styles-tab";
         pluginsTab.hidden = tabId !== "plugins-tab";
@@ -2903,6 +3049,112 @@
         setStatus(t("status_defaults_loaded"));
       }
 
+      // ── Analysis tab ────────────────────────────────────────────────
+      const analyzeUrlInput = document.getElementById("analyze-url");
+      const analyzeAuthModeSelect = document.getElementById("analyze-authMode");
+      const analyzeAppPasswordFields = document.getElementById("analyze-app-password-fields");
+      const analyzeBearerFields = document.getElementById("analyze-bearer-fields");
+      const runAnalyzeButton = document.getElementById("run-analyze-button");
+      const analyzeStatusNode = document.getElementById("analyze-status");
+      const analyzeResultArea = document.getElementById("analyze-result-area");
+      const analyzeReportPre = document.getElementById("analyze-report-pre");
+      const analyzePluginsSection = document.getElementById("analyze-plugins-section");
+      const analyzePluginGrid = document.getElementById("analyze-plugin-grid");
+      const applyAnalysisButton = document.getElementById("apply-analysis-button");
+      const goToAnalyzeButton = document.getElementById("go-to-analyze-button");
+      const analyzeChecklist = document.getElementById("analyze-checklist");
+
+      let lastAnalysisResult = null;
+
+      function setAnalyzeStatus(msg, isError = false) {
+        analyzeStatusNode.textContent = msg;
+        analyzeStatusNode.classList.toggle("error", isError);
+      }
+
+      function renderAnalyzeChecklist() {
+        const items = translations[currentLang].analyze_checklist_items || [];
+        analyzeChecklist.innerHTML = items.map(([title, body]) => `
+          <li><strong>${title}</strong><span class="meta"> — ${body}</span></li>
+        `).join("");
+      }
+
+      analyzeAuthModeSelect.addEventListener("change", () => {
+        const v = analyzeAuthModeSelect.value;
+        analyzeAppPasswordFields.hidden = v !== "app-password";
+        analyzeBearerFields.hidden = v !== "bearer";
+      });
+
+      goToAnalyzeButton.addEventListener("click", () => {
+        setActiveTab("analyze-tab");
+        // Sync URL from migration form if filled
+        const wpBaseUrlField = form.elements.namedItem("wpBaseUrl");
+        if (wpBaseUrlField?.value && !analyzeUrlInput.value) {
+          analyzeUrlInput.value = wpBaseUrlField.value;
+        }
+      });
+
+      applyAnalysisButton.addEventListener("click", () => {
+        if (!lastAnalysisResult) return;
+        const cfg = lastAnalysisResult.suggestedConfig;
+        fillForm(cfg);
+        setActiveTab("workflow-tab");
+        setStatus(t("analyze_status_applied"));
+      });
+
+      runAnalyzeButton.addEventListener("click", async () => {
+        const url = analyzeUrlInput.value.trim();
+        if (!url) { setAnalyzeStatus("Syötä WordPress-sivuston URL.", true); return; }
+        runAnalyzeButton.disabled = true;
+        runAnalyzeButton.textContent = t("btn_analyzing");
+        analyzeResultArea.hidden = true;
+        setAnalyzeStatus("");
+        try {
+          const payload = {
+            wpBaseUrl: url,
+            authMode: analyzeAuthModeSelect.value,
+            wpUser: document.getElementById("analyze-wpUser")?.value || "",
+            wpAppPassword: document.getElementById("analyze-wpAppPassword")?.value || "",
+            wpBearerToken: document.getElementById("analyze-wpBearerToken")?.value || "",
+          };
+          const result = await fetchJson("/api/wp-analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          lastAnalysisResult = result;
+
+          // Show plain report
+          analyzeReportPre.textContent = result.report || "";
+          analyzeResultArea.hidden = false;
+
+          // Show plugin table
+          if (result.detectedPlugins && result.detectedPlugins.length) {
+            analyzePluginGrid.innerHTML = result.detectedPlugins.map((p) => {
+              const effortClass = p.effort === "high" ? "effort-high" : p.effort === "medium" ? "effort-medium" : "effort-low";
+              const effortLabel = p.effort === "high" ? "korkea" : p.effort === "medium" ? "kohtalainen" : "matala";
+              return `<div class="plugin-card">
+                <h3>${p.name}</h3>
+                <div class="plugin-meta">
+                  <span class="plugin-badge ${effortClass}">${effortLabel} työmäärä</span>
+                  <span class="plugin-badge" style="font-size:0.72rem;color:var(--muted)">${p.detectedFrom}</span>
+                </div>
+                <p>${p.replacement}</p>
+              </div>`;
+            }).join("");
+            analyzePluginsSection.hidden = false;
+          } else {
+            analyzePluginsSection.hidden = true;
+          }
+
+          setAnalyzeStatus(t("analyze_status_done"));
+        } catch (err) {
+          setAnalyzeStatus(err.message, true);
+        } finally {
+          runAnalyzeButton.disabled = false;
+          runAnalyzeButton.textContent = t("btn_analyze");
+        }
+      });
+
       const serverStatusNode = document.getElementById("server-status");
 
       async function pingServer() {
@@ -2976,6 +3228,12 @@
         renderPlan();
       });
 
+      form.elements.namedItem("wpBaseUrl").addEventListener("input", () => {
+        if (!analyzeUrlInput.value) {
+          analyzeUrlInput.value = form.elements.namedItem("wpBaseUrl").value;
+        }
+      });
+
       outputRootField.addEventListener("input", () => {
         const nextPath = suggestConfigPath(outputRootField.value);
         if (!configPathField.value || configPathField.value === lastSuggestedConfigPath) {
@@ -3019,13 +3277,10 @@
       });
 
       analyzeButton.addEventListener("click", async () => {
-        if (!getPhaseState().analyze) {
-          setStatus(t("status_analyze_inactive"), true);
-          return;
-        }
+        const payload = getPayload();
+        if (!payload.wpBaseUrl) { setStatus(t("hint_wpBaseUrl"), true); return; }
 
         setBusy(true);
-        logSeenCount = 0;
         latestRunKind = "analysis";
         migrationLogNode.innerHTML = "";
         migrationLogNode.hidden = false;
@@ -3034,34 +3289,30 @@
         setStatus(t("status_analyzing"));
         resultViewNode.hidden = true;
         try {
-          const startData = await callApi("/api/analyze", getPayload());
-          let result;
-          let pollErrors = 0;
-          while (true) {
-            await new Promise((resolve) => setTimeout(resolve, 1200));
-            let statusData;
-            try {
-              statusData = await fetchJson(`/api/analyze/${startData.jobId}`);
-              pollErrors = 0;
-            } catch (pollErr) {
-              pollErrors += 1;
-              if (pollErrors >= 4) throw pollErr;
-              appendLogItems([{ level: "warn", msg: `${t("log_connection_retry")} (${pollErrors}/3)` }]);
-              continue;
+          const result = await fetchJson("/api/wp-analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              wpBaseUrl: payload.wpBaseUrl,
+              authMode: payload.authMode,
+              wpUser: payload.wpUser,
+              wpAppPassword: payload.wpAppPassword,
+              wpBearerToken: payload.wpBearerToken,
+            }),
+          });
+
+          latestAnalysisReport = result;
+          appendLogItems([{ level: "ok", msg: result.report?.split("\n")[0] || t("status_analysis_done") }]);
+          if (result.detectedPlugins?.length) {
+            for (const p of result.detectedPlugins) {
+              appendLogItems([{ level: "info", msg: `Plugin: ${p.name} — ${p.effort} effort` }]);
             }
-
-            const newItems = (statusData.log ?? []).slice(logSeenCount);
-            appendLogItems(newItems);
-            logSeenCount += newItems.length;
-
-            if (statusData.status === "done") { result = statusData; break; }
-            if (statusData.status === "error") { throw new Error(statusData.error); }
           }
+          migrationLogNode.hidden = false;
 
-          latestAnalysisReport = result.report;
-          latestRawExport = { ...buildRawExport(), analysisJob: result };
+          latestRawExport = { ...buildRawExport(), analysis: result };
           resultNode.textContent = JSON.stringify(latestRawExport, null, 2);
-          renderAnalysisResult(result.report);
+          renderAnalysisResult(result);
           renderLogSummary();
           setStatus(t("status_analysis_done"));
         } catch (error) {
@@ -3165,85 +3416,63 @@
         resultViewNode.hidden = false;
       }
 
-      function renderAnalysisResult(report) {
-        if (!report?.analysis) { resultViewNode.hidden = true; return; }
+      function renderAnalysisResult(result) {
+        if (!result?.siteInfo) { resultViewNode.hidden = true; return; }
 
         const h = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; return el; };
         const div = (cls) => h("div", cls);
         const p = (cls, text) => h("p", cls, text);
         const root = div("rv-body");
 
+        // Title row
         const titleRow = div("rv-title");
-        titleRow.appendChild(document.createTextNode(t("analysis_result_title")));
-        const badge = h("span", "rv-badge", report.analysis?.theme?.slug || report.analysis?.theme?.candidates?.[0] || "wp");
-        titleRow.appendChild(badge);
+        titleRow.appendChild(document.createTextNode(result.siteInfo.title || result.siteInfo.url));
+        if (result.detectedPreset && result.detectedPreset !== "none") {
+          titleRow.appendChild(h("span", "rv-badge", result.detectedPreset));
+        }
         root.appendChild(titleRow);
 
-        root.appendChild(p("rv-section", t("analysis_result_structure")));
-        const structureRows = [
-          [t("analysis_result_languages"), (report.analysis.structure.languages || []).join(", ") || report.analysis.structure.htmlLang || "-"],
-          [t("analysis_result_navigation"), String(report.analysis.structure.navigationCount ?? 0)],
-          [t("analysis_result_headings"), String(report.analysis.structure.headingCount ?? 0)],
-          [t("analysis_result_forms"), String(report.analysis.structure.formCount ?? 0)]
-        ];
-        for (const [label, value] of structureRows) {
-          const row = div("rv-row");
-          row.appendChild(h("span", null, label));
-          row.appendChild(h("span", null, value));
-          root.appendChild(row);
+        // Content inventory
+        if (result.contentInventory && Object.keys(result.contentInventory).length) {
+          root.appendChild(p("rv-section", t("result_content")));
+          for (const [, info] of Object.entries(result.contentInventory)) {
+            if (info.count === 0) continue;
+            const row = div("rv-row");
+            row.appendChild(h("span", null, info.label || info.restBase));
+            row.appendChild(h("span", null, String(info.count)));
+            root.appendChild(row);
+          }
         }
 
-        root.appendChild(p("rv-section", t("analysis_result_styles")));
-        const styleRows = [
-          [t("analysis_result_stylesheets"), String(report.analysis.styles.stylesheetCount ?? 0)],
-          [t("analysis_result_same_origin"), String(report.analysis.styles.sameOriginStylesheets ?? 0)],
-          [t("analysis_result_inline_styles"), String(report.analysis.styles.inlineStyleBlocks ?? 0)]
-        ];
-        for (const [label, value] of styleRows) {
-          const row = div("rv-row");
-          row.appendChild(h("span", null, label));
-          row.appendChild(h("span", null, value));
-          root.appendChild(row);
-        }
-
-        root.appendChild(p("rv-section", t("analysis_result_plugins")));
-        const pluginList = document.createElement("ul");
-        for (const plugin of (report.analysis.plugins || [])) {
-          const li = document.createElement("li");
-          li.textContent = `${plugin.name} (${plugin.signal})`;
-          pluginList.appendChild(li);
-        }
-        if (!pluginList.children.length) {
-          const li = document.createElement("li");
-          li.textContent = t("analysis_result_no_plugins");
-          pluginList.appendChild(li);
-        }
-        root.appendChild(pluginList);
-
-        root.appendChild(p("rv-section", t("analysis_result_recommendations")));
-        const recList = document.createElement("ul");
-        for (const rec of (report.analysis.recommendations || [])) {
-          const li = document.createElement("li");
-          li.className = "rv-step";
-          li.textContent = rec;
-          recList.appendChild(li);
-        }
-        root.appendChild(recList);
-
-        root.appendChild(p("rv-section", t("result_warnings")));
-        const warnings = report.warnings || [];
-        if (warnings.length === 0) {
-          root.appendChild(p("rv-step", t("result_no_warnings")));
-        } else {
+        // Detected plugins
+        root.appendChild(p("rv-section", t("analyze_plugins_title")));
+        if (result.detectedPlugins?.length) {
           const ul = document.createElement("ul");
-          for (const warning of warnings) {
+          for (const plugin of result.detectedPlugins) {
             const li = document.createElement("li");
-            li.className = "rv-warn";
-            li.textContent = warning;
+            li.textContent = `${plugin.name} — ${plugin.replacement}`;
             ul.appendChild(li);
           }
           root.appendChild(ul);
+        } else {
+          root.appendChild(p("rv-step", t("analysis_result_no_plugins")));
         }
+
+        // Warnings
+        root.appendChild(p("rv-section", t("result_warnings")));
+        const warnings = result.warnings || [];
+        if (!warnings.length) {
+          root.appendChild(p("rv-step", t("result_no_warnings")));
+        } else {
+          const ul = document.createElement("ul");
+          for (const w of warnings) {
+            const li = h("li", "rv-warn", w); ul.appendChild(li);
+          }
+          root.appendChild(ul);
+        }
+
+        // Apply button hint
+        root.appendChild(p("rv-step", t("btn_apply_analysis") + " →"));
 
         resultViewNode.innerHTML = "";
         resultViewNode.appendChild(root);
