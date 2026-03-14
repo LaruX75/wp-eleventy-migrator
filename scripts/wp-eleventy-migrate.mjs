@@ -732,6 +732,14 @@ function deriveProjectName(config) {
   return fromUrl || "eleventy-site";
 }
 
+function getEnabledReplacementSlugs(config) {
+  return new Set(
+    normalizeEleventyReplacements(config.eleventyReplacements)
+      .filter((item) => item.enabled)
+      .map((item) => item.slug)
+  );
+}
+
 function inferBootstrapDependencies(config) {
   const dependencies = {
     "@11ty/eleventy": "^3.0.0"
@@ -750,6 +758,104 @@ async function writeIfMissing(filePath, content) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, content, "utf8");
   return true;
+}
+
+async function writeReplacementScaffolding(root, config, report, progress = () => {}) {
+  const enabled = getEnabledReplacementSlugs(config);
+  if (!enabled.size) {
+    report.replacementScaffolding = { created: [], enabled: [] };
+    return;
+  }
+
+  const includesDir = path.join(root, "_includes", "partials");
+  const dataDir = path.join(root, config.dataDir || DEFAULT_DATA_DIR);
+  const created = [];
+  const siteJsonPath = path.join(dataDir, "site.json");
+  const siteJson = {
+    name: deriveProjectName(config),
+    url: config.wpBaseUrl || "",
+    locales: enabled.has("wpml") || enabled.has("gtranslate") ? ["fi", "en"] : ["fi"],
+    defaultLocale: "fi",
+    logo: "",
+    tagline: ""
+  };
+
+  if (await writeIfMissing(siteJsonPath, `${JSON.stringify(siteJson, null, 2)}\n`)) created.push(siteJsonPath);
+
+  const partials = [];
+  partials.push([
+    path.join(includesDir, "site-navigation.njk"),
+    `{# Generated navigation shell. Uses _data/navigation.json if available. #}
+{% set menus = navigation if navigation else [] %}
+{% set navItems = menus[0].items if menus and menus.length and menus[0].items else [] %}
+{% if navItems and navItems.length %}
+<nav class="site-navigation" aria-label="Site navigation">
+  <ul class="site-navigation-list">
+    {% for item in navItems %}
+      <li class="site-navigation-item{% if item.children and item.children.length %} has-children{% endif %}">
+        <a href="{{ item.url }}">{{ item.title }}</a>
+        {% if item.children and item.children.length %}
+          <ul class="site-navigation-children">
+            {% for child in item.children %}
+              <li><a href="{{ child.url }}">{{ child.title }}</a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+`
+  ]);
+
+  if (enabled.has("wpml") || enabled.has("gtranslate")) {
+    partials.push([
+      path.join(includesDir, "language-switcher.njk"),
+      `{# Generated multilingual switcher. Edit _data/site.json locales as needed. #}
+{% if site and site.locales and site.locales.length > 1 %}
+<nav class="language-switcher" aria-label="Language switcher">
+  <ul>
+    {% for locale in site.locales %}
+      <li><a href="/{{ locale }}/">{{ locale | upper }}</a></li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+`
+    ]);
+  }
+
+  if (enabled.has("newsletter") || enabled.has("mailerlite") || enabled.has("mailchimp")) {
+    partials.push([
+      path.join(includesDir, "newsletter-signup.njk"),
+      `{# Generated newsletter placeholder. Replace with your service embed form. #}
+<section class="newsletter-signup">
+  <h2>Newsletter</h2>
+  <p>Replace this placeholder with your MailerLite/Mailchimp/Brevo embed form.</p>
+</section>
+`
+    ]);
+  }
+
+  if (enabled.has("complianz")) {
+    partials.push([
+      path.join(includesDir, "cookie-consent-placeholder.njk"),
+      `{# Generated cookie consent placeholder. Replace with your preferred consent tool if tracking is used. #}
+<div class="cookie-consent-placeholder" hidden data-cookie-consent-placeholder="true"></div>
+`
+    ]);
+  }
+
+  for (const [filePath, content] of partials) {
+    if (await writeIfMissing(filePath, content)) created.push(filePath);
+  }
+
+  report.replacementScaffolding = {
+    enabled: [...enabled],
+    created
+  };
+  progress("ok", `Eleventy-vastineiden scaffoldit: ${created.length} tiedostoa`);
 }
 
 async function bootstrapEleventyProject(root, config, report, progress = () => {}) {
@@ -1234,6 +1340,17 @@ async function generateLayouts(config, root) {
   const pageLayoutPath = path.join(includesDir, config.pageLayout || "layouts/page.njk");
   const postLayoutPath = path.join(includesDir, config.postLayout || "layouts/post.njk");
   const stylesLine = config.migrateStyles ? `  {% include "legacy-styles.njk" %}\n` : "";
+  const enabled = getEnabledReplacementSlugs(config);
+  const languageSwitcherLine = enabled.has("wpml") || enabled.has("gtranslate")
+    ? `    {% include "partials/language-switcher.njk" %}\n`
+    : "";
+  const navigationLine = `    {% include "partials/site-navigation.njk" %}\n`;
+  const newsletterLine = enabled.has("newsletter") || enabled.has("mailerlite") || enabled.has("mailchimp")
+    ? `    {% include "partials/newsletter-signup.njk" %}\n`
+    : "";
+  const cookieLine = enabled.has("complianz")
+    ? `  {% include "partials/cookie-consent-placeholder.njk" %}\n`
+    : "";
 
   const base = `<!doctype html>
 <html lang="en">
@@ -1249,8 +1366,10 @@ async function generateLayouts(config, root) {
   {% if noindex %}<meta name="robots" content="noindex">{% endif %}
 ${stylesLine}</head>
 <body>
+  <header class="site-shell-header">
+${languageSwitcherLine}${navigationLine}  </header>
   {{ content | safe }}
-</body>
+${newsletterLine}${cookieLine}</body>
 </html>
 `;
 
@@ -2225,6 +2344,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
 
   await bootstrapEleventyProject(root, config, report, progress);
   await installProjectDependencies(root, config, report, progress);
+  await writeReplacementScaffolding(root, config, report, progress);
 
   if (config.convertKadenceBlocks) {
     const allKadenceBlocks = config.preset === "kadence-pro"
