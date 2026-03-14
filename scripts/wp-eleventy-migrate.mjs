@@ -1002,6 +1002,10 @@ function themeCssFromProfile(profile) {
     "/* ── Kadence query grid ──────────────────────────────────────────────────────── */",
     ".wp-block-kadence-query.kb-query-loop { margin: 1rem 0; }",
     ".kb-query-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }",
+    ".kb-query-hidden { display: none; }",
+    ".kb-query-load-more { text-align: center; margin-top: 1.5rem; }",
+    ".kb-load-more-btn { background: var(--global-palette1, #314e25); color: var(--global-palette9, #fff); border: none; border-radius: 6px; padding: .6rem 1.75rem; font-size: .95rem; font-weight: 600; cursor: pointer; transition: background .15s; }",
+    ".kb-load-more-btn:hover { background: var(--global-palette2, #446d33); }",
     ".kb-query-item { background: var(--global-palette9, #fff); border: 1px solid var(--global-palette7, #eee); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }",
     ".kb-query-item__thumb img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }",
     ".kb-query-item__body { padding: 1rem; display: flex; flex-direction: column; flex: 1; }",
@@ -3138,43 +3142,67 @@ const KADENCE_PARTIAL_TEMPLATES = {
 </section>
 `,
 
-  query: `{# kadence/query — Post list with optional collectionName attr for category filtering #}
+  query: `{# kadence/query — Post list with client-side load-more (replaces WP infinite scroll) #}
 {% set b = kadenceBlock.attrs %}
-{% set count = b.postsToShow if b.postsToShow else (b.numberOfItems if b.numberOfItems else 10) %}
+{% set _pageSize = b.postsToShow if b.postsToShow else (b.numberOfItems if b.numberOfItems else 10) %}
 {% set _col = b.collectionName if b.collectionName else "posts" %}
-<section class="wp-block-kadence-query kb-query-loop{% if b.className %} {{ b.className }}{% endif %}">
+{% set _uid = b.uniqueID if b.uniqueID else (_col + "-query") %}
+<section class="wp-block-kadence-query kb-query-loop{% if b.className %} {{ b.className }}{% endif %}" data-kb-query-id="{{ _uid }}">
   {% if kadenceInnerHtml | trim %}
     {{ kadenceInnerHtml | safe }}
   {% else %}
-    <div class="kb-query-grid">
+    <div class="kb-query-grid" id="kb-query-grid-{{ _uid }}">
       {% for post in collections[_col] %}
-        {% if loop.index <= count %}
-          <article class="kb-query-item">
-            {% if post.data.featuredImage %}
-              <a href="{{ post.url }}" class="kb-query-item__thumb" tabindex="-1" aria-hidden="true">
-                <img src="{{ post.data.featuredImage }}" alt="{{ post.data.title }}" loading="lazy">
-              </a>
+        <article class="kb-query-item{% if loop.index > _pageSize %} kb-query-hidden{% endif %}">
+          {% if post.data.featuredImage %}
+            <a href="{{ post.url }}" class="kb-query-item__thumb" tabindex="-1" aria-hidden="true">
+              <img src="{{ post.data.featuredImage }}" alt="{{ post.data.title }}" loading="lazy">
+            </a>
+          {% endif %}
+          <div class="kb-query-item__body">
+            {% if post.data.categories and post.data.categories.length %}
+              <div class="kb-query-item__cats">
+                {% for cat in post.data.categories | first(1) %}<span class="kb-query-item__cat">{{ cat }}</span>{% endfor %}
+              </div>
             {% endif %}
-            <div class="kb-query-item__body">
-              {% if post.data.categories and post.data.categories.length %}
-                <div class="kb-query-item__cats">
-                  {% for cat in post.data.categories | first(1) %}<span class="kb-query-item__cat">{{ cat }}</span>{% endfor %}
-                </div>
-              {% endif %}
-              <h3 class="kb-query-item__title"><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
-              {% if post.data.date %}
-                <time class="kb-query-item__date" datetime="{{ post.data.date }}">{{ post.data.date | date("d.m.Y") }}</time>
-              {% endif %}
-              {% if post.data.excerpt and post.data.excerpt != "[object Object]" %}
-                <p class="kb-query-item__excerpt">{{ post.data.excerpt | truncate(160) }}</p>
-              {% endif %}
-            </div>
-          </article>
-        {% endif %}
+            <h3 class="kb-query-item__title"><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
+            {% if post.data.date %}
+              <time class="kb-query-item__date" datetime="{{ post.data.date }}">{{ post.data.date | date("d.m.Y") }}</time>
+            {% endif %}
+            {% if post.data.excerpt and post.data.excerpt != "[object Object]" %}
+              <p class="kb-query-item__excerpt">{{ post.data.excerpt | truncate(160) }}</p>
+            {% endif %}
+          </div>
+        </article>
       {% endfor %}
     </div>
+    {% set _total = collections[_col] | length %}
+    {% if _total > _pageSize %}
+      <div class="kb-query-load-more" id="kb-query-more-{{ _uid }}" data-grid="kb-query-grid-{{ _uid }}" data-page-size="{{ _pageSize }}">
+        <button class="kb-load-more-btn" type="button">Lataa lisää</button>
+      </div>
+    {% endif %}
   {% endif %}
 </section>
+<script>
+(function () {
+  if (window._kbLoadMoreInit) return;
+  window._kbLoadMoreInit = true;
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.kb-query-load-more').forEach(function (wrap) {
+      var btn = wrap.querySelector('.kb-load-more-btn');
+      var grid = document.getElementById(wrap.dataset.grid);
+      var pageSize = parseInt(wrap.dataset.pageSize, 10) || 10;
+      if (!btn || !grid) return;
+      btn.addEventListener('click', function () {
+        var hidden = Array.from(grid.querySelectorAll('.kb-query-hidden'));
+        hidden.slice(0, pageSize).forEach(function (el) { el.classList.remove('kb-query-hidden'); });
+        if (!grid.querySelector('.kb-query-hidden')) wrap.remove();
+      });
+    });
+  });
+}());
+</script>
 `,
 
   testimonials: `{# kadence/testimonials — Testimonials grid; items are kadence/testimonial blocks #}
