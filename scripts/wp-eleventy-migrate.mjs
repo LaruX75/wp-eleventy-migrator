@@ -110,11 +110,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
 const SEPARATOR_SVG_TEMPLATES = {
-  mtns: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,96L80,80C160,64,320,32,480,32C640,32,800,64,960,74.7C1120,85,1280,75,1360,69.3L1440,64L1440,160L1360,160C1280,160,1120,160,960,160C800,160,640,160,480,160C320,160,160,160,80,160L0,160Z"/></svg>`,
-  waves: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,128L48,122.7C96,117,192,107,288,85.3C384,64,480,32,576,32C672,32,768,64,864,80C960,96,1056,96,1152,80C1248,64,1344,32,1392,16L1440,0L1440,160L1392,160C1344,160,1248,160,1152,160C1056,160,960,160,864,160C768,160,672,160,576,160C480,160,384,160,288,160C192,160,96,160,48,160L0,160Z"/></svg>`,
-  tilt: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,0 1440,96 1440,160 0,160"/></svg>`,
-  curve: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,128C180,85,360,64,540,74.7C720,85,900,128,1080,133.3C1260,139,1350,107,1440,80L1440,160L0,160Z"/></svg>`,
-  triangle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,160 720,0 1440,160"/></svg>`
+  // Generic Eleventy-migrator shapes
+  mtns:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,96L80,80C160,64,320,32,480,32C640,32,800,64,960,74.7C1120,85,1280,75,1360,69.3L1440,64L1440,160L1360,160C1280,160,1120,160,960,160C800,160,640,160,480,160C320,160,160,160,80,160L0,160Z"/></svg>`,
+  waves:      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,128L48,122.7C96,117,192,107,288,85.3C384,64,480,32,576,32C672,32,768,64,864,80C960,96,1056,96,1152,80C1248,64,1344,32,1392,16L1440,0L1440,160L1392,160C1344,160,1248,160,1152,160C1056,160,960,160,864,160C768,160,672,160,576,160C480,160,384,160,288,160C192,160,96,160,48,160L0,160Z"/></svg>`,
+  tilt:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,0 1440,96 1440,160 0,160"/></svg>`,
+  curve:      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,128C180,85,360,64,540,74.7C720,85,900,128,1080,133.3C1260,139,1350,107,1440,80L1440,160L0,160Z"/></svg>`,
+  triangle:   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,160 720,0 1440,160"/></svg>`,
+  // Kadence-specific separator shapes
+  ct:         `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,160L0,80Q360,0,720,0Q1080,0,1440,80L1440,160Z"/></svg>`,
+  cti:        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,160L0,0Q360,160,720,160Q1080,160,1440,0L1440,160Z"/></svg>`,
+  ctdi:       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><path fill="currentColor" d="M0,160L0,96Q360,0,720,0Q1080,0,1440,96L1440,160Z M0,160L0,128Q360,64,720,64Q1080,64,1440,128L1440,160Z"/></svg>`,
+  threelevels:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,160 0,96 480,96 480,64 960,64 960,32 1440,32 1440,160"/></svg>`
 };
 
 function nowStamp() {
@@ -444,6 +450,125 @@ async function tryFetchMenusFromWpV2(wpBaseUrl, headers) {
   }).filter((menu) => menu.items.length > 0);
 }
 
+// ── Kadence navigation-link block parser ──────────────────────────────────────
+
+function parseKadenceNavLinks(content, wpBaseUrl = "") {
+  const tree = parseWpBlocks(content || "");
+  return extractNavLinkNodes(tree, wpBaseUrl);
+}
+
+function extractNavLinkNodes(nodes, wpBaseUrl) {
+  const items = [];
+  for (const node of nodes) {
+    if (!node || node.type === "html") continue;
+    if (node.name === "kadence/navigation" || node.name === "kadence/navigation-link" && false) {
+      items.push(...extractNavLinkNodes(node.children || [], wpBaseUrl));
+    } else if (node.name === "kadence/navigation-link") {
+      const attrs = node.attrs || {};
+      const rawUrl = String(attrs.url || "#");
+      const url = wpBaseUrl ? rawUrl.replace(wpBaseUrl, "") || "/" : rawUrl;
+      const item = {
+        label: String(attrs.label || ""),
+        url,
+        isMegaMenu: Boolean(attrs.isMegaMenu),
+        target: attrs.target || "",
+        megamenuColumns: [],
+        children: [],
+      };
+      if (attrs.isMegaMenu && node.children && node.children.length) {
+        item.megamenuColumns = extractMegamenuColumns(node.children, wpBaseUrl);
+      } else if (node.children && node.children.length) {
+        item.children = extractNavLinkNodes(node.children, wpBaseUrl);
+      }
+      items.push(item);
+    } else if (node.name === "kadence/navigation") {
+      items.push(...extractNavLinkNodes(node.children || [], wpBaseUrl));
+    } else if (node.children && node.children.length) {
+      items.push(...extractNavLinkNodes(node.children, wpBaseUrl));
+    }
+  }
+  return items;
+}
+
+function extractMegamenuColumns(nodes, wpBaseUrl) {
+  const columns = [];
+  for (const node of nodes) {
+    if (!node || node.type === "html") continue;
+    if (node.name === "kadence/rowlayout") {
+      for (const child of node.children || []) {
+        if (child.name === "kadence/column") {
+          const colItems = extractNavLinkNodes(child.children || [], wpBaseUrl);
+          if (colItems.length) columns.push({ items: colItems });
+        }
+      }
+    }
+  }
+  return columns;
+}
+
+async function fetchKadenceNavigations(config, headers) {
+  const baseApi = `${config.wpBaseUrl}${config.restNamespace || "/wp-json/wp/v2"}`;
+  try {
+    const url = `${baseApi}/kadence_navigation?per_page=100&context=edit`;
+    const items = await fetchAllPages(url, headers);
+    return items.map((item) => ({
+      id: item.id,
+      title: String(item.title?.rendered || item.title?.raw || ""),
+      content: String(item.content?.raw || item.content?.rendered || ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchKadenceHeaders(config, headers) {
+  const baseApi = `${config.wpBaseUrl}${config.restNamespace || "/wp-json/wp/v2"}`;
+  try {
+    const url = `${baseApi}/kadence_header?per_page=20&context=edit`;
+    const items = await fetchAllPages(url, headers);
+    return items.map((item) => ({
+      id: item.id,
+      title: String(item.title?.rendered || item.title?.raw || ""),
+      content: String(item.content?.raw || item.content?.rendered || ""),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Find the first navigation id referenced in a kadence_header block tree
+function findNavIdInHeaderContent(content) {
+  const navRe = /<!--\s*wp:kadence\/navigation\s+({[^}]*})/g;
+  let m;
+  while ((m = navRe.exec(content)) !== null) {
+    try {
+      const attrs = JSON.parse(m[1]);
+      if (attrs.id) return attrs.id;
+    } catch { /* skip */ }
+  }
+  return null;
+}
+
+// Merge kadence navigation megamenu data into an existing navigation.json menu array
+function mergeKadenceMegamenuIntoNav(navMenus, kadenceNavItems) {
+  if (!navMenus || !navMenus.length || !kadenceNavItems || !kadenceNavItems.length) return navMenus;
+  const normalizeUrl = (u) => String(u || "").replace(/\/+$/, "").toLowerCase().split("?")[0];
+
+  for (const menu of navMenus) {
+    if (!menu.items) continue;
+    for (const item of menu.items) {
+      const matchingKnItem = kadenceNavItems.find(
+        (kn) => normalizeUrl(kn.url) === normalizeUrl(item.url) || kn.label === item.title
+      );
+      if (matchingKnItem && matchingKnItem.isMegaMenu && matchingKnItem.megamenuColumns.length) {
+        item.megamenu = true;
+        item.megamenuColumns = matchingKnItem.megamenuColumns;
+      }
+    }
+  }
+  return navMenus;
+}
+
 async function fetchMenus(wpBaseUrl, headers = {}, warnings = []) {
   const attempts = [
     { name: "menus/v1", run: () => tryFetchMenusFromMenusV1(wpBaseUrl, headers) },
@@ -695,14 +820,95 @@ async function writeSiteProfileArtifacts(outputRoot, profile, progress = () => {
 
 function themeCssFromProfile(profile) {
   const paletteEntries = Object.entries(profile?.palette || {});
-  const lines = [
+  return [
     "/* Auto-generated by wp-eleventy-migrator from site-profile.json */",
     ":root {",
     ...paletteEntries.map(([token, value]) => `  --global-${token}: ${value};`),
     "}",
+    "",
+    "/* ── Shell layout ──────────────────────────────────────────────────────────── */",
+    "*, *::before, *::after { box-sizing: border-box; }",
+    "body { margin: 0; font-family: var(--global-body-font-family, Arial, Helvetica, sans-serif); }",
+    "",
+    "/* ── Site header ───────────────────────────────────────────────────────────── */",
+    ".site-shell-header { position: sticky; top: 0; z-index: 1000; background: var(--global-palette9, #fff); border-bottom: 1px solid var(--global-palette7, #e5e5e5); }",
+    ".site-header-inner { display: flex; align-items: center; gap: 1rem; max-width: var(--global-content-width, 1290px); margin: 0 auto; padding: 0 var(--global-content-edge-padding, 1.5rem); min-height: 64px; }",
+    ".site-logo { text-decoration: none; color: var(--global-palette1, #333); font-weight: 700; font-size: 1.1rem; white-space: nowrap; flex-shrink: 0; }",
+    ".site-logo img { height: 48px; width: auto; display: block; }",
+    "",
+    "/* ── Hamburger toggle — hidden on desktop ──────────────────────────────────── */",
+    ".kb-nav-toggle { display: none; background: none; border: none; cursor: pointer; font-size: 1.5rem; padding: 0.25rem 0.5rem; color: var(--global-palette1, #333); margin-left: auto; }",
+    "",
+    "/* ── Primary nav — desktop ─────────────────────────────────────────────────── */",
+    ".site-navigation { margin-left: auto; }",
+    ".kb-nav-menu { display: flex; align-items: center; list-style: none; margin: 0; padding: 0; gap: 0; }",
+    ".kb-nav-item { position: relative; }",
+    ".kb-nav-link { display: block; padding: 0.5rem 0.85rem; text-decoration: none; color: var(--global-palette1, #333); font-weight: 500; white-space: nowrap; transition: color 0.15s; }",
+    ".kb-nav-link:hover { color: var(--global-palette2, #446d33); }",
+    "",
+    "/* ── Normal dropdown ───────────────────────────────────────────────────────── */",
+    ".menu-item-has-children > .sub-menu { display: none; }",
+    ".menu-item-has-children:hover > .sub-menu, .menu-item-has-children.is-open > .sub-menu { display: block; position: absolute; top: 100%; left: 0; min-width: 200px; background: var(--global-palette9, #fff); border: 1px solid var(--global-palette7, #eee); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,.1); z-index: 200; list-style: none; margin: 0; padding: .25rem 0; }",
+    ".kb-nav-sub-menu .kb-nav-link { padding: .4rem 1rem; }",
+    ".kb-nav-sub-menu .menu-item:hover > .kb-nav-link { background: var(--global-palette7, #f0f4ec); }",
+    "",
+    "/* ── Megamenu ──────────────────────────────────────────────────────────────── */",
+    ".kb-nav-mega-menu-item > .kb-mega-menu { display: none; }",
+    ".kb-nav-mega-menu-item:hover > .kb-mega-menu, .kb-nav-mega-menu-item.is-open > .kb-mega-menu { display: block; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); min-width: 480px; max-width: 700px; background: var(--global-palette9, #fff); border: 1px solid var(--global-palette6, #446d33); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 200; padding: 1rem; }",
+    ".kb-mega-menu-cols { display: flex; gap: 1rem; list-style: none; margin: 0; padding: 0; }",
+    ".kb-mega-menu-col { flex: 1; }",
+    ".kb-mega-col-items { list-style: none; margin: 0; padding: 0; }",
+    ".kb-mega-link { display: block; padding: .35rem .5rem; text-decoration: none; color: var(--global-palette1, #333); border-radius: 4px; transition: background .15s; }",
+    ".kb-mega-link:hover { background: var(--global-palette7, #f0f4ec); }",
+    "",
+    "/* ── Feather icons ─────────────────────────────────────────────────────────── */",
+    ".feather-icon { display: inline-flex; align-items: center; flex-shrink: 0; }",
+    ".feather-icon svg { width: 1em; height: 1em; vertical-align: middle; }",
+    ".kt-svg-icon-list-item-wrap { display: flex; align-items: flex-start; gap: .5em; }",
+    ".kt-svg-icon-list-text { flex: 1; }",
+    "",
+    "/* ── Page layout — CSS grid for alignfull breakout ─────────────────────────── */",
+    ".page { margin: 0; }",
+    ".page-content { display: grid; grid-template-columns: [full-start] minmax(0, 1fr) [content-start] min(var(--global-content-width, 1290px), calc(100% - 2 * var(--global-content-edge-padding, 1.5rem))) [content-end] minmax(0, 1fr) [full-end]; }",
+    ".page-content > * { grid-column: content; }",
+    ".page-content > .alignfull, .page-content > .alignwide { grid-column: full; }",
+    "",
+    "/* ── Kadence rowlayout column grid ─────────────────────────────────────────── */",
+    ".kt-row-column-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--global-row-gutter-md, 2rem); position: relative; z-index: 1; }",
+    ".alignfull > .kt-row-column-wrap { padding-left: var(--global-content-edge-padding, 1.5rem); padding-right: var(--global-content-edge-padding, 1.5rem); max-width: var(--global-content-width, 1290px); margin-left: auto; margin-right: auto; }",
+    ".kb-row-layout-wrap { position: relative; }",
+    ".kt-row-layout-overlay { position: absolute; inset: 0; pointer-events: none; }",
+    "@media (min-width: 768px) {",
+    "  .kt-row-column-wrap:has(> .wp-block-kadence-column:nth-child(2)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }",
+    "  .kt-row-column-wrap.kb-layout-left-golden:has(> .wp-block-kadence-column:nth-child(2)) { grid-template-columns: 2fr 1fr; }",
+    "  .kt-row-column-wrap.kb-layout-right-golden:has(> .wp-block-kadence-column:nth-child(2)) { grid-template-columns: 1fr 2fr; }",
+    "}",
+    "@media (min-width: 1025px) {",
+    "  .kt-row-column-wrap:has(> .wp-block-kadence-column:nth-child(3)) { grid-template-columns: repeat(3, minmax(0, 1fr)); }",
+    "  .kt-row-column-wrap:has(> .wp-block-kadence-column:nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }",
+    "}",
+    "",
+    "/* ── Separator SVGs — override migrated Kadence CSS fill: #fff ──────────────── */",
+    ".kt-row-layout-bottom-sep svg, .kt-row-layout-top-sep svg, .kt-svg-for-top-sep svg, .kt-svg-for-bottom-sep svg { fill: currentColor !important; display: block; width: 100%; height: 100%; }",
+    "",
+    "/* ── Site footer ───────────────────────────────────────────────────────────── */",
+    ".site-footer { background: var(--global-palette1, #314e25); color: var(--global-palette9, #fff); padding: 2rem var(--global-content-edge-padding, 1.5rem); margin-top: 3rem; }",
+    ".site-footer-inner { max-width: var(--global-content-width, 1290px); margin: 0 auto; }",
+    ".site-footer-copy { margin: 0; opacity: .8; font-size: .875rem; }",
+    "",
+    "/* ── Mobile (≤ 1023px) ─────────────────────────────────────────────────────── */",
+    "@media (max-width: 1023px) {",
+    "  .kb-nav-toggle { display: block; }",
+    "  .site-navigation { display: none; position: fixed; inset: 64px 0 0 0; background: var(--global-palette9, #fff); overflow-y: auto; z-index: 999; padding: 1rem; margin-left: 0; }",
+    "  .site-navigation.is-open { display: block; }",
+    "  .kb-nav-menu { flex-direction: column; align-items: stretch; gap: 0; }",
+    "  .kb-nav-link { padding: .75rem .5rem; border-bottom: 1px solid var(--global-palette7, #eee); }",
+    "  .menu-item-has-children > .sub-menu, .kb-nav-mega-menu-item > .kb-mega-menu { display: none; }",
+    "  .menu-item-has-children.is-open > .sub-menu, .kb-nav-mega-menu-item.is-open > .kb-mega-menu { display: block; position: static; transform: none; min-width: unset; max-width: unset; border: none; border-radius: 0; box-shadow: none; background: var(--global-palette7, #f0f4ec); padding: .25rem 0 .25rem 1rem; }",
+    "  .kb-mega-menu-cols { flex-direction: column; gap: 0; }",
+    "}",
     ""
-  ];
-  return lines.join("\n");
+  ].join("\n");
 }
 
 async function configureProjectFromProfile(root, config, report, progress = () => {}) {
@@ -1055,21 +1261,142 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
   if (await writeIfMissing(siteJsonPath, `${JSON.stringify(siteJson, null, 2)}\n`)) created.push(siteJsonPath);
 
   const partials = [];
+
+  // ── site-header.njk ──────────────────────────────────────────────────────────
+  partials.push([
+    path.join(includesDir, "site-header.njk"),
+    `{# Site header — logo + primary navigation #}
+{% set menus = navigation if navigation else [] %}
+{% set navItems = menus[0].items if menus and menus.length and menus[0].items else [] %}
+<header class="site-shell-header">
+  <div class="site-header-inner">
+    <a class="site-logo" href="/">
+      {% if site and site.logo %}
+        <img src="{{ site.logo }}" alt="{{ site.name if site.name else 'Home' }}">
+      {% else %}
+        <span class="site-name">{{ site.name if site and site.name else 'Site' }}</span>
+      {% endif %}
+    </a>
+    <button class="kb-nav-toggle" aria-expanded="false" aria-controls="site-nav-menu" aria-label="Toggle navigation">
+      <span aria-hidden="true">&#9776;</span>
+    </button>
+    {% if navItems and navItems.length %}
+    <nav id="site-nav-menu" class="site-navigation kb-navigation" aria-label="Site navigation">
+      <ul class="menu kb-nav-menu">
+        {% for item in navItems %}
+          <li class="menu-item kb-nav-item{% if item.megamenu %} kb-nav-mega-menu-item{% elif item.children and item.children.length %} menu-item-has-children{% endif %}">
+            <a class="kb-nav-link" href="{{ item.url }}"{% if item.target %} target="{{ item.target }}"{% endif %}>{{ item.title }}</a>
+            {# ── Megamenu ─────────────────────────────────────────── #}
+            {% if item.megamenu and item.megamenuColumns and item.megamenuColumns.length %}
+              <div class="kb-mega-menu" role="region" aria-label="{{ item.title }} megamenu">
+                <ul class="kb-mega-menu-cols">
+                  {% for col in item.megamenuColumns %}
+                    <li class="kb-mega-menu-col">
+                      {% if col.items and col.items.length %}
+                        <ul class="kb-mega-col-items">
+                          {% for sub in col.items %}
+                            <li class="menu-item">
+                              <a class="kb-mega-link" href="{{ sub.url }}"{% if sub.target %} target="{{ sub.target }}"{% endif %}>{{ sub.label }}</a>
+                            </li>
+                          {% endfor %}
+                        </ul>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {# ── Normal dropdown ──────────────────────────────────── #}
+            {% elif item.children and item.children.length %}
+              <ul class="sub-menu kb-nav-sub-menu">
+                {% for child in item.children %}
+                  <li class="menu-item kb-nav-item{% if child.children and child.children.length %} menu-item-has-children{% endif %}">
+                    <a class="kb-nav-link" href="{{ child.url }}">{{ child.title }}</a>
+                    {% if child.children and child.children.length %}
+                      <ul class="sub-menu kb-nav-sub-menu kb-nav-sub-menu--level2">
+                        {% for grandchild in child.children %}
+                          <li class="menu-item"><a class="kb-nav-link" href="{{ grandchild.url }}">{{ grandchild.title }}</a></li>
+                        {% endfor %}
+                      </ul>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+</header>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const toggle = document.querySelector(".kb-nav-toggle");
+    const menu = document.getElementById("site-nav-menu");
+    if (toggle && menu) {
+      toggle.addEventListener("click", () => {
+        const expanded = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", String(!expanded));
+        menu.classList.toggle("is-open", !expanded);
+      });
+    }
+    document.querySelectorAll(".kb-nav-mega-menu-item > .kb-nav-link, .menu-item-has-children > .kb-nav-link").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        if (window.innerWidth < 1024) { e.preventDefault(); link.parentElement.classList.toggle("is-open"); }
+      });
+    });
+  });
+</script>
+`
+  ]);
+
+  // ── site-footer.njk ──────────────────────────────────────────────────────────
+  partials.push([
+    path.join(includesDir, "site-footer.njk"),
+    `{# Site footer — update with actual footer content #}
+<footer class="site-footer">
+  <div class="site-footer-inner">
+    <p class="site-footer-copy">
+      &copy; {{ site.name if site and site.name else 'Site' }}
+    </p>
+  </div>
+</footer>
+`
+  ]);
+
+  // ── site-navigation.njk — legacy alias used by existing templates ─────────────
   partials.push([
     path.join(includesDir, "site-navigation.njk"),
-    `{# Generated navigation shell. Uses _data/navigation.json if available. #}
+    `{#- Legacy alias: renders the same primary nav as site-header.njk uses.
+    Kept for backward compatibility with any content referencing this partial. #}
 {% set menus = navigation if navigation else [] %}
 {% set navItems = menus[0].items if menus and menus.length and menus[0].items else [] %}
 {% if navItems and navItems.length %}
-<nav class="site-navigation" aria-label="Site navigation">
-  <ul class="site-navigation-list">
+<nav class="site-navigation kb-navigation" aria-label="Site navigation">
+  <ul class="menu kb-nav-menu">
     {% for item in navItems %}
-      <li class="site-navigation-item{% if item.children and item.children.length %} has-children{% endif %}">
-        <a href="{{ item.url }}">{{ item.title }}</a>
-        {% if item.children and item.children.length %}
-          <ul class="site-navigation-children">
+      <li class="menu-item kb-nav-item{% if item.megamenu %} kb-nav-mega-menu-item{% elif item.children and item.children.length %} menu-item-has-children{% endif %}">
+        <a class="kb-nav-link" href="{{ item.url }}"{% if item.target %} target="{{ item.target }}"{% endif %}>{{ item.title }}</a>
+        {% if item.megamenu and item.megamenuColumns and item.megamenuColumns.length %}
+          <div class="kb-mega-menu" role="region" aria-label="{{ item.title }} megamenu">
+            <ul class="kb-mega-menu-cols">
+              {% for col in item.megamenuColumns %}
+                <li class="kb-mega-menu-col">
+                  {% if col.items and col.items.length %}
+                    <ul class="kb-mega-col-items">
+                      {% for sub in col.items %}
+                        <li class="menu-item"><a class="kb-mega-link" href="{{ sub.url }}">{{ sub.label }}</a></li>
+                      {% endfor %}
+                    </ul>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% elif item.children and item.children.length %}
+          <ul class="sub-menu kb-nav-sub-menu">
             {% for child in item.children %}
-              <li><a href="{{ child.url }}">{{ child.title }}</a></li>
+              <li class="menu-item kb-nav-item"><a class="kb-nav-link" href="{{ child.url }}">{{ child.title }}</a></li>
             {% endfor %}
           </ul>
         {% endif %}
@@ -1168,6 +1495,7 @@ async function bootstrapEleventyProject(root, config, report, progress = () => {
   }
   configLines.push('  if (existsSync("media")) eleventyConfig.addPassthroughCopy({ "media": "media" });');
   configLines.push('  if (existsSync("styles")) eleventyConfig.addPassthroughCopy({ "styles": "styles" });');
+  configLines.push('  if (existsSync("assets")) eleventyConfig.addPassthroughCopy({ "assets": "assets" });');
   configLines.push("");
   configLines.push("  return {");
   configLines.push('    dir: { input: "content", includes: "../_includes", data: "../_data", output: "_site" },');
@@ -1604,12 +1932,17 @@ async function migrateStyles(config, root, report, headers) {
     // Rewrite url() references to local media paths (same-origin only)
     if (isSameOrigin) css = rewriteCssUrls(css, wpOrigin, mediaPathPrefix);
 
-    // Download CSS-referenced media (background images, fonts) when downloadMedia is on (same-origin only)
-    if (isSameOrigin && config.downloadMedia && !config.dryRun) {
+    // Download CSS-referenced assets. Font files (woff/woff2/ttf/otf/eot) are always downloaded when
+    // migrateStyles is on because rewriteCssUrls already rewrites their paths to /media/... — without
+    // the actual files the CSS would reference broken local URLs. Other media (images) require downloadMedia.
+    const FONT_EXT = /\.(woff2?|ttf|otf|eot)(\?[^"')]*)?$/i;
+    if (isSameOrigin && !config.dryRun) {
       for (const mediaUrl of extractCssMediaUrls(rawCss, cssUrl)) {
         try {
           if (!mediaUrl.startsWith(wpOrigin)) continue;
           const mUrlObj = new URL(mediaUrl);
+          const isFontFile = FONT_EXT.test(mUrlObj.pathname);
+          if (!isFontFile && !config.downloadMedia) continue;
           const relPath = mUrlObj.pathname.replace(/^\/+/, "");
           const outMediaPath = path.join(mediaRoot, ...relPath.split("/").map(sanitizeFileSegment));
           if (!(await fileExists(outMediaPath))) await downloadFile(mediaUrl, outMediaPath, headers);
@@ -1719,9 +2052,8 @@ async function generateLayouts(config, root) {
   const languageSwitcherLine = enabled.has("wpml") || enabled.has("gtranslate")
     ? `    {% include "partials/language-switcher.njk" %}\n`
     : "";
-  const navigationLine = `    {% include "partials/site-navigation.njk" %}\n`;
   const newsletterLine = enabled.has("newsletter") || enabled.has("mailerlite") || enabled.has("mailchimp")
-    ? `    {% include "partials/newsletter-signup.njk" %}\n`
+    ? `  {% include "partials/newsletter-signup.njk" %}\n`
     : "";
   const cookieLine = enabled.has("complianz")
     ? `  {% include "partials/cookie-consent-placeholder.njk" %}\n`
@@ -1741,9 +2073,9 @@ async function generateLayouts(config, root) {
   {% if noindex %}<meta name="robots" content="noindex">{% endif %}
 ${stylesLine}</head>
 <body>
-  <header class="site-shell-header">
-${languageSwitcherLine}${navigationLine}  </header>
+  {% include "partials/site-header.njk" %}
   {{ content | safe }}
+  {% include "partials/site-footer.njk" %}
 ${newsletterLine}${cookieLine}</body>
 </html>
 `;
@@ -1752,7 +2084,6 @@ ${newsletterLine}${cookieLine}</body>
 layout: ${baseLayoutName}
 ---
 <main class="page">
-  <header class="page-header"><h1>{{ title }}</h1></header>
   <div class="page-content">{{ content | safe }}</div>
 </main>
 `;
@@ -1808,7 +2139,9 @@ const LEAF_KADENCE_BLOCKS = new Set(["advancedheading", "listitem", "icon", "ima
 const CONTAINER_KADENCE_BLOCKS = new Set(["rowlayout", "column", "iconlist", "tabs", "tab", "accordion", "pane", "gallery", "slider", "slide", "splitcontent", "testimonials", "postcarousel", "portfoliogrid"]);
 
 function convertPaletteToken(value) {
-  return String(value || "").replace(/\bpalette([1-9])\b/gi, (_, num) => `var(--global-palette${num})`);
+  // Negative lookbehind: skip palette# that is already inside --global-paletteX so we
+  // never produce double-wrapped var(--global-var(--global-paletteX)) tokens.
+  return String(value || "").replace(/(?<!--global-)palette([1-9])\b/gi, (_, num) => `var(--global-palette${num})`);
 }
 
 function transformPaletteValues(input) {
@@ -1835,6 +2168,10 @@ function sanitizeHtmlFragment(html) {
     const cleaned = sanitizeClassName(classes);
     return cleaned ? ` class=${quote}${cleaned}${quote}` : "";
   });
+  // Remove empty anchor tags (e.g. dead WordPress /?page_id=X links with no visible text).
+  result = result.replace(/<a\b[^>]*>\s*<\/a>/gi, "");
+  // Remove surrounding <p> wrappers that become empty after link removal.
+  result = result.replace(/<p[^>]*>\s*<\/p>/gi, "");
   return convertPaletteToken(result);
 }
 
@@ -1852,7 +2189,15 @@ function stripOuterWrapperTag(html) {
 
 function extractLeafInnerContent(shortName, attrs, innerHtml) {
   if (shortName === "image" || shortName === "spacer") return "";
-  if (shortName === "listitem" && attrs?.text) return decodeHtml(String(attrs.text));
+  if (shortName === "listitem") {
+    // Prefer the plain-text `text` attr (available with context=edit).
+    if (attrs?.text) return decodeHtml(String(attrs.text));
+    // Fallback: extract only the text content from the kt-svg-icon-list-text span
+    // to avoid duplicating markup that the listitem.njk template already emits.
+    const spanMatch = String(innerHtml || "").match(/<span[^>]*kt-svg-icon-list-text[^>]*>([\s\S]*?)<\/span>/i);
+    if (spanMatch) return spanMatch[1].trim();
+    return stripOuterWrapperTag(sanitizeHtmlFragment(innerHtml));
+  }
   return stripOuterWrapperTag(sanitizeHtmlFragment(innerHtml));
 }
 
@@ -1875,8 +2220,18 @@ function pickDefinedAttrs(attrs, keys) {
 
 function sanitizeKadenceAttrs(shortName, attrs = {}) {
   switch (shortName) {
-    case "advancedheading":
-      return pickDefinedAttrs(attrs, ["uniqueID", "level", "align", "color", "fontSize", "fontSizeType", "textTransform", "fontWeight", "className"]);
+    case "advancedheading": {
+      const base = pickDefinedAttrs(attrs, ["uniqueID", "level", "align", "color", "fontSizeType", "textTransform", "fontWeight", "className"]);
+      // WP stores fontSize as [desktop, tablet, mobile] array — take first non-empty value as scalar.
+      const rawFs = attrs?.fontSize;
+      if (Array.isArray(rawFs)) {
+        const val = rawFs.find((v) => v !== undefined && v !== null && String(v).trim() !== "");
+        if (val !== undefined) base.fontSize = String(val).trim();
+      } else if (rawFs !== undefined && rawFs !== null && String(rawFs).trim() !== "") {
+        base.fontSize = String(rawFs).trim();
+      }
+      return base;
+    }
     case "rowlayout":
       return {
         ...pickDefinedAttrs(attrs, ["uniqueID", "columns", "colLayout", "bgColor", "background", "backgroundImg", "padding", "margin", "bottomSep", "bottomSepColor", "align", "className"]),
@@ -2052,6 +2407,7 @@ function extractSeoPluginMeta(item) {
 }
 
 function renderBlockTree(nodes, config, warnings, state) {
+  if (!state._kbSaveCounter) state._kbSaveCounter = 0;
   return nodes.map((node) => {
     if (node.type === "html") return sanitizeHtmlFragment(node.value);
 
@@ -2067,11 +2423,14 @@ function renderBlockTree(nodes, config, warnings, state) {
         shortName,
         attrs
       });
+      const saveVar = `_kb_save_${state._kbSaveCounter++}`;
       return [
         `{% set kadenceBlock = ${blockData} %}`,
+        `{% set ${saveVar} = kadenceBlock %}`,
         "{% set kadenceInnerHtml %}",
         innerHtml,
         "{% endset %}",
+        `{% set kadenceBlock = ${saveVar} %}`,
         `{% include "blocks/kadence/${shortName}.njk" %}`
       ].join("\n");
     }
@@ -2137,9 +2496,27 @@ const KADENCE_PARTIAL_TEMPLATES = {
   advancedheading: `{# kadence/advancedheading — Heading with configurable tag level, alignment and color #}
 {% set b = kadenceBlock.attrs %}
 {% set tag = "h" ~ (b.level if b.level else 2) %}
+{% if b.fontSize %}
+  {# fontSize may be a scalar string or a [desktop,tablet,mobile] array from older migrations #}
+  {% if b.fontSize[0] is defined and b.fontSize[0] != "" %}
+    {% set fsRaw = b.fontSize[0] %}
+  {% elif b.fontSize[0] is defined %}
+    {% set fsRaw = "" %}
+  {% else %}
+    {% set fsRaw = b.fontSize %}
+  {% endif %}
+  {% if fsRaw == "sm" %}{% set fsCss = "0.875rem" %}
+  {% elif fsRaw == "md" %}{% set fsCss = "1rem" %}
+  {% elif fsRaw == "lg" %}{% set fsCss = "1.25rem" %}
+  {% elif fsRaw == "xl" %}{% set fsCss = "1.75rem" %}
+  {% elif fsRaw == "xxl" %}{% set fsCss = "2.25rem" %}
+  {% elif fsRaw == "3xl" %}{% set fsCss = "3rem" %}
+  {% elif fsRaw %}{% set fsCss = fsRaw ~ (b.fontSizeType if b.fontSizeType else "") %}
+  {% endif %}
+{% endif %}
 <{{ tag }}
   class="kadence-block kadence-advancedheading{% if b.className %} {{ b.className }}{% endif %}{% if b.uniqueID %} kt-adv-heading_{{ b.uniqueID }}{% endif %}"
-  {% if b.align or b.color or b.fontSize or b.textTransform or b.fontWeight %}style="{% if b.align %}text-align:{{ b.align }};{% endif %}{% if b.color %} color:{{ b.color }};{% endif %}{% if b.fontSize %} font-size:{{ b.fontSize }}{% if b.fontSizeType %}{{ b.fontSizeType }}{% endif %};{% endif %}{% if b.textTransform %} text-transform:{{ b.textTransform }};{% endif %}{% if b.fontWeight %} font-weight:{{ b.fontWeight }};{% endif %}"{% endif %}
+  {% if b.align or b.color or fsCss or b.textTransform or b.fontWeight %}style="{% if b.align %}text-align:{{ b.align }};{% endif %}{% if b.color %} color:{{ b.color }};{% endif %}{% if fsCss %} font-size:{{ fsCss }};{% endif %}{% if b.textTransform %} text-transform:{{ b.textTransform }};{% endif %}{% if b.fontWeight %} font-weight:{{ b.fontWeight }};{% endif %}"{% endif %}
 >{{ kadenceInnerHtml | safe }}</{{ tag }}>
 `,
 
@@ -2166,13 +2543,29 @@ const KADENCE_PARTIAL_TEMPLATES = {
 </div>
 `,
 
-  rowlayout: `{# kadence/rowlayout — Multi-column section; columns are nested kadence/column blocks #}
+  rowlayout: `{# kadence/rowlayout — Multi-column section with optional separators #}
+{% from "macros/separators.njk" import kbSeparator %}
 {% set b = kadenceBlock.attrs %}
+{% set cols = b.columns if b.columns else 1 %}
+{% set layout = b.colLayout if b.colLayout else "equal" %}
 <section
-  class="kadence-block kadence-rowlayout kb-row-layout-wrap{% if b.uniqueID %} kb-row-layout-id_{{ b.uniqueID }}{% endif %}{% if b.align == "full" %} alignfull{% endif %}{% if b.bgColorClass %} kb-theme-{{ b.bgColorClass }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.background or b.bgColor or (b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg) %}style="{% if b.background %}background-color:{{ b.background }};{% endif %}{% if b.bgColor %} background-color:{{ b.bgColor }};{% endif %}{% if b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg %} background-image:url('{{ b.backgroundImg[0].bgImg }}');{% endif %}"{% endif %}
+  class="wp-block-kadence-rowlayout kb-row-layout-wrap kadence-block kadence-rowlayout{% if b.uniqueID %} kb-row-layout-id{{ b.uniqueID }}{% endif %}{% if b.align == "full" %} alignfull{% endif %}{% if b.bgColorClass %} kb-theme-{{ b.bgColorClass }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
+  {% if b.background or b.bgColor or (b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg) %}style="{% if b.background %}background-color:{{ b.background }};{% endif %}{% if b.bgColor %}background-color:{{ b.bgColor }};{% endif %}{% if b.backgroundImg and b.backgroundImg[0] and b.backgroundImg[0].bgImg %}background-image:url('{{ b.backgroundImg[0].bgImg }}');{% endif %}"{% endif %}
 >
-  {{ kadenceInnerHtml | safe }}
+  {% if b.topSep and b.topSep != "none" %}
+    <div class="kt-row-layout-top-sep kt-svg-for-top-sep" aria-hidden="true"{% if b.topSepColor %} style="color:{{ b.topSepColor }}"{% endif %}>
+      {{ kbSeparator(b.topSep) | safe }}
+    </div>
+  {% endif %}
+  <div class="kt-row-layout-overlay"></div>
+  <div class="kt-row-column-wrap kb-col-{{ cols }} kb-layout-{{ layout }}">
+    {{ kadenceInnerHtml | safe }}
+  </div>
+  {% if b.bottomSep and b.bottomSep != "none" %}
+    <div class="kt-row-layout-bottom-sep kt-svg-for-bottom-sep" aria-hidden="true"{% if b.bottomSepColor %} style="color:{{ b.bottomSepColor }}"{% endif %}>
+      {{ kbSeparator(b.bottomSep) | safe }}
+    </div>
+  {% endif %}
 </section>
 `,
 
@@ -2803,18 +3196,29 @@ function kadencePartialTemplate(name) {
   const raw = rawBase.replace(/\n\s*\{% if b\.uniqueID %\}data-kadence-id="\{\{ b\.uniqueID \}\}"\{% endif %\}/g, "");
 
   // Inject standard WordPress block class, Kadence kb-* class and uniqueID-scoped class.
-  // All three together ensure that CSS downloaded from the WordPress site still applies.
+  // Only inject each class if it is NOT already present in the explicit template — explicit templates
+  // may include some or all of these already, and double-injecting produces broken markup.
   const css = KADENCE_BLOCK_CSS[name] || {};
   const wpClass = `wp-block-kadence-${name}`;
-  const kbClass = css.wrap ? ` ${css.wrap}` : "";
-  const uidFrag = css.uid ? `{% if b.uniqueID %} ${css.uid}_{{ b.uniqueID }}{% endif %}` : "";
+
+  const wpAlready  = raw.includes(wpClass);
+  const kbAlready  = css.wrap ? raw.includes(css.wrap) : true;
+  const uidAlready = css.uid  ? raw.includes(`${css.uid}_`) : true;
+
+  // Build prefix string from only the missing classes.
+  const prefixParts = [];
+  if (!wpAlready)  prefixParts.push(wpClass);
+  if (!kbAlready)  prefixParts.push(css.wrap);
+  const uidFrag = (!uidAlready && css.uid) ? `{% if b.uniqueID %} ${css.uid}_{{ b.uniqueID }}{% endif %}` : "";
+
+  // If nothing needs injecting, return the template unchanged.
+  if (!prefixParts.length && !uidFrag) return raw;
 
   // The templates open with: class="kadence-block kadence-{name} (or kadence-toc for table-of-contents)
-  // Find whichever variant is present and prepend the Kadence CSS classes.
   const needle = raw.includes(`class="kadence-block kadence-${name}`)
     ? `class="kadence-block kadence-${name}`
-    : `class="kadence-block kadence-toc`; // table-of-contents uses kadence-toc shorthand
-  const replacement = `class="${wpClass}${kbClass} kadence-block kadence-${name}${uidFrag}`;
+    : `class="kadence-block kadence-toc`; // table-of-contents shorthand
+  const replacement = `class="${prefixParts.length ? prefixParts.join(" ") + " " : ""}kadence-block kadence-${name}${uidFrag}`;
   return raw.replace(needle, replacement);
 }
 
@@ -2823,19 +3227,30 @@ function featherIconMacroTemplate() {
 {% set iconName = (name | replace("fe_", "") | lower) %}
 <span class="feather-icon feather-icon-{{ iconName }}" aria-hidden="true">
   {% if iconName == "check" %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
   {% elif iconName == "star" %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9 16.5 14 18.5 22 12 17.8 5.5 22 7.5 14 2 9 9 9 12 2"></polygon></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9 16.5 14 18.5 22 12 17.8 5.5 22 7.5 14 2 9 9 9 12 2"></polygon></svg>
   {% elif iconName == "menu" %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
   {% elif iconName == "x" %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
   {% elif iconName == "arrow-right" %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
   {% else %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle></svg>
   {% endif %}
 </span>
+{%- endmacro %}
+`;
+}
+
+function separatorMacroTemplate() {
+  const cases = Object.entries(SEPARATOR_SVG_TEMPLATES)
+    .map(([name, svg], i) => `  ${ i === 0 ? "{% if" : "{% elif"} name == "${name}" %}${svg}`)
+    .join("\n");
+  return `{% macro kbSeparator(name) -%}
+${cases}
+  {% endif %}
 {%- endmacro %}
 `;
 }
@@ -2853,6 +3268,7 @@ async function writeKadencePartials(outputRoot, blocksDir, preset) {
   const macroDir = path.join(outputRoot, "_includes", "macros");
   await fs.mkdir(macroDir, { recursive: true });
   await fs.writeFile(path.join(macroDir, "feather-icons.njk"), featherIconMacroTemplate(), "utf8");
+  await fs.writeFile(path.join(macroDir, "separators.njk"), separatorMacroTemplate(), "utf8");
   return absoluteDir;
 }
 
@@ -2988,7 +3404,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   const dataRoot = path.join(root, config.dataDir || DEFAULT_DATA_DIR);
   const kadencePartialsPath = path.join(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR);
   await fs.mkdir(contentRoot, { recursive: true });
-  if (config.downloadMedia) await fs.mkdir(mediaRoot, { recursive: true });
+  if (config.downloadMedia || config.migrateStyles) await fs.mkdir(mediaRoot, { recursive: true });
   if (config.importMenus) await fs.mkdir(dataRoot, { recursive: true });
 
   if (config.siteProfile) {
@@ -3083,31 +3499,26 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       imported: menuResult.menus.length,
       source: menuResult.source || "none"
     };
-    if (menuResult.menus.length) {
-      const navigationPath = path.join(dataRoot, "navigation.json");
-      report.menus.outputPath = navigationPath;
-      if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(menuResult.menus, null, 2)}\n`, "utf8");
-      progress("ok", `Valikot: ${menuResult.menus.length} kpl (lähde: ${menuResult.source})`);
-    } else {
+
+    let finalMenus = menuResult.menus;
+
+    if (!finalMenus.length) {
       // Fallback: parse nav structure from rendered homepage HTML
       progress("warn", "REST API ei palauttanut valikoita — yritetään parsia renderöidystä HTML:stä…");
       try {
         const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
         const parsedNavs = extractNavFromHtml(homepageHtml, config.wpBaseUrl);
         if (parsedNavs.length) {
-          const parsedNavRecord = parsedNavs.map((nav, i) => ({
+          finalMenus = parsedNavs.map((nav, i) => ({
             id: nav.id || `parsed-nav-${i}`,
             slug: nav.id || `parsed-nav-${i}`,
             title: nav.ariaLabel || `Navigation ${i + 1}`,
             location: "",
             items: nav.items,
           }));
-          const navigationPath = path.join(dataRoot, "navigation.json");
-          report.menus.outputPath = navigationPath;
           report.menus.source = "html-fallback";
-          report.menus.imported = parsedNavRecord.length;
-          if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(parsedNavRecord, null, 2)}\n`, "utf8");
-          progress("ok", `Valikot parsittu HTML:stä: ${parsedNavRecord.length} kpl`);
+          report.menus.imported = finalMenus.length;
+          progress("ok", `Valikot parsittu HTML:stä: ${finalMenus.length} kpl`);
         } else {
           report.warnings.push("No menu structure was imported. WordPress menus often need a dedicated menu REST endpoint or plugin.");
           progress("warn", "Valikkoja ei löydetty REST API:sta eikä HTML:stä");
@@ -3115,6 +3526,46 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       } catch (err) {
         report.warnings.push(`Menu HTML fallback failed: ${String(err.message || err)}`);
         progress("warn", `Valikkojen parsinta epäonnistui: ${err.message}`);
+      }
+    }
+
+    // Augment with Kadence Pro megamenu data from kadence_navigation post type
+    if (config.authMode !== "none") {
+      try {
+        progress("info", "Haetaan Kadence-navigaatiot (megamenu)…");
+        const kadenceHeaders = await fetchKadenceHeaders(config, headers);
+        const kadenceNavs = await fetchKadenceNavigations(config, headers);
+        if (kadenceNavs.length) {
+          // Find the nav id used in the active header
+          let mainNavId = null;
+          for (const kh of kadenceHeaders) {
+            mainNavId = findNavIdInHeaderContent(kh.content);
+            if (mainNavId) break;
+          }
+          const mainNavTemplate = mainNavId
+            ? kadenceNavs.find((n) => n.id === mainNavId)
+            : kadenceNavs[0];
+          if (mainNavTemplate) {
+            const kadenceNavItems = parseKadenceNavLinks(mainNavTemplate.content, config.wpBaseUrl);
+            finalMenus = mergeKadenceMegamenuIntoNav(finalMenus, kadenceNavItems);
+            const megamenuCount = kadenceNavItems.filter((i) => i.isMegaMenu).length;
+            if (megamenuCount) {
+              progress("ok", `Kadence megamenu: ${megamenuCount} kohde(tta) lisätty`);
+            }
+          }
+        }
+      } catch (err) {
+        report.warnings.push(`Kadence navigation fetch failed: ${String(err.message || err)}`);
+      }
+    }
+
+    if (finalMenus.length) {
+      const navigationPath = path.join(dataRoot, "navigation.json");
+      report.menus.outputPath = navigationPath;
+      report.menus.imported = finalMenus.length;
+      if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(finalMenus, null, 2)}\n`, "utf8");
+      if (menuResult.menus.length) {
+        progress("ok", `Valikot: ${finalMenus.length} kpl (lähde: ${menuResult.source})`);
       }
     }
   }
@@ -3147,6 +3598,13 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
 
     const outTypeDir = path.join(contentRoot, typeSlug);
     await fs.mkdir(outTypeDir, { recursive: true });
+
+    // Write Eleventy directory data file so collections.posts works out of the box.
+    if (typeSlug === "posts" && !config.dryRun) {
+      const layout = resolveLayoutForType("posts", config);
+      const dirData = { tags: ["posts"], ...(layout ? { layout } : {}) };
+      await writeIfMissing(path.join(outTypeDir, "posts.json"), `${JSON.stringify(dirData, null, 2)}\n`);
+    }
 
     let written = 0;
     for (const item of items) {
