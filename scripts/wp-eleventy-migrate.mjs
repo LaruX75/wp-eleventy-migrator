@@ -526,14 +526,87 @@ async function fetchKadenceHeaders(config, headers) {
   try {
     const url = `${baseApi}/kadence_header?per_page=20&context=edit`;
     const items = await fetchAllPages(url, headers);
-    return items.map((item) => ({
-      id: item.id,
-      title: String(item.title?.rendered || item.title?.raw || ""),
-      content: String(item.content?.raw || item.content?.rendered || ""),
-    }));
+    return items.map((item) => {
+      const content = String(item.content?.raw || item.content?.rendered || "");
+      const meta = item.meta || {};
+      return {
+        id: item.id,
+        title: String(item.title?.rendered || item.title?.raw || ""),
+        content,
+        styles: parseKadenceHeaderStyles(content, meta),
+      };
+    });
   } catch {
     return [];
   }
+}
+
+// Parse visual styles from a kadence_header block tree (header-row attributes)
+// and optionally merge REST meta fields (which take priority)
+function parseKadenceHeaderStyles(content, meta = {}) {
+  const tree = parseWpBlocks(content);
+  const styles = {
+    minHeight: null,
+    background: null,
+    backgroundType: null,
+    backgroundImg: null,
+    isTransparent: false,
+    isTransparentTablet: false,
+    isTransparentMobile: false,
+    isSticky: false,
+    isStickyTablet: false,
+    isStickyMobile: false,
+    stickySection: null,
+    stickySectionTablet: null,
+    logoWidth: null,
+    logoIsLink: true,
+    logoShowTitle: true,
+    logoLayout: null,
+  };
+
+  // Walk block tree for header-row minHeight and logo settings
+  function walk(nodes) {
+    for (const node of nodes) {
+      if (node.type === "block" && node.name === "kadence/header-row") {
+        const a = node.attrs || {};
+        if (a.minHeight != null && styles.minHeight == null) styles.minHeight = a.minHeight;
+        // Block attrs as fallback if meta missing
+        if (a.background && styles.background == null) styles.background = a.background;
+        if (a.backgroundType && styles.backgroundType == null) styles.backgroundType = a.backgroundType;
+        if (a.backgroundImg && styles.backgroundImg == null) styles.backgroundImg = a.backgroundImg;
+      }
+      if (node.type === "block" && node.name === "kadence/identity") {
+        const a = node.attrs || {};
+        if (a.showSiteTitle != null && styles.logoShowTitle === true) styles.logoShowTitle = a.showSiteTitle;
+        if (a.layout && styles.logoLayout == null) styles.logoLayout = a.layout;
+      }
+      if (node.type === "block" && node.name === "site-logo") {
+        const a = node.attrs || {};
+        if (a.width != null && styles.logoWidth == null) styles.logoWidth = a.width;
+        if (a.isLink === false) styles.logoIsLink = false;
+      }
+      if (node.children && node.children.length) walk(node.children);
+    }
+  }
+  walk(tree.children || []);
+
+  // Meta fields override block attrs (more authoritative)
+  const bg = meta._kad_header_background;
+  if (bg) {
+    if (bg.color) styles.background = bg.color;
+    if (bg.type) styles.backgroundType = bg.type;
+    if (bg.image) styles.backgroundImg = [{ bgImg: bg.image, bgPosition: bg.position || "center center", bgSize: bg.size || "cover", bgRepeat: bg.repeat || "no-repeat" }];
+  }
+  if (meta._kad_header_isTransparent === "1" || meta._kad_header_isTransparent === true) styles.isTransparent = true;
+  if (meta._kad_header_isTransparentTablet === "1" || meta._kad_header_isTransparentTablet === true) styles.isTransparentTablet = true;
+  if (meta._kad_header_isTransparentMobile === "1" || meta._kad_header_isTransparentMobile === true) styles.isTransparentMobile = true;
+  if (meta._kad_header_isSticky === "1" || meta._kad_header_isSticky === true) styles.isSticky = true;
+  if (meta._kad_header_isStickyTablet === "1" || meta._kad_header_isStickyTablet === true) styles.isStickyTablet = true;
+  if (meta._kad_header_isStickyMobile === "1" || meta._kad_header_isStickyMobile === true) styles.isStickyMobile = true;
+  if (meta._kad_header_stickySection) styles.stickySection = meta._kad_header_stickySection;
+  if (meta._kad_header_stickySectionTablet) styles.stickySectionTablet = meta._kad_header_stickySectionTablet;
+
+  return styles;
 }
 
 // Find the first navigation id referenced in a kadence_header block tree
@@ -820,6 +893,26 @@ async function writeSiteProfileArtifacts(outputRoot, profile, progress = () => {
 
 function themeCssFromProfile(profile) {
   const paletteEntries = Object.entries(profile?.palette || {});
+  const hs = profile?.headerStyles || {};
+
+  // Resolve background for .site-shell-header
+  let headerBg = "var(--global-palette9, #fff)";
+  if (hs.backgroundType === "image" && Array.isArray(hs.backgroundImg) && hs.backgroundImg[0]?.bgImg) {
+    const img = hs.backgroundImg[0];
+    const position = img.bgPosition || "center center";
+    const size = img.bgSize || "cover";
+    const repeat = img.bgRepeat || "no-repeat";
+    headerBg = `url('${img.bgImg}') ${position} / ${size} ${repeat}`;
+  } else if (hs.background) {
+    // Kadence stores palette refs as "palette9" — map to CSS var, or use as-is if already a value
+    headerBg = /^palette\d+$/.test(hs.background)
+      ? `var(--global-${hs.background}, #fff)`
+      : hs.background;
+  }
+
+  const headerMinHeight = hs.minHeight ? `${hs.minHeight}px` : "64px";
+  const logoWidth = hs.logoWidth ? `${hs.logoWidth}px` : "120px";
+
   return [
     "/* Auto-generated by wp-eleventy-migrator from site-profile.json */",
     ":root {",
@@ -831,34 +924,38 @@ function themeCssFromProfile(profile) {
     "body { margin: 0; font-family: var(--global-body-font-family, Arial, Helvetica, sans-serif); }",
     "",
     "/* ── Site header ───────────────────────────────────────────────────────────── */",
-    ".site-shell-header { position: sticky; top: 0; z-index: 1000; background: var(--global-palette9, #fff); border-bottom: 1px solid var(--global-palette7, #e5e5e5); }",
-    ".site-header-inner { display: flex; align-items: center; gap: 1rem; max-width: var(--global-content-width, 1290px); margin: 0 auto; padding: 0 var(--global-content-edge-padding, 1.5rem); min-height: 64px; }",
+    `.site-shell-header { position: sticky; top: 0; z-index: 1000; background: ${headerBg}; transition: background 0.3s; }`,
+    `.site-shell-header.is-transparent { background: transparent; }`,
+    `.site-shell-header.is-stuck { background: ${headerBg}; }`,
+    `.site-header-inner { display: flex; align-items: center; gap: 1rem; max-width: var(--global-content-width, 1290px); margin: 0 auto; padding: var(--global-kb-spacing-sm, 1.5rem); min-height: ${headerMinHeight}; }`,
     ".site-logo { text-decoration: none; color: var(--global-palette1, #333); font-weight: 700; font-size: 1.1rem; white-space: nowrap; flex-shrink: 0; }",
-    ".site-logo img { height: 48px; width: auto; display: block; }",
+    `.site-logo img { width: ${logoWidth}; height: auto; display: block; }`,
     "",
     "/* ── Hamburger toggle — hidden on desktop ──────────────────────────────────── */",
-    ".kb-nav-toggle { display: none; background: none; border: none; cursor: pointer; font-size: 1.5rem; padding: 0.25rem 0.5rem; color: var(--global-palette1, #333); margin-left: auto; }",
+    ".kb-nav-toggle { display: none; background: var(--global-palette7, #f0f4ec); border: 1px solid var(--global-palette6, #446d33); border-radius: 10px; cursor: pointer; font-size: 1.5rem; padding: 0.25rem 0.5rem; color: var(--global-palette3, #000); margin-left: auto; }",
+    ".kb-nav-toggle:hover { background: var(--global-palette9, #fff); }",
     "",
     "/* ── Primary nav — desktop ─────────────────────────────────────────────────── */",
     ".site-navigation { margin-left: auto; }",
     ".kb-nav-menu { display: flex; align-items: center; list-style: none; margin: 0; padding: 0; gap: 0; }",
     ".kb-nav-item { position: relative; }",
-    ".kb-nav-link { display: block; padding: 0.5rem 0.85rem; text-decoration: none; color: var(--global-palette1, #333); font-weight: 500; white-space: nowrap; transition: color 0.15s; }",
-    ".kb-nav-link:hover { color: var(--global-palette2, #446d33); }",
+    ".kb-nav-link { display: block; padding: 0.5rem 0.85rem; text-decoration: none; color: var(--global-palette4, #314e25); font-weight: inherit; white-space: nowrap; transition: color 0.15s, background 0.15s; }",
+    ".kb-nav-link:hover { color: var(--global-palette1, #314e25); background: #d9e3cf; }",
     "",
     "/* ── Normal dropdown ───────────────────────────────────────────────────────── */",
     ".menu-item-has-children > .sub-menu { display: none; }",
-    ".menu-item-has-children:hover > .sub-menu, .menu-item-has-children.is-open > .sub-menu { display: block; position: absolute; top: 100%; left: 0; min-width: 200px; background: var(--global-palette9, #fff); border: 1px solid var(--global-palette7, #eee); border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,.1); z-index: 200; list-style: none; margin: 0; padding: .25rem 0; }",
+    ".menu-item-has-children:hover > .sub-menu, .menu-item-has-children.is-open > .sub-menu { display: block; position: absolute; top: 100%; left: 0; min-width: 200px; background: var(--global-palette9, #fff); border: 1px solid #d9e3cf; border-radius: 0 0 20px 20px; box-shadow: 0px 2px 13px 0px rgba(0,0,0,.1); z-index: 200; list-style: none; margin: 0; padding: .25rem 0; }",
+    ".kb-nav-sub-menu .menu-item + .menu-item { border-top: 1px solid #d9e3cf; }",
     ".kb-nav-sub-menu .kb-nav-link { padding: .4rem 1rem; }",
     ".kb-nav-sub-menu .menu-item:hover > .kb-nav-link { background: var(--global-palette7, #f0f4ec); }",
     "",
     "/* ── Megamenu ──────────────────────────────────────────────────────────────── */",
     ".kb-nav-mega-menu-item > .kb-mega-menu { display: none; }",
-    ".kb-nav-mega-menu-item:hover > .kb-mega-menu, .kb-nav-mega-menu-item.is-open > .kb-mega-menu { display: block; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); min-width: 480px; max-width: 700px; background: var(--global-palette9, #fff); border: 1px solid var(--global-palette6, #446d33); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 200; padding: 1rem; }",
-    ".kb-mega-menu-cols { display: flex; gap: 1rem; list-style: none; margin: 0; padding: 0; }",
+    ".kb-nav-mega-menu-item:hover > .kb-mega-menu, .kb-nav-mega-menu-item.is-open > .kb-mega-menu { display: block; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: 700px; background: var(--global-palette9, #fff); border: 1px solid #d9e3cf; border-radius: 0 0 20px 20px; box-shadow: 0px 2px 13px 0px rgba(0,0,0,.1); z-index: 200; padding: 1rem; }",
+    ".kb-mega-menu-cols { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem; list-style: none; margin: 0; padding: 0; }",
     ".kb-mega-menu-col { flex: 1; }",
     ".kb-mega-col-items { list-style: none; margin: 0; padding: 0; }",
-    ".kb-mega-link { display: block; padding: .35rem .5rem; text-decoration: none; color: var(--global-palette1, #333); border-radius: 4px; transition: background .15s; }",
+    ".kb-mega-link { display: block; padding: .35rem .5rem; text-decoration: none; color: var(--global-palette1, #333); transition: background .15s; }",
     ".kb-mega-link:hover { background: var(--global-palette7, #f0f4ec); }",
     "",
     "/* ── Feather icons ─────────────────────────────────────────────────────────── */",
@@ -891,15 +988,79 @@ function themeCssFromProfile(profile) {
     "/* ── Separator SVGs — override migrated Kadence CSS fill: #fff ──────────────── */",
     ".kt-row-layout-bottom-sep svg, .kt-row-layout-top-sep svg, .kt-svg-for-top-sep svg, .kt-svg-for-bottom-sep svg { fill: currentColor !important; display: block; width: 100%; height: 100%; }",
     "",
+    "/* ── Kadence tabs ───────────────────────────────────────────────────────────── */",
+    ".wp-block-kadence-tabs.kb-tabs { margin: 1.5rem 0; }",
+    ".kt-tabs-title-list { display: flex; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; gap: .25rem; border-bottom: 2px solid var(--global-palette7, #eee); }",
+    ".kt-title-item { margin: 0; }",
+    ".kt-tab-title { display: block; padding: .6rem 1.25rem; text-decoration: none; border-radius: 4px 4px 0 0; border: 1px solid transparent; border-bottom: none; color: var(--global-palette3, #000); font-weight: 500; font-size: .95rem; transition: background .15s, color .15s; }",
+    ".kt-tab-title:hover { background: var(--global-palette7, #f0f4ec); }",
+    ".kt-title-item.kt-tab-title-active .kt-tab-title { background: var(--global-palette9, #fff); border-color: var(--global-palette7, #eee); color: var(--global-palette2, #446d33); font-weight: 700; margin-bottom: -2px; }",
+    ".kt-tabs-content-wrap { padding: 1.5rem 0 0; }",
+    ".kb-tab-panel { display: none; }",
+    ".kb-tab-panel.kt-tab-active { display: block; }",
+    "",
+    "/* ── Kadence query grid ──────────────────────────────────────────────────────── */",
+    ".wp-block-kadence-query.kb-query-loop { margin: 1rem 0; }",
+    ".kb-query-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }",
+    ".kb-query-item { background: var(--global-palette9, #fff); border: 1px solid var(--global-palette7, #eee); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }",
+    ".kb-query-item__thumb img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }",
+    ".kb-query-item__body { padding: 1rem; display: flex; flex-direction: column; flex: 1; }",
+    ".kb-query-item__cats { margin-bottom: .4rem; }",
+    ".kb-query-item__cat { display: inline-block; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--global-palette2, #446d33); background: var(--global-palette7, #f0f4ec); padding: .15rem .5rem; border-radius: 3px; }",
+    ".kb-query-item__title { font-size: 1rem; margin: 0 0 .4rem; line-height: 1.35; }",
+    ".kb-query-item__title a { color: var(--global-palette3, #000); text-decoration: none; }",
+    ".kb-query-item__title a:hover { color: var(--global-palette2, #446d33); }",
+    ".kb-query-item__date { font-size: .8rem; color: #666; display: block; margin-bottom: .5rem; }",
+    ".kb-query-item__excerpt { font-size: .875rem; color: #444; margin: 0; line-height: 1.5; flex: 1; }",
+    "",
+    "/* ── Kadence accordion ──────────────────────────────────────────────────────── */",
+    ".kt-accordion-pane { border: 1px solid var(--global-palette7, #eee); border-radius: 4px; margin-bottom: .5rem; overflow: hidden; }",
+    ".kt-accordion-header-btn { display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--global-palette7, #f0f4ec); border: none; padding: 1rem 1.25rem; cursor: pointer; font-size: 1.05rem; font-weight: 600; text-align: left; gap: .5rem; color: var(--global-palette3, #000); }",
+    ".kt-accordion-header-btn:hover { background: var(--global-palette6, #446d33); color: var(--global-palette9, #fff); }",
+    ".kt-blocks-accordion-title { flex: 1; line-height: 1.35; white-space: normal; }",
+    ".kt-accordion-icon-trigger { display: inline-flex; align-items: center; font-size: 1.25rem; transition: transform .2s; line-height: 1; flex-shrink: 0; }",
+    ".kt-accordion-icon-trigger::after { content: '+'; }",
+    ".kt-accordion-pane.is-open .kt-accordion-icon-trigger::after { content: '\\2212'; }",
+    ".kt-accordion-panel { display: none; }",
+    ".kt-accordion-pane.is-open .kt-accordion-panel { display: block; }",
+    ".kt-accordion-panel-inner { padding: 1rem; }",
+    "",
+    "/* ── Kadence infobox ────────────────────────────────────────────────────────── */",
+    ".kt-blocks-info-box-wrap { }",
+    ".kt-blocks-info-box-link-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 1rem; text-decoration: none; color: inherit; }",
+    ".kt-blocks-info-box-media-container { flex-shrink: 0; }",
+    ".kt-info-svg-div { display: inline-flex; align-items: center; }",
+    ".kt-info-svg-div svg { width: 2rem; height: 2rem; }",
+    ".kt-info-box-img-wrap img { max-width: 100%; display: block; }",
+    ".kt-infobox-textcontent { flex: 1; display: flex; flex-direction: column; }",
+    ".kt-blocks-info-box-title { margin: 0 0 .5rem; }",
+    ".kt-blocks-info-box-body { }",
+    "",
+    "/* ── Kadence infobox — person cards inside accordion + row grid ─────────────── */",
+    ".kt-accordion-panel .kt-row-column-wrap { align-items: stretch; }",
+    ".kt-accordion-panel .kt-row-column-wrap .wp-block-kadence-column,",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-inside-inner-col { height: 100%; display: flex; flex-direction: column; }",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-blocks-info-box-wrap { background: var(--global-palette9, #fff); border: 1px solid var(--global-palette7, #f0f4ec); border-radius: 12px; padding: 1.25rem 1rem 1rem; box-shadow: 0 1px 6px rgba(0,0,0,.07); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-blocks-info-box-link-wrap,",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-infobox-textcontent { display: flex; flex-direction: column; flex: 1; }",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-info-box-image { width: 96px !important; height: 96px !important; object-fit: cover !important; border-radius: 50%; display: block !important; margin: 0 auto .875rem; }",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-blocks-info-box-media,",
+    ".kt-accordion-panel .kt-row-column-wrap .kadence-info-box-image-inner-intrisic-container,",
+    ".kt-accordion-panel .kt-row-column-wrap .kadence-info-box-image-intrisic,",
+    ".kt-accordion-panel .kt-row-column-wrap .kadence-info-box-image-inner-intrisic { display: block; width: 96px; height: 96px; margin: 0 auto; overflow: hidden; }",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-blocks-info-box-title { font-size: 1rem; font-weight: 700; margin: 0 0 .2rem; text-align: center; }",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-blocks-info-box-text { font-size: .875rem; text-align: center; margin: 0 0 .5rem; line-height: 1.4; }",
+    ".kt-accordion-panel .kt-row-column-wrap .kt-blocks-info-box-text a { font-size: .75rem; word-break: break-all; color: var(--global-palette2, #446d33); }",
+    "",
     "/* ── Site footer ───────────────────────────────────────────────────────────── */",
     ".site-footer { background: var(--global-palette1, #314e25); color: var(--global-palette9, #fff); padding: 2rem var(--global-content-edge-padding, 1.5rem); margin-top: 3rem; }",
     ".site-footer-inner { max-width: var(--global-content-width, 1290px); margin: 0 auto; }",
     ".site-footer-copy { margin: 0; opacity: .8; font-size: .875rem; }",
     "",
-    "/* ── Mobile (≤ 1023px) ─────────────────────────────────────────────────────── */",
-    "@media (max-width: 1023px) {",
+    "/* ── Mobile (≤ 1024px) ─────────────────────────────────────────────────────── */",
+    "@media (max-width: 1024px) {",
     "  .kb-nav-toggle { display: block; }",
-    "  .site-navigation { display: none; position: fixed; inset: 64px 0 0 0; background: var(--global-palette9, #fff); overflow-y: auto; z-index: 999; padding: 1rem; margin-left: 0; }",
+    `  .site-navigation { display: none; position: fixed; inset: ${headerMinHeight} 0 0 0; background: var(--global-palette9, #fff); overflow-y: auto; z-index: 999; padding: 1rem; margin-left: 0; }`,
     "  .site-navigation.is-open { display: block; }",
     "  .kb-nav-menu { flex-direction: column; align-items: stretch; gap: 0; }",
     "  .kb-nav-link { padding: .75rem .5rem; border-bottom: 1px solid var(--global-palette7, #eee); }",
@@ -1089,12 +1250,28 @@ async function analyzeSite(config, progress = () => {}) {
       : "none";
   const discoveredContentProfile = await discoverContentProfile(baseApi, headers, progress, warnings);
   const palette = extractPaletteFromVariables(cssVariableMap);
+
+  let headerStyles = null;
+  if (recommendedPreset === "kadence-pro" || recommendedPreset === "kadence") {
+    try {
+      progress("info", "DISCOVER: haetaan Kadence header -tyyliasetukset…");
+      const kadenceHeaders = await fetchKadenceHeaders({ wpBaseUrl: config.wpBaseUrl, restNamespace: recommendedNamespace, authMode: config.authMode, wpUser: config.wpUser, wpAppPassword: config.wpAppPassword, wpBearerToken: config.wpBearerToken }, headers);
+      if (kadenceHeaders.length) {
+        headerStyles = kadenceHeaders[0].styles;
+        progress("ok", `DISCOVER: header-tyylit löydetty (korkeus: ${headerStyles.minHeight ?? "oletus"}, tausta: ${headerStyles.backgroundType ?? "oletus"})`);
+      }
+    } catch (err) {
+      warnings.push(`Header style fetch failed: ${String(err.message || err)}`);
+    }
+  }
+
   const siteProfile = {
     generatedAt: new Date().toISOString(),
     wpBaseUrl: config.wpBaseUrl,
     restNamespace: recommendedNamespace,
     preset: recommendedPreset,
     palette,
+    headerStyles,
     separatorsUsed: discoveredContentProfile.separatorsUsed,
     colLayouts: discoveredContentProfile.colLayouts,
     blocksUsed: discoveredContentProfile.blocksUsed,
@@ -1262,21 +1439,32 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
 
   const partials = [];
 
+  const hs = config.siteProfile?.headerStyles || {};
+  const logoIsLink = hs.logoIsLink !== false;
+  const logoShowTitle = hs.logoShowTitle !== false;
+  const logoWidth = hs.logoWidth ? String(hs.logoWidth) : "120";
+  const logoOpenTag = logoIsLink ? `<a class="site-logo" href="/">` : `<span class="site-logo">`;
+  const logoCloseTag = logoIsLink ? `</a>` : `</span>`;
+  const logoAltFallback = logoShowTitle ? `{{ site.name if site and site.name else 'Site' }}` : `""`;
+  const logoTitleFallback = logoShowTitle
+    ? `<span class="site-name">{{ site.name if site and site.name else 'Site' }}</span>`
+    : ``;
+
   // ── site-header.njk ──────────────────────────────────────────────────────────
   partials.push([
     path.join(includesDir, "site-header.njk"),
     `{# Site header — logo + primary navigation #}
 {% set menus = navigation if navigation else [] %}
 {% set navItems = menus[0].items if menus and menus.length and menus[0].items else [] %}
-<header class="site-shell-header">
+<header class="site-shell-header{% if transparentHeader %} is-transparent{% endif %}">
   <div class="site-header-inner">
-    <a class="site-logo" href="/">
+    ${logoOpenTag}
       {% if site and site.logo %}
-        <img src="{{ site.logo }}" alt="{{ site.name if site.name else 'Home' }}">
+        <img src="{{ site.logo }}" alt="${logoAltFallback}" width="${logoWidth}">
       {% else %}
-        <span class="site-name">{{ site.name if site and site.name else 'Site' }}</span>
+        ${logoTitleFallback}
       {% endif %}
-    </a>
+    ${logoCloseTag}
     <button class="kb-nav-toggle" aria-expanded="false" aria-controls="site-nav-menu" aria-label="Toggle navigation">
       <span aria-hidden="true">&#9776;</span>
     </button>
@@ -1331,6 +1519,18 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
 </header>
 <script>
   document.addEventListener("DOMContentLoaded", () => {
+    const header = document.querySelector(".site-shell-header");
+
+    // Transparent header: toggle is-stuck / is-transparent on scroll
+    if (header && header.classList.contains("is-transparent")) {
+      const onScroll = () => {
+        header.classList.toggle("is-stuck", window.scrollY > 10);
+        header.classList.toggle("is-transparent", window.scrollY <= 10);
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+    }
+
+    // Mobile nav toggle
     const toggle = document.querySelector(".kb-nav-toggle");
     const menu = document.getElementById("site-nav-menu");
     if (toggle && menu) {
@@ -1340,9 +1540,11 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
         menu.classList.toggle("is-open", !expanded);
       });
     }
+
+    // Dropdown/megamenu toggle on mobile
     document.querySelectorAll(".kb-nav-mega-menu-item > .kb-nav-link, .menu-item-has-children > .kb-nav-link").forEach((link) => {
       link.addEventListener("click", (e) => {
-        if (window.innerWidth < 1024) { e.preventDefault(); link.parentElement.classList.toggle("is-open"); }
+        if (window.innerWidth <= 1024) { e.preventDefault(); link.parentElement.classList.toggle("is-open"); }
       });
     });
   });
@@ -1457,7 +1659,16 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
   progress("ok", `Eleventy-vastineiden scaffoldit: ${created.length} tiedostoa`);
 }
 
-async function bootstrapEleventyProject(root, config, report, progress = () => {}) {
+function slugifyCollectionName(name) {
+  return String(name)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function bootstrapEleventyProject(root, config, report, progress = () => {}, categoryNames = []) {
   if (config.siteMode === "existing") {
     report.bootstrap = { skipped: true, reason: "existing-site-mode" };
     progress("info", "Eleventy-bootstrap ohitettu: päivitetään olemassa olevaa projektia");
@@ -1497,6 +1708,24 @@ async function bootstrapEleventyProject(root, config, report, progress = () => {
   configLines.push('  if (existsSync("styles")) eleventyConfig.addPassthroughCopy({ "styles": "styles" });');
   configLines.push('  if (existsSync("assets")) eleventyConfig.addPassthroughCopy({ "assets": "assets" });');
   configLines.push("");
+
+  // Generate collections from WP categories
+  configLines.push("  const byDate = (a, b) => b.date - a.date;");
+  configLines.push("");
+  configLines.push('  eleventyConfig.addCollection("posts", col =>');
+  configLines.push('    col.getAll().filter(p => p.data.sourceType === "posts").sort(byDate)');
+  configLines.push("  );");
+  const seenSlugs = new Set(["posts"]);
+  for (const catName of categoryNames) {
+    const slug = slugifyCollectionName(catName);
+    if (!slug || seenSlugs.has(slug)) continue;
+    seenSlugs.add(slug);
+    configLines.push(`  eleventyConfig.addCollection(${JSON.stringify(slug)}, col =>`);
+    configLines.push(`    col.getAll().filter(p => p.data.sourceType === "posts" && (p.data.categories || []).includes(${JSON.stringify(catName)})).sort(byDate)`);
+    configLines.push("  );");
+  }
+  configLines.push("");
+
   configLines.push("  return {");
   configLines.push('    dir: { input: "content", includes: "../_includes", data: "../_data", output: "_site" },');
   configLines.push('    templateFormats: ["md", "njk", "html"],');
@@ -2060,17 +2289,23 @@ async function generateLayouts(config, root) {
     : "";
 
   const base = `<!doctype html>
-<html lang="en">
+<html lang="{{ site.defaultLocale if site and site.defaultLocale else '${config.locale || "fi"}' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if seoTitle %}{{ seoTitle }}{% elif title %}{{ title }}{% else %}Site{% endif %}</title>
-  {% if seoDescription %}<meta name="description" content="{{ seoDescription }}">{% endif %}
-  {% if ogTitle %}<meta property="og:title" content="{{ ogTitle }}">{% endif %}
-  {% if ogDescription %}<meta property="og:description" content="{{ ogDescription }}">{% endif %}
-  {% if ogImage %}<meta property="og:image" content="{{ ogImage }}">{% endif %}
-  {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+  <title>{% if seoTitle %}{{ seoTitle }}{% elif title %}{{ title }} | {{ site.name }}{% else %}{{ site.name }}{% endif %}</title>
+  {% set _desc = seoDescription if seoDescription else (ogDescription if ogDescription else excerpt) %}
+  {% if _desc %}<meta name="description" content="{{ _desc }}">{% endif %}
+  {% set _canonical = canonical if canonical else (site.url + page.url) %}
+  <link rel="canonical" href="{{ _canonical }}">
   {% if noindex %}<meta name="robots" content="noindex">{% endif %}
+  <meta property="og:type" content="{% if sourceType == 'posts' %}article{% else %}website{% endif %}">
+  <meta property="og:url" content="{{ _canonical }}">
+  <meta property="og:site_name" content="{{ site.name }}">
+  <meta property="og:title" content="{{ ogTitle if ogTitle else (seoTitle if seoTitle else title) }}">
+  {% set _ogDesc = ogDescription if ogDescription else _desc %}
+  {% if _ogDesc %}<meta property="og:description" content="{{ _ogDesc }}">{% endif %}
+  {% if ogImage %}<meta property="og:image" content="{{ ogImage }}">{% endif %}
 ${stylesLine}</head>
 <body>
   {% include "partials/site-header.njk" %}
@@ -2201,8 +2436,31 @@ function extractLeafInnerContent(shortName, attrs, innerHtml) {
   return stripOuterWrapperTag(sanitizeHtmlFragment(innerHtml));
 }
 
+function normalizePaneContent(html) {
+  // Strip the outer wp-block-kadence-pane wrapper
+  let content = stripOuterWrapperTag(html);
+  // Strip the WP accordion scaffold: kt-accordion-header-wrap (button+title) and
+  // kt-accordion-panel / kt-accordion-panel-inner wrappers — keep only what's inside
+  const panelInnerIdx = content.indexOf("kt-accordion-panel-inner");
+  if (panelInnerIdx !== -1) {
+    const openEnd = content.indexOf(">", panelInnerIdx);
+    if (openEnd !== -1) {
+      content = content.slice(openEnd + 1);
+      // Remove the two closing </div>s for kt-accordion-panel-inner and kt-accordion-panel
+      content = content.replace(/<\/div>\s*<\/div>\s*$/, "").trim();
+    }
+  }
+  return content;
+}
+
+function extractPaneTitleFromHtml(html) {
+  const m = html.match(/<span[^>]*kt-blocks-accordion-title[^>]*>([\s\S]*?)<\/span>/i);
+  return m ? m[1].trim() : null;
+}
+
 function normalizeKadenceInnerContent(shortName, attrs, innerHtml) {
   const sanitized = sanitizeHtmlFragment(innerHtml);
+  if (shortName === "pane") return normalizePaneContent(sanitized);
   if (LEAF_KADENCE_BLOCKS.has(shortName)) return extractLeafInnerContent(shortName, attrs, sanitized);
   if (CONTAINER_KADENCE_BLOCKS.has(shortName)) return stripOuterWrapperTag(sanitized);
   return stripOuterWrapperTag(sanitized);
@@ -2416,7 +2674,12 @@ function renderBlockTree(nodes, config, warnings, state) {
     if (config.convertKadenceBlocks && namespace === "kadence" && shortName && kadenceSupportedBlocks(config).includes(shortName)) {
       state.convertedCount += 1;
       state.seenBlocks.add(shortName);
-      const attrs = sanitizeKadenceAttrs(shortName, node.attrs || {});
+      // For pane blocks: extract title from rendered HTML if missing from block attrs
+      const rawNodeAttrs = node.attrs || {};
+      const resolvedNodeAttrs = (shortName === "pane" && !rawNodeAttrs.title)
+        ? { ...rawNodeAttrs, title: extractPaneTitleFromHtml(renderedChildren) || rawNodeAttrs.title }
+        : rawNodeAttrs;
+      const attrs = sanitizeKadenceAttrs(shortName, resolvedNodeAttrs);
       const innerHtml = normalizeKadenceInnerContent(shortName, attrs, renderedChildren);
       const blockData = safeJsonForNunjucks({
         name: node.name,
@@ -2649,67 +2912,142 @@ const KADENCE_PARTIAL_TEMPLATES = {
 </li>
 `,
 
-  tabs: `{# kadence/tabs — Tab group container; tab titles and panels in innerHtml; add JS for interactivity #}
+  tabs: `{# kadence/tabs — Tab group with title nav and switchable panels #}
 {% set b = kadenceBlock.attrs %}
-<div
-  class="kadence-block kadence-tabs{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}data-kadence-id="{{ b.uniqueID }}"{% endif %}
-  role="tablist"
->
+<div class="wp-block-kadence-tabs kb-tabs{% if b.uniqueID %} kb-tabs-id_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}">
   {{ kadenceInnerHtml | safe }}
 </div>
+<script>
+(function () {
+  if (window._ktTabsInit) return;
+  window._ktTabsInit = true;
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.wp-block-kadence-tabs.kb-tabs').forEach(function (wrap) {
+      var panels = Array.from(wrap.querySelectorAll('.kt-tabs-content-wrap > .kb-tab-panel'));
+      var titleItems = Array.from(wrap.querySelectorAll('.kt-tabs-title-list .kt-title-item'));
+      var titleLinks = Array.from(wrap.querySelectorAll('.kt-tabs-title-list .kt-tab-title'));
+      function activate(idx) {
+        panels.forEach(function (p, i) { p.classList.toggle('kt-tab-active', i === idx); });
+        titleItems.forEach(function (li, i) {
+          li.classList.toggle('kt-tab-title-active', i === idx);
+          li.classList.toggle('kt-tab-title-inactive', i !== idx);
+        });
+      }
+      var initIdx = titleItems.findIndex(function (li) { return li.classList.contains('kt-tab-title-active'); });
+      activate(initIdx >= 0 ? initIdx : 0);
+      titleLinks.forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          var tabNum = parseInt(link.getAttribute('data-tab'), 10);
+          if (!isNaN(tabNum)) activate(tabNum - 1);
+        });
+      });
+    });
+  });
+}());
+</script>
 `,
 
-  tab: `{# kadence/tab — Single tab panel #}
+  tab: `{# kadence/tab — Single tab panel, shown/hidden by tabs.njk JS #}
 {% set b = kadenceBlock.attrs %}
 <div
-  class="kadence-block kadence-tab{% if b.className %} {{ b.className }}{% endif %}"
+  class="wp-block-kadence-tab kb-tab-panel{% if b.className %} {{ b.className }}{% endif %}"
   {% if b.uniqueID %}id="kt-tab_{{ b.uniqueID }}"{% endif %}
   role="tabpanel"
 >
-  {% if b.title %}<div class="kadence-tab-title">{{ b.title }}</div>{% endif %}
   {{ kadenceInnerHtml | safe }}
 </div>
 `,
 
-  accordion: `{# kadence/accordion — Accordion wrapper; panes use native <details>/<summary> #}
+  accordion: `{# kadence/accordion — Accordion wrapper with Kadence-compatible button+panel toggle #}
 {% set b = kadenceBlock.attrs %}
-<div
-  class="kadence-block kadence-accordion{% if b.className %} {{ b.className }}{% endif %}"
+<div class="wp-block-kadence-accordion kb-accordion{% if b.uniqueID %} kb-accordion-id_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
+  data-allow-multiple-open="{{ 'true' if b.allowMultipleOpen else 'false' }}"
+  data-start-open="{{ 'true' if b.startOpen else 'false' }}"
 >
   {{ kadenceInnerHtml | safe }}
 </div>
+<script>
+(function () {
+  if (typeof window._ktAccordionInit === 'undefined') {
+    window._ktAccordionInit = true;
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.wp-block-kadence-accordion').forEach(function (wrap) {
+        var allowMultiple = wrap.getAttribute('data-allow-multiple-open') === 'true';
+        wrap.querySelectorAll('.kt-accordion-header-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var pane = btn.closest('.kt-accordion-pane');
+            var isOpen = pane.classList.contains('is-open');
+            if (!allowMultiple) {
+              wrap.querySelectorAll('.kt-accordion-pane.is-open').forEach(function (p) {
+                p.classList.remove('is-open');
+                p.querySelector('.kt-accordion-header-btn').setAttribute('aria-expanded', 'false');
+              });
+            }
+            if (!isOpen) {
+              pane.classList.add('is-open');
+              btn.setAttribute('aria-expanded', 'true');
+            }
+          });
+        });
+      });
+    });
+  }
+}());
+</script>
 `,
 
-  pane: `{# kadence/pane — Accordion pane; uses <details>/<summary> for native expand/collapse #}
+  pane: `{# kadence/pane — Accordion pane with Kadence button+panel structure #}
 {% set b = kadenceBlock.attrs %}
-<details
-  class="kadence-block kadence-pane{% if b.className %} {{ b.className }}{% endif %}"
-  {% if b.uniqueID %}id="kt-accordion-pane_{{ b.uniqueID }}"{% endif %}
-  {% if b.startOpen %}open{% endif %}
->
-  {% if b.title %}
-    <summary class="kadence-pane-title">{{ b.title }}</summary>
-  {% endif %}
-  <div class="kadence-pane-content">
-    {{ kadenceInnerHtml | safe }}
+<div class="wp-block-kadence-pane kt-accordion-pane{% if b.startOpen %} is-open{% endif %}{% if b.className %} {{ b.className }}{% endif %}">
+  <div class="kt-accordion-heading kt-accordion-header-wrap">
+    <button class="kt-accordion-header kt-accordion-header-btn"
+      aria-expanded="{{ 'true' if b.startOpen else 'false' }}"
+      {% if b.uniqueID %}aria-controls="kb-panel-{{ b.uniqueID }}"{% endif %}
+    >
+      {% if b.title %}<span class="kt-blocks-accordion-title">{{ b.title }}</span>{% endif %}
+      <span class="kt-accordion-icon-trigger" aria-hidden="true"></span>
+    </button>
   </div>
-</details>
+  <div class="kt-accordion-panel"{% if b.uniqueID %} id="kb-panel-{{ b.uniqueID }}"{% endif %} role="region">
+    <div class="kt-accordion-panel-inner">
+      {{ kadenceInnerHtml | safe }}
+    </div>
+  </div>
+</div>
 `,
 
-  infobox: `{# kadence/infobox — Info card with optional icon, title and body text #}
+  infobox: `{# kadence/infobox — Info card with link-wrap, optional media, title and body #}
 {% set b = kadenceBlock.attrs %}
-<article
-  class="kadence-block kadence-infobox kt-blocks-info-box-wrap{% if b.uniqueID %} kt-info-box_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
->
-  {% if b.title %}
-    {% set tag = "h" ~ (b.titleLevel if b.titleLevel else 3) %}
-    <{{ tag }} class="kadence-infobox-title">{% if b.linkUrl %}<a href="{{ b.linkUrl }}"{% if b.linkTarget %} target="{{ b.linkTarget }}"{% endif %}>{{ b.title }}</a>{% else %}{{ b.title }}{% endif %}</{{ tag }}>
+{% from "macros/feather-icons.njk" import featherIcon %}
+<div class="wp-block-kadence-infobox kt-blocks-info-box-wrap{% if b.uniqueID %} kt-info-box_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}">
+  {% if b.linkUrl %}
+    <a href="{{ b.linkUrl }}"{% if b.linkTarget %} target="{{ b.linkTarget }}"{% endif %} class="kt-blocks-info-box-link-wrap">
+  {% else %}
+    <div class="kt-blocks-info-box-link-wrap kt-blocks-info-box-link-wrap-hover-only">
   {% endif %}
-  <div class="kt-blocks-info-box-body">
-    {{ kadenceInnerHtml | safe }}
-  </div>
-</article>
+    {% if b.mediaType == "icon" and b.mediaIcon %}
+      <div class="kt-blocks-info-box-media-container kt-info-box-image">
+        <div class="kt-info-svg-div">{{ featherIcon(b.mediaIcon) }}</div>
+      </div>
+    {% elif b.mediaType == "image" and b.mediaUrl %}
+      <div class="kt-blocks-info-box-media-container kt-info-box-image">
+        <div class="kt-info-box-img-wrap"><img src="{{ b.mediaUrl }}" alt="{{ b.title if b.title else '' }}" class="kb-info-box-image"></div>
+      </div>
+    {% endif %}
+    <div class="kt-infobox-textcontent">
+      {% if b.title %}
+        {% set tag = "h" ~ (b.titleLevel if b.titleLevel else 3) %}
+        <{{ tag }} class="kt-blocks-info-box-title">{{ b.title }}</{{ tag }}>
+      {% endif %}
+      <div class="kt-blocks-info-box-body">{{ kadenceInnerHtml | safe }}</div>
+    </div>
+  {% if b.linkUrl %}
+    </a>
+  {% else %}
+    </div>
+  {% endif %}
+</div>
 `,
 
   icon: `{# kadence/icon — Single icon; innerHtml contains the rendered SVG or icon font markup #}
@@ -2800,21 +3138,41 @@ const KADENCE_PARTIAL_TEMPLATES = {
 </section>
 `,
 
-  query: `{# kadence/query — Generic Eleventy query loop fallback #}
+  query: `{# kadence/query — Post list with optional collectionName attr for category filtering #}
 {% set b = kadenceBlock.attrs %}
-{% set count = b.postsToShow if b.postsToShow else (b.numberOfItems if b.numberOfItems else 5) %}
-<section class="kadence-block kadence-query kb-query-loop{% if b.className %} {{ b.className }}{% endif %}">
+{% set count = b.postsToShow if b.postsToShow else (b.numberOfItems if b.numberOfItems else 10) %}
+{% set _col = b.collectionName if b.collectionName else "posts" %}
+<section class="wp-block-kadence-query kb-query-loop{% if b.className %} {{ b.className }}{% endif %}">
   {% if kadenceInnerHtml | trim %}
     {{ kadenceInnerHtml | safe }}
   {% else %}
-    {% for post in collections.posts | reverse %}
-      {% if loop.index <= count %}
-        <article class="kb-query-item">
-          <h3><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
-          {% if post.data.excerpt %}<p>{{ post.data.excerpt }}</p>{% endif %}
-        </article>
-      {% endif %}
-    {% endfor %}
+    <div class="kb-query-grid">
+      {% for post in collections[_col] %}
+        {% if loop.index <= count %}
+          <article class="kb-query-item">
+            {% if post.data.featuredImage %}
+              <a href="{{ post.url }}" class="kb-query-item__thumb" tabindex="-1" aria-hidden="true">
+                <img src="{{ post.data.featuredImage }}" alt="{{ post.data.title }}" loading="lazy">
+              </a>
+            {% endif %}
+            <div class="kb-query-item__body">
+              {% if post.data.categories and post.data.categories.length %}
+                <div class="kb-query-item__cats">
+                  {% for cat in post.data.categories | first(1) %}<span class="kb-query-item__cat">{{ cat }}</span>{% endfor %}
+                </div>
+              {% endif %}
+              <h3 class="kb-query-item__title"><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
+              {% if post.data.date %}
+                <time class="kb-query-item__date" datetime="{{ post.data.date }}">{{ post.data.date }}</time>
+              {% endif %}
+              {% if post.data.excerpt and post.data.excerpt != "[object Object]" %}
+                <p class="kb-query-item__excerpt">{{ post.data.excerpt | truncate(160) }}</p>
+              {% endif %}
+            </div>
+          </article>
+        {% endif %}
+      {% endfor %}
+    </div>
   {% endif %}
 </section>
 `,
@@ -3282,7 +3640,7 @@ function resolveLayoutForType(type, config) {
 function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   const title = decodeHtml(item?.title?.rendered || item?.title || `Untitled ${item?.id || ""}`.trim());
   const slug = slugify(item?.slug || title);
-  const excerpt = stripHtml(item?.excerpt?.rendered || item?.excerpt || "");
+  const excerpt = stripHtml(item?.excerpt?.rendered || (typeof item?.excerpt === "string" ? item.excerpt : "") || "");
   const categories = Array.isArray(item?.categories) ? item.categories.map((id) => categoryMap.get(id)).filter(Boolean) : [];
   const tags = Array.isArray(item?.tags) ? item.tags.map((id) => tagMap.get(id)).filter(Boolean) : [];
   const rawBlockContent = item?.content?.raw || "";
@@ -3417,8 +3775,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     await configureProjectFromProfile(root, config, report, progress);
   }
 
-  await bootstrapEleventyProject(root, config, report, progress);
-  await installProjectDependencies(root, config, report, progress);
+  // bootstrapEleventyProject called after category fetch so collections can be generated
   await writeReplacementScaffolding(root, config, report, progress);
 
   if (config.convertKadenceBlocks) {
@@ -3478,6 +3835,10 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   const categoryMap = new Map(cats.map((c) => [c.id, c.name]));
   const tagMap = new Map(tags.map((t) => [t.id, t.name]));
   progress("ok", `Taksonomiat: ${cats.length} kategoriaa, ${tags.length} tagia`);
+
+  const categoryNames = cats.map((c) => c.name).filter(Boolean);
+  await bootstrapEleventyProject(root, config, report, progress, categoryNames);
+  await installProjectDependencies(root, config, report, progress);
 
   if (config.migrateStyles) {
     progress("info", "Haetaan tyylitiedostot ja design tokens…");
