@@ -408,6 +408,21 @@
         color: var(--muted);
       }
 
+      .phase-live-log {
+        display: grid;
+        gap: 8px;
+        max-height: 11rem;
+        overflow: auto;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: var(--panel-strong);
+      }
+
+      .phase-live-log[hidden] {
+        display: none;
+      }
+
       .phase-disclosure {
         border: 1px dashed color-mix(in srgb, var(--accent) 28%, transparent);
         border-radius: 16px;
@@ -1194,6 +1209,7 @@
                       <span id="analysis-progress-text" data-i18n="progress_waiting_analysis"></span>
                       <span id="analysis-progress-value">0%</span>
                     </div>
+                    <div id="analysis-live-log" class="phase-live-log" hidden></div>
                   </div>
                 </div>
 
@@ -1391,6 +1407,7 @@
                       <span id="migration-progress-text" data-i18n="progress_waiting_migration"></span>
                       <span id="migration-progress-value">0%</span>
                     </div>
+                    <div id="migration-live-log" class="phase-live-log" hidden></div>
                   </div>
                 </div>
 
@@ -1825,9 +1842,11 @@
       const analysisProgressFill = document.getElementById("analysis-progress-fill");
       const analysisProgressText = document.getElementById("analysis-progress-text");
       const analysisProgressValue = document.getElementById("analysis-progress-value");
+      const analysisLiveLogNode = document.getElementById("analysis-live-log");
       const migrationProgressFill = document.getElementById("migration-progress-fill");
       const migrationProgressText = document.getElementById("migration-progress-text");
       const migrationProgressValue = document.getElementById("migration-progress-value");
+      const migrationLiveLogNode = document.getElementById("migration-live-log");
       const analysisSettingsDisclosure = document.getElementById("analysis-settings-disclosure");
       const migrationSettingsDisclosure = document.getElementById("migration-settings-disclosure");
       const analysisRecommendations = document.getElementById("analysis-recommendations");
@@ -2046,6 +2065,8 @@
           status_analyze_inactive: "Analyysivaihe ei ole aktiivinen. Kytke vaihe päälle ennen ajoa.",
           status_local_inactive: "Paikallinen migraatiovaihe ei ole aktiivinen. Kytke vaihe päälle ennen migraation ajoa.",
           status_folder_picker_fallback: "Selain ei tue kansiovalitsinta tässä ympäristössä. Syötä projektikansio kenttään käsin.",
+          status_folder_picker_opening: "Avataan projektikansion valitsinta...",
+          status_folder_picker_slow: "Kansiovalitsin ei vastannut nopeasti. Syötä polku kenttään käsin tai yritä uudelleen.",
           status_saving: "Tallennetaan konfiguraatio...",
           status_saved: "Konfiguraatio tallennettu.",
           status_running: "Migraatio käynnissä...",
@@ -2371,6 +2392,8 @@
           status_analyze_inactive: "The analysis phase is disabled. Enable it before running site analysis.",
           status_local_inactive: "The local migration phase is disabled. Enable it before running migration.",
           status_folder_picker_fallback: "This browser environment does not support the folder picker. Enter the project folder manually in the field.",
+          status_folder_picker_opening: "Opening the project folder picker...",
+          status_folder_picker_slow: "The folder picker did not respond quickly. Enter the path manually or try again.",
           status_saving: "Saving configuration...",
           status_saved: "Configuration saved.",
           status_running: "Migration running...",
@@ -3751,7 +3774,9 @@
         latestRunKind = "analysis";
         migrationLogNode.innerHTML = "";
         migrationLogNode.hidden = false;
-        appendLogItems([{ level: "info", msg: t("log_phase_analyze_start") }]);
+        analysisLiveLogNode.innerHTML = "";
+        analysisLiveLogNode.hidden = false;
+        appendLogItems([{ level: "info", msg: t("log_phase_analyze_start") }], "analysis");
         setStatus(t("status_analyzing"));
         resultViewNode.hidden = true;
         try {
@@ -3818,8 +3843,14 @@
         migrationStep.open = true;
         migrationSettingsDisclosure.open = true;
         const folderField = form.elements.namedItem("localProjectFolder");
+        const currentPath = String(folderField.value || "").trim();
+        setStatus(t("status_folder_picker_opening"));
+        openProjectFolderButton.disabled = true;
         try {
-          const response = await callApi("/api/pick-folder", {});
+          const response = await Promise.race([
+            callApi("/api/pick-folder", { initialPath: currentPath }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("FOLDER_PICKER_TIMEOUT")), 7000))
+          ]);
           if (response.cancelled) return;
           if (!response.folderPath) {
             folderField.focus();
@@ -3828,8 +3859,15 @@
           }
           folderField.value = response.folderPath;
         } catch (error) {
-          if (error?.name !== "AbortError") setStatus(String(error.message || error), true);
+          folderField.focus();
+          if (String(error?.message || error) === "FOLDER_PICKER_TIMEOUT") {
+            setStatus(t("status_folder_picker_slow"), true);
+          } else if (error?.name !== "AbortError") {
+            setStatus(t("status_folder_picker_fallback"), true);
+          }
           return;
+        } finally {
+          openProjectFolderButton.disabled = false;
         }
         applyProjectDefaults(folderField.value, true);
       });
@@ -3848,10 +3886,12 @@
         latestRunKind = "migration";
         migrationLogNode.innerHTML = "";
         migrationLogNode.hidden = false;
+        migrationLiveLogNode.innerHTML = "";
+        migrationLiveLogNode.hidden = false;
         appendLogItems([
           { level: "info", msg: t("log_phase_local_start") },
           { level: "info", msg: `${t("log_phase_publish")}: ${getPhaseState().publish ? t("phase_active_text") : t("phase_inactive_text")}` }
-        ]);
+        ], "migration");
         setPhaseProgress("migration", 12, payload.dryRun ? "progress_running_dry_migration" : "progress_running_migration");
         resultViewNode.hidden = true;
         setStatus(t("status_running"));
@@ -4122,17 +4162,24 @@
 
       let logSeenCount = 0;
 
-      function appendLogItems(items) {
+      function appendLogItems(items, mode = latestRunKind || "migration") {
         if (!items?.length) return;
         const levelClass = { ok: "log-ok", warn: "log-warn", info: "log-info", item: "log-item-row" };
         const levelPrefix = { ok: "✓", warn: "⚠", info: "→", item: "·" };
+        const inlineNode = mode === "analysis" ? analysisLiveLogNode : migrationLiveLogNode;
+        if (inlineNode) inlineNode.hidden = false;
         for (const entry of items) {
           const row = document.createElement("div");
           row.className = `log-item ${levelClass[entry.level] ?? "log-info"}`;
           row.textContent = `${levelPrefix[entry.level] ?? " "} ${entry.msg}`;
           migrationLogNode.appendChild(row);
+          if (inlineNode) {
+            const inlineRow = row.cloneNode(true);
+            inlineNode.appendChild(inlineRow);
+          }
         }
         migrationLogNode.scrollTop = migrationLogNode.scrollHeight;
+        if (inlineNode) inlineNode.scrollTop = inlineNode.scrollHeight;
       }
 
       form.addEventListener("submit", async (event) => {

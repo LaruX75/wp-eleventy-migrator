@@ -2631,10 +2631,15 @@ function resolveOutputRoot(rawOutputRoot, localProjectFolder, stamp = nowStamp()
   return rawRoot;
 }
 
-async function pickFolderPath() {
+async function pickFolderPath(initialPath = "") {
   const platform = process.platform;
+  const normalizedInitialPath = String(initialPath || "").trim().replace(/\/+$/, "");
   if (platform === "darwin") {
-    const script = 'POSIX path of (choose folder with prompt "Valitse projektikansio")';
+    const hasInitial = normalizedInitialPath && path.isAbsolute(normalizedInitialPath);
+    const defaultLocation = hasInitial
+      ? ` default location POSIX file ${JSON.stringify(normalizedInitialPath)}`
+      : "";
+    const script = `POSIX path of (choose folder with prompt "Valitse projektikansio"${defaultLocation})`;
     const folder = await new Promise((resolve, reject) => {
       execFile("osascript", ["-e", script], { encoding: "utf8" }, (error, stdout, stderr) => {
         if (error) {
@@ -2972,7 +2977,8 @@ async function serveUi(port = 4173) {
 
       if (req.method === "POST" && url.pathname === "/api/pick-folder") {
         try {
-          const folderPath = await pickFolderPath();
+          const body = await readJsonBody(req);
+          const folderPath = await pickFolderPath(body.initialPath);
           sendJson(res, 200, { ok: true, folderPath });
         } catch (err) {
           if (err?.code === "ABORT_ERR") {
