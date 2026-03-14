@@ -216,6 +216,10 @@
         padding: 24px;
       }
 
+      .tab-nav-panel {
+        padding: 16px 20px;
+      }
+
       form {
         display: grid;
         gap: 14px;
@@ -268,7 +272,18 @@
 
       .step-toggle {
         color: var(--accent-strong);
-        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .step-chevron {
+        width: 22px;
+        height: 22px;
+        transition: transform 200ms ease;
+        display: block;
+      }
+
+      details[open] > summary .step-chevron {
+        transform: rotate(90deg);
       }
 
       .step-body {
@@ -671,6 +686,31 @@
         color: var(--accent-strong);
       }
 
+      /* ── Server status ─────────────────────────────────────────────── */
+      .server-status {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.8rem;
+        color: var(--muted);
+        min-width: 90px;
+        align-self: flex-end;
+        padding-bottom: 4px;
+      }
+
+      .server-status::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex-shrink: 0;
+        transition: background 300ms ease;
+      }
+
+      .server-status.is-online::before { background: #4ade80; }
+      .server-status.is-offline::before { background: var(--danger); }
+
       /* ── Migration log ─────────────────────────────────────────────── */
       #migration-log {
         background: var(--console-bg);
@@ -763,6 +803,7 @@
               <h1 data-i18n="hero_title"></h1>
             </div>
             <div class="topbar-controls">
+              <div id="server-status" class="server-status" aria-live="polite"></div>
               <label class="control-pill">
                 <span data-i18n="ui_language"></span>
                 <select id="language-select">
@@ -801,15 +842,13 @@
         </div>
       </section>
 
-      <section class="layout">
-        <div class="panel">
-          <div class="tabs">
-            <button type="button" class="tab-button is-active" data-tab-target="workflow-tab" id="workflow-tab-button" data-i18n="tab_workflow"></button>
-            <button type="button" class="tab-button" data-tab-target="styles-tab" id="styles-tab-button" data-i18n="tab_styles"></button>
-            <button type="button" class="tab-button" data-tab-target="plugins-tab" id="plugins-tab-button" data-i18n="tab_plugins"></button>
-          </div>
+      <div class="panel tab-nav-panel">
+        <div class="tabs">
+          <button type="button" class="tab-button is-active" data-tab-target="workflow-tab" id="workflow-tab-button" data-i18n="tab_workflow"></button>
+          <button type="button" class="tab-button" data-tab-target="styles-tab" id="styles-tab-button" data-i18n="tab_styles"></button>
+          <button type="button" class="tab-button" data-tab-target="plugins-tab" id="plugins-tab-button" data-i18n="tab_plugins"></button>
         </div>
-      </section>
+      </div>
 
       <section class="layout tab-panel" id="workflow-tab">
         <div class="panel">
@@ -822,7 +861,7 @@
                     <h2 class="step-title" data-i18n="step1_title"></h2>
                     <p class="step-lede" data-i18n="step1_lede"></p>
                   </div>
-                  <div class="step-toggle" data-i18n="step_toggle"></div>
+                  <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
                 </div>
               </summary>
               <div class="step-body">
@@ -890,6 +929,10 @@
                   <label class="toggle">
                     <input name="createRedirects" type="checkbox">
                     <span data-i18n="toggle_createRedirects"></span> <button type="button" class="help-button" data-help-topic="createRedirects">?</button>
+                  </label>
+                  <label class="toggle">
+                    <input name="importMenus" type="checkbox" checked>
+                    <span data-i18n="toggle_importMenus"></span> <button type="button" class="help-button" data-help-topic="importMenus">?</button>
                   </label>
                   <label class="toggle">
                     <input name="dryRun" type="checkbox">
@@ -989,7 +1032,7 @@
                     <h2 class="step-title" data-i18n="step2_title"></h2>
                     <p class="step-lede" data-i18n="step2_lede"></p>
                   </div>
-                  <div class="step-toggle" data-i18n="step_toggle"></div>
+                  <div class="step-toggle"><svg class="step-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
                 </div>
               </summary>
               <div class="step-body">
@@ -1437,6 +1480,10 @@
           status_done: "Migraatio valmis.",
           result_loading: "Ladataan oletusarvot...",
           error_server_down: "Palvelin ei vastaa. Varmista, että `npm run migrate:wp:gui` on käynnissä.",
+          server_online: "Palvelin online",
+          server_offline: "Ei yhteyttä",
+          toggle_importMenus: "Tuo valikot (navigation.json).",
+          btn_running: "Ajetaan…",
           result_raw_json: "Raaka JSON-raportti",
           result_content: "Siirretty sisältö",
           result_styles: "Tyylitiedostot",
@@ -1644,6 +1691,10 @@
           status_saved: "Configuration saved.",
           status_running: "Migration running...",
           error_server_down: "Server not responding. Make sure `npm run migrate:wp:gui` is running.",
+          server_online: "Server online",
+          server_offline: "Not connected",
+          toggle_importMenus: "Import menus (navigation.json).",
+          btn_running: "Running…",
           status_done: "Migration finished.",
           result_loading: "Loading defaults...",
           result_raw_json: "Raw JSON report",
@@ -2261,6 +2312,7 @@
       function setBusy(isBusy) {
         saveButton.disabled = isBusy;
         runButton.disabled = isBusy;
+        runButton.textContent = isBusy ? t("btn_running") : t("btn_run");
       }
 
       function setStatus(message, isError = false) {
@@ -2305,6 +2357,7 @@
           includeDrafts: data.get("includeDrafts") === "on",
           downloadMedia: data.get("downloadMedia") === "on",
           createRedirects: data.get("createRedirects") === "on",
+          importMenus: data.get("importMenus") === "on",
           htmlMode: data.get("htmlMode"),
           targetPermalinkPattern: data.get("targetPermalinkPattern"),
           authMode: data.get("authMode"),
@@ -2499,9 +2552,26 @@
         setStatus(t("status_defaults_loaded"));
       }
 
+      const serverStatusNode = document.getElementById("server-status");
+
+      async function pingServer() {
+        try {
+          await fetch("/api/ping");
+          serverStatusNode.className = "server-status is-online";
+          serverStatusNode.textContent = t("server_online");
+        } catch {
+          serverStatusNode.className = "server-status is-offline";
+          serverStatusNode.textContent = t("server_offline");
+        }
+      }
+
+      pingServer();
+      setInterval(pingServer, 6000);
+
       languageSelect.addEventListener("change", () => {
         currentLang = languageSelect.value;
         applyTranslations();
+        pingServer();
       });
 
       themeSelect.addEventListener("change", () => {
@@ -2603,9 +2673,9 @@
         root.appendChild(titleRow);
 
         // Content counts
-        if (report.counts && Object.keys(report.counts).length) {
+        if (report.totals && Object.keys(report.totals).length) {
           root.appendChild(p("rv-section", t("result_content")));
-          for (const [type, count] of Object.entries(report.counts)) {
+          for (const [type, count] of Object.entries(report.totals)) {
             const row = div("rv-row");
             row.appendChild(h("span", null, type));
             row.appendChild(h("span", null, String(count)));
