@@ -9,6 +9,10 @@
     "migrate:wp:run": "node scripts/wp-eleventy-migrate.mjs run",
     "migrate:wp:gui": "node scripts/wp-eleventy-migrate.mjs serve",
     "audit:visual": "node scripts/visual-audit.mjs",
-    "audit:site": "node scripts/visual-audit.mjs --site"
+    "audit:site": "node scripts/visual-audit.mjs --site",
+    "translate:missing": "node scripts/translate-missing.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0"
   }
 }

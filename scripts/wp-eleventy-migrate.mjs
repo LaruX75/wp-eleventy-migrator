@@ -57,6 +57,7 @@ const KADENCE_BLOCK_CSS = {
   column:               { wrap: "kb-section-container",     uid: "kb-section" },
   image:                { wrap: "kb-image-wrap" },
   gallery:              { wrap: "kb-gallery-wrap",           uid: "kb-gallery-id" },
+  advancedgallery:      { wrap: "kb-gallery-wrap",           uid: "kb-gallery-id" },
   slider:               { wrap: "kb-slider-wrap",            uid: "kb-slider-id" },
   slide:                { wrap: "kb-slide-item" },
   tabs:                 { wrap: "kb-tabs",                   uid: "kb-tabs-id" },
@@ -104,8 +105,219 @@ const SUPPORTED_KADENCE_PRO_BLOCKS = [
   "splitcontent",
   "table-of-contents",
   "postcarousel",
-  "portfoliogrid"
+  "portfoliogrid",
+  "advancedgallery"
 ];
+const NAV_JS_TEMPLATE = `/**
+ * nav.js — Kadence-compatible navigation for Eleventy-migrated sites
+ *
+ * Features:
+ *  - Header height -> --kb-header-height CSS custom property (ResizeObserver)
+ *  - Sticky header with reveal-on-scroll-up
+ *  - Transparent header overlay (is-transparent / is-stuck)
+ *  - Mobile nav toggle with focus trap
+ *  - Submenu toggle: click (all breakpoints) + hover intent (desktop)
+ *  - Viewport edge detection for submenus (sub-menu-right-edge / left-edge)
+ *  - Keyboard navigation: Escape closes menus, Tab exits submenu
+ *  - Close menus on outside click
+ *  - Smooth scroll for hash links with --kb-header-height offset
+ */
+(function () {
+  "use strict";
+
+  var DESKTOP_BP    = 1025;
+  var STICKY_OFFSET = 10;
+  var REVEAL_OFFSET = 80;
+  var HOVER_DELAY   = 150;
+  var RESIZE_DELAY  = 200;
+
+  function debounce(fn, delay) {
+    var t;
+    return function () {
+      var args = arguments, ctx = this;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(ctx, args); }, delay);
+    };
+  }
+
+  function isDesktop() { return window.innerWidth >= DESKTOP_BP; }
+
+  var header = document.querySelector(".site-shell-header");
+  var toggle = document.querySelector(".kb-nav-toggle");
+  var nav    = document.getElementById("site-nav-menu");
+
+  function updateHeaderHeight() {
+    if (!header) return;
+    document.documentElement.style.setProperty(
+      "--kb-header-height", header.getBoundingClientRect().height + "px"
+    );
+  }
+  if (header && window.ResizeObserver) new ResizeObserver(updateHeaderHeight).observe(header);
+  updateHeaderHeight();
+
+  var lastScrollY = window.scrollY, scrollTicking = false;
+  function onScroll() {
+    if (!header) return;
+    var y = window.scrollY;
+    header.classList.toggle("is-stuck", y > STICKY_OFFSET);
+    if (header.classList.contains("is-transparent") || header.dataset.wasTransparent) {
+      if (y > STICKY_OFFSET) { header.dataset.wasTransparent = "1"; header.classList.remove("is-transparent"); }
+      else                   { header.classList.add("is-transparent"); delete header.dataset.wasTransparent; }
+    }
+    if (y > REVEAL_OFFSET) { header.classList.toggle("is-hidden", y > lastScrollY); }
+    else                   { header.classList.remove("is-hidden"); }
+    lastScrollY = y; scrollTicking = false;
+  }
+  window.addEventListener("scroll", function () {
+    if (!scrollTicking) { requestAnimationFrame(onScroll); scrollTicking = true; }
+  }, { passive: true });
+  onScroll();
+
+  var FOCUSABLE_SEL = "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])";
+  var _trapEl = null, _trapHandler = null;
+  function trapFocus(container) {
+    _trapEl = container;
+    var focusable = Array.from(container.querySelectorAll(FOCUSABLE_SEL));
+    if (!focusable.length) return;
+    _trapHandler = function (e) {
+      if (e.key !== "Tab") return;
+      var first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+      else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
+    };
+    container.addEventListener("keydown", _trapHandler);
+    focusable[0].focus();
+  }
+  function releaseFocus() {
+    if (_trapEl && _trapHandler) _trapEl.removeEventListener("keydown", _trapHandler);
+    _trapEl = _trapHandler = null;
+  }
+
+  function openMobileMenu() {
+    if (!toggle || !nav) return;
+    toggle.setAttribute("aria-expanded", "true");
+    nav.classList.add("is-open");
+    document.body.classList.add("kb-nav-open");
+    trapFocus(nav);
+  }
+  function closeMobileMenu() {
+    if (!toggle || !nav) return;
+    toggle.setAttribute("aria-expanded", "false");
+    nav.classList.remove("is-open");
+    document.body.classList.remove("kb-nav-open");
+    releaseFocus(); closeAllSubmenus(); toggle.focus();
+  }
+  if (toggle && nav) {
+    toggle.addEventListener("click", function () {
+      toggle.getAttribute("aria-expanded") === "true" ? closeMobileMenu() : openMobileMenu();
+    });
+  }
+
+  function closeAllSubmenus(except) {
+    document.querySelectorAll(".kb-nav-item.is-open").forEach(function (item) {
+      if (item === except) return;
+      item.classList.remove("is-open");
+      var btn = item.querySelector(".kb-nav-item-toggle");
+      if (btn) btn.setAttribute("aria-expanded", "false");
+    });
+  }
+  function detectEdge(item) {
+    var sub = item.querySelector(".kb-nav-sub-menu, .kb-mega-menu");
+    if (!sub) return;
+    sub.classList.remove("sub-menu-right-edge", "sub-menu-left-edge");
+    var rect = sub.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 10) sub.classList.add("sub-menu-right-edge");
+    if (rect.left < 10)                      sub.classList.add("sub-menu-left-edge");
+  }
+  function openSubmenu(item, btn) {
+    closeAllSubmenus(item); item.classList.add("is-open");
+    if (btn) btn.setAttribute("aria-expanded", "true");
+    if (isDesktop()) detectEdge(item);
+  }
+  function closeSubmenu(item, btn) {
+    item.classList.remove("is-open");
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  }
+
+  document.querySelectorAll(".kb-nav-item-toggle").forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      var item = btn.closest(".kb-nav-item");
+      if (!item) return;
+      item.classList.contains("is-open") ? closeSubmenu(item, btn) : openSubmenu(item, btn);
+    });
+  });
+
+  var hoverTimer = null;
+  document.querySelectorAll(".kb-nav-item.menu-item-has-children, .kb-nav-item.kb-nav-mega-menu-item").forEach(function (item) {
+    var btn = item.querySelector(".kb-nav-item-toggle");
+    item.addEventListener("mouseenter", function () {
+      if (!isDesktop()) return;
+      clearTimeout(hoverTimer); hoverTimer = setTimeout(function () { openSubmenu(item, btn); }, HOVER_DELAY);
+    });
+    item.addEventListener("mouseleave", function () {
+      if (!isDesktop()) return;
+      clearTimeout(hoverTimer); hoverTimer = setTimeout(function () { closeSubmenu(item, btn); }, HOVER_DELAY);
+    });
+  });
+
+  if (nav) {
+    nav.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        var openItem = nav.querySelector(".kb-nav-item.is-open");
+        if (openItem) {
+          var btn = openItem.querySelector(".kb-nav-item-toggle");
+          closeSubmenu(openItem, btn);
+          (btn || openItem.querySelector(".kb-nav-link") || openItem).focus();
+        } else if (!isDesktop()) { closeMobileMenu(); }
+        return;
+      }
+      if (e.key === "Tab" && !e.shiftKey) {
+        var parentOpen = e.target.closest(".kb-nav-item.is-open");
+        if (parentOpen) {
+          var focusable = Array.from(parentOpen.querySelectorAll(FOCUSABLE_SEL));
+          if (focusable[focusable.length - 1] === e.target) {
+            closeSubmenu(parentOpen, parentOpen.querySelector(".kb-nav-item-toggle"));
+          }
+        }
+      }
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".site-shell-header")) {
+      closeAllSubmenus();
+      if (nav && nav.classList.contains("is-open")) closeMobileMenu();
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && nav && nav.classList.contains("is-open")) closeMobileMenu();
+  });
+
+  window.addEventListener("resize", debounce(function () {
+    if (isDesktop() && nav && nav.classList.contains("is-open")) closeMobileMenu();
+    updateHeaderHeight();
+  }, RESIZE_DELAY));
+
+  document.addEventListener("click", function (e) {
+    var link = e.target.closest('a[href^="#"]');
+    if (!link) return;
+    var id = link.getAttribute("href").slice(1);
+    if (!id) return;
+    var target = document.getElementById(id);
+    if (!target) return;
+    e.preventDefault();
+    var headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--kb-header-height") || "0", 10);
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - headerH - 8, behavior: "smooth" });
+    history.pushState(null, "", "#" + id);
+    target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  });
+
+}());
+`;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const UI_ROOT = path.resolve(__dirname, "../ui");
@@ -302,7 +514,24 @@ function extractMediaUrls(html, wpBaseUrl) {
   for (const m of source.matchAll(/\bdata-srcset=["']([^"']+)["']/gi)) {
     for (const part of m[1].split(",")) addUrl(part.trim().split(/\s+/)[0]);
   }
+  // Kadence block JSON attributes: "url": "...", "link": "...", "src": "..."
+  for (const m of source.matchAll(/"(?:url|link|src|imgURL|backgroundImg)"\s*:\s*"([^"]+)"/gi)) addUrl(m[1]);
   return [...urls];
+}
+
+// Rewrite all absolute WP-origin /wp-content/ URLs in text to local /media/ paths.
+// Applied to file content when downloadMedia is true so the built site is self-contained.
+function rewriteWpMediaUrls(text, wpBaseUrl, mediaDir) {
+  if (!wpBaseUrl || !text) return text;
+  let origin;
+  try { origin = new URL(wpBaseUrl).origin; } catch { return text; }
+  // Match origin + /wp-content/... capturing the pathname
+  const re = new RegExp(
+    origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(/wp-content/[^\"'\\s>)\\]]+)",
+    "gi"
+  );
+  const prefix = `/${mediaDir}/`.replace(/\/+/g, "/");
+  return text.replace(re, (_, pathname) => `${prefix}${pathname.replace(/^\/+/, "")}`);
 }
 
 function sanitizeFileSegment(v) {
@@ -682,10 +911,10 @@ function buildAuthHeaders(config, progress = () => {}) {
   if (config.authMode === "app-password" && config.wpUser && config.wpAppPassword) {
     const token = Buffer.from(`${config.wpUser}:${config.wpAppPassword}`).toString("base64");
     headers.Authorization = `Basic ${token}`;
-    progress("ok", "Autentikointi: app-password");
+    progress("ok", "Authentication: app-password");
   } else if (config.authMode === "bearer" && config.wpBearerToken) {
     headers.Authorization = `Bearer ${config.wpBearerToken}`;
-    progress("ok", "Autentikointi: bearer token");
+    progress("ok", "Authentication: bearer token");
   }
   return headers;
 }
@@ -717,6 +946,16 @@ function extractCssImports(css, baseUrl) {
     const rel = (match[1] || match[2] || "").trim();
     if (!rel) continue;
     try { urls.push(new URL(rel, baseUrl).toString()); } catch {}
+  }
+  return urls;
+}
+
+function extractScriptUrls(html, baseUrl) {
+  const urls = [];
+  const re = /<script[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try { urls.push(new URL(m[1], baseUrl).href); } catch {}
   }
   return urls;
 }
@@ -832,7 +1071,7 @@ async function discoverContentProfile(baseApi, headers, progress, warnings) {
 
   for (const type of DEFAULT_TYPES) {
     try {
-      progress("info", `DISCOVER: skannataan ${type}-lohkorakenne…`);
+      progress("info", `DISCOVER: scanning ${type} block structure…`);
       const items = await fetchAllPages(`${baseApi}/${type}?context=edit&_embed=1`, headers);
       profile.scannedTypes.push(type);
       for (const item of items) {
@@ -847,10 +1086,10 @@ async function discoverContentProfile(baseApi, headers, progress, warnings) {
         })();
         collectBlockProfile(parseWpBlocks(rawContent), profile, pathname);
       }
-      progress("ok", `DISCOVER: ${type} skannattu (${items.length} kohdetta)`);
+      progress("ok", `DISCOVER: ${type} scanned (${items.length} items)`);
     } catch (err) {
       warnings.push(`Block discovery for ${type} failed: ${String(err.message || err)}`);
-      progress("warn", `DISCOVER: ${type}-lohkoja ei saatu skannattua`);
+      progress("warn", `DISCOVER: could not scan ${type} blocks`);
     }
   }
 
@@ -887,7 +1126,7 @@ async function writeSiteProfileArtifacts(outputRoot, profile, progress = () => {
   const configureSummary = buildConfigureSummary(profile);
   await fs.writeFile(profilePath, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
   await fs.writeFile(summaryPath, `${JSON.stringify(configureSummary, null, 2)}\n`, "utf8");
-  progress("ok", `DISCOVER: profiili tallennettu (${PROFILE_FILE_NAME})`);
+  progress("ok", `DISCOVER: profile saved (${PROFILE_FILE_NAME})`);
   return { profilePath, summaryPath, configureSummary };
 }
 
@@ -999,6 +1238,28 @@ function themeCssFromProfile(profile) {
     ".kb-tab-panel { display: none; }",
     ".kb-tab-panel.kt-tab-active { display: block; }",
     "",
+    "/* ── Kadence postgrid / Splide carousel ────────────────────────────────────── */",
+    ".wp-block-kadence-postgrid, .wp-block-kadence-posts { padding: 1rem 0; }",
+    ".kb-post-feed-header { display: flex; align-items: center; justify-content: space-between; margin: 0 0 1rem; }",
+    ".kb-post-feed-title { margin: 0; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.1; }",
+    ".kb-post-feed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }",
+    ".kb-post-feed-carousel { padding: 0 0 2rem; }",
+    "/* Force carousel track scrollable + list flex regardless of Splide init state */",
+    ".kb-post-feed-carousel.kb-splide .splide__track { overflow-x: auto !important; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }",
+    ".kb-post-feed-carousel.kb-splide .splide__list { display: flex !important; flex-wrap: nowrap; gap: 24px; }",
+    ".kb-post-feed-carousel.kb-splide .splide__slide { flex: 0 0 calc(33.333% - 16px); width: calc(33.333% - 16px); scroll-snap-align: start; height: auto; }",
+    "@media (max-width: 1024px) { .kb-post-feed-carousel.kb-splide .splide__slide { flex: 0 0 calc(50% - 12px); width: calc(50% - 12px); } }",
+    "@media (max-width: 767px) { .kb-post-feed-carousel.kb-splide .splide__slide { flex: 0 0 100%; width: 100%; } }",
+    ".kb-post-card { display: flex; flex-direction: column; background: var(--global-palette9, #fff); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.1); height: 100%; }",
+    ".kb-post-card__image-link { display: block; }",
+    ".kb-post-card__image { width: 100%; height: 200px; object-fit: cover; display: block; }",
+    ".kb-post-card__body { padding: 1rem; flex: 1; display: flex; flex-direction: column; }",
+    ".kb-post-card__date { font-size: .8rem; color: #5e6c7b; margin-bottom: .6rem; }",
+    ".kb-post-card__title { font-size: 1rem; margin: 0 0 .5rem; line-height: 1.3; }",
+    ".kb-post-card__title a { text-decoration: none; color: var(--global-palette1, #333); }",
+    ".kb-post-card__title a:hover { color: var(--global-palette2, #555); }",
+    ".kb-post-card__excerpt { font-size: .875rem; margin: 0; opacity: .78; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }",
+    "",
     "/* ── Kadence query grid ──────────────────────────────────────────────────────── */",
     ".wp-block-kadence-query.kb-query-loop { margin: 1rem 0; }",
     ".kb-query-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.5rem; }",
@@ -1085,7 +1346,7 @@ async function configureProjectFromProfile(root, config, report, progress = () =
         summary: buildConfigureSummary(profile),
         note: "Configure artifacts will be written on non-dry-run"
       };
-      progress("ok", "CONFIGURE: profiilipohjaiset asetukset valmiina (dry run)");
+      progress("ok", "CONFIGURE: profile-based settings ready (dry run)");
     }
     return;
   }
@@ -1111,8 +1372,8 @@ async function configureProjectFromProfile(root, config, report, progress = () =
     separatorsGenerated: writtenSeparators,
     summary: buildConfigureSummary(profile)
   };
-  progress("ok", `CONFIGURE: theme.css generoitu (${Object.keys(profile.palette || {}).length} palette-arvoa)`);
-  if (writtenSeparators.length) progress("ok", `CONFIGURE: separatorit generoitu (${writtenSeparators.length} kpl)`);
+  progress("ok", `CONFIGURE: theme.css generated (${Object.keys(profile.palette || {}).length} palette values)`);
+  if (writtenSeparators.length) progress("ok", `CONFIGURE: separators generated (${writtenSeparators.length})`);
 }
 
 function uniqueNonEmpty(values = []) {
@@ -1180,8 +1441,8 @@ async function analyzeSite(config, progress = () => {}) {
     workflow: ["discover", "configure", "migrate"]
   };
 
-  progress("info", `DISCOVER: analysoidaan sivusto → ${config.wpBaseUrl}`);
-  progress("info", "DISCOVER: haetaan etusivun HTML ja tunnisteet…");
+  progress("info", `DISCOVER: analysing site → ${config.wpBaseUrl}`);
+  progress("info", "DISCOVER: fetching homepage HTML and signals…");
   const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
   const stylesheetUrls = extractStylesheetUrls(homepageHtml, config.wpBaseUrl);
   const inlineStyles = extractInlineStyles(homepageHtml);
@@ -1189,16 +1450,16 @@ async function analyzeSite(config, progress = () => {}) {
   const cssVariableMap = {};
   for (const inlineStyle of inlineStyles) Object.assign(cssVariableMap, extractCssVariables(inlineStyle));
 
-  progress("ok", `DISCOVER: etusivu haettu (${stylesheetUrls.length} stylesheetiä, ${navs.length} navigaatiota)`);
+  progress("ok", `DISCOVER: homepage fetched (${stylesheetUrls.length} stylesheets, ${navs.length} navigations)`);
 
   let restRoot = null;
   try {
-    progress("info", "DISCOVER: tarkistetaan WordPress REST -juuri…");
+    progress("info", "DISCOVER: checking WordPress REST root…");
     restRoot = await fetchJson(joinUrl(config.wpBaseUrl, "/wp-json/"), headers);
-    progress("ok", `DISCOVER: REST juuri löytyi (${(restRoot?.namespaces || []).length} namespacea)`);
+    progress("ok", `DISCOVER: REST root found (${(restRoot?.namespaces || []).length} namespaces)`);
   } catch (err) {
     warnings.push(`REST root failed: ${String(err.message || err)}`);
-    progress("warn", "DISCOVER: REST-juurta ei saatu luettua");
+    progress("warn", "DISCOVER: could not read REST root");
   }
 
   const theme = detectThemeFromSignals(homepageHtml, stylesheetUrls);
@@ -1222,19 +1483,19 @@ async function analyzeSite(config, progress = () => {}) {
   const baseApi = joinUrl(config.wpBaseUrl, recommendedNamespace);
   for (const type of DEFAULT_TYPES) {
     try {
-      progress("info", `DISCOVER: lasketaan ${type} REST API:n kautta…`);
+      progress("info", `DISCOVER: counting ${type} via REST API…`);
       const items = await fetchAllPages(`${baseApi}/${type}`, headers);
       contentCounts[type] = items.length;
-      progress("ok", `DISCOVER: ${type} ${items.length} kohdetta`);
+      progress("ok", `DISCOVER: ${type} — ${items.length} items`);
     } catch (err) {
       warnings.push(`Count fetch for ${type} failed: ${String(err.message || err)}`);
-      progress("warn", `DISCOVER: ${type}-määrää ei saatu laskettua`);
+      progress("warn", `DISCOVER: could not count ${type}`);
     }
   }
 
   const menus = await fetchMenus(config.wpBaseUrl, headers, warnings);
-  if (menus.menus.length) progress("ok", `DISCOVER: valikot löydetty REST API:sta (${menus.menus.length} kpl)`);
-  else progress("warn", "DISCOVER: valikot eivät olleet saatavilla REST API:sta");
+  if (menus.menus.length) progress("ok", `DISCOVER: menus found via REST API (${menus.menus.length})`);
+  else progress("warn", "DISCOVER: menus were not available via REST API");
 
   for (const stylesheetUrl of stylesheetUrls.slice(0, 8)) {
     try {
@@ -1256,11 +1517,11 @@ async function analyzeSite(config, progress = () => {}) {
   let headerStyles = null;
   if (recommendedPreset === "kadence-pro" || recommendedPreset === "kadence") {
     try {
-      progress("info", "DISCOVER: haetaan Kadence header -tyyliasetukset…");
+      progress("info", "DISCOVER: fetching Kadence header style settings…");
       const kadenceHeaders = await fetchKadenceHeaders({ wpBaseUrl: config.wpBaseUrl, restNamespace: recommendedNamespace, authMode: config.authMode, wpUser: config.wpUser, wpAppPassword: config.wpAppPassword, wpBearerToken: config.wpBearerToken }, headers);
       if (kadenceHeaders.length) {
         headerStyles = kadenceHeaders[0].styles;
-        progress("ok", `DISCOVER: header-tyylit löydetty (korkeus: ${headerStyles.minHeight ?? "oletus"}, tausta: ${headerStyles.backgroundType ?? "oletus"})`);
+        progress("ok", `DISCOVER: header styles found (height: ${headerStyles.minHeight ?? "default"}, background: ${headerStyles.backgroundType ?? "default"})`);
       }
     } catch (err) {
       warnings.push(`Header style fetch failed: ${String(err.message || err)}`);
@@ -1317,16 +1578,16 @@ async function analyzeSite(config, progress = () => {}) {
     plugins,
     recommendations: [
       recommendedPreset === "kadence-pro"
-        ? "Sivusto näyttää käyttävän Kadence Prota. Käytä Kadence Pro -presetiä ja pidä lohko- sekä tyylimigraatio päällä."
+        ? "Site appears to use Kadence Pro. Use the Kadence Pro preset and keep block and style migration enabled."
         : recommendedPreset === "kadence"
-          ? "Sivusto näyttää käyttävän Kadencea. Kadence-preset on todennäköisesti järkevin lähtökohta."
-          : "Sivusto ei näytä puhtaalta Kadence-tapaukselta. Aloita neutraalilla presetillä ja lisää muunnokset tarpeen mukaan.",
+          ? "Site appears to use Kadence. The Kadence preset is most likely the best starting point."
+          : "Site does not appear to be a pure Kadence case. Start with the neutral preset and add conversions as needed.",
       languages.length > 1 || plugins.some((plugin) => plugin.slug === "wpml")
-        ? "Monikielisyydestä on signaaleja. Varmista kielikohtaiset permalinkit, valikot ja sisältökokoelmat ennen julkaisua."
-        : "Monikielisyydestä ei näy vahvaa signaalia etusivun perusteella.",
+        ? "Multilingual signals detected. Verify language-specific permalinks, menus and content collections before publishing."
+        : "No strong multilingual signal detected from the homepage.",
       menus.menus.length
-        ? "Valikkorakennetta näyttää olevan saatavilla. Tarkista silti HTML-fallbackin tai REST-valikkojen laatu migraation jälkeen."
-        : "Valikkojen automaattinen tuonti voi vaatia fallback-parsintaa tai manuaalista täydentämistä."
+        ? "Menu structure appears to be available. Verify the quality of the HTML fallback or REST menus after migration."
+        : "Automatic menu import may require fallback parsing or manual completion."
     ],
     configure: configureSummary
   };
@@ -1334,7 +1595,7 @@ async function analyzeSite(config, progress = () => {}) {
   report.configure = configureSummary;
 
   report.finishedAt = new Date().toISOString();
-  progress("ok", "DISCOVER: sivustoprofiili valmis");
+  progress("ok", "DISCOVER: site profile complete");
   return report;
 }
 
@@ -1367,7 +1628,7 @@ async function writeEleventyPluginPlan(root, config, report, progress = () => {}
   };
 
   if (config.dryRun) {
-    progress("ok", `Eleventy-pluginisuunnitelma: ${enabled.length}/${replacements.length} valittuna (dry run)`);
+    progress("ok", `Eleventy plugin plan: ${enabled.length}/${replacements.length} selected (dry run)`);
     return;
   }
 
@@ -1381,7 +1642,7 @@ async function writeEleventyPluginPlan(root, config, report, progress = () => {}
     ""
   ].join("\n");
   await fs.writeFile(snippetPath, snippet, "utf8");
-  progress("ok", `Eleventy-pluginisuunnitelma kirjoitettu: ${enabled.length}/${replacements.length} käytössä`);
+  progress("ok", `Eleventy plugin plan written: ${enabled.length}/${replacements.length} enabled`);
 }
 
 function deriveProjectName(config) {
@@ -1428,11 +1689,12 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
   const dataDir = path.join(root, config.dataDir || DEFAULT_DATA_DIR);
   const created = [];
   const siteJsonPath = path.join(dataDir, "site.json");
+  const defaultLocale = config.lang || "en";
   const siteJson = {
     name: deriveProjectName(config),
     url: config.wpBaseUrl || "",
-    locales: enabled.has("wpml") || enabled.has("gtranslate") ? ["fi", "en"] : ["fi"],
-    defaultLocale: "fi",
+    locales: enabled.has("wpml") || enabled.has("gtranslate") ? [defaultLocale, "en"].filter((v, i, a) => a.indexOf(v) === i) : [defaultLocale],
+    defaultLocale,
     logo: "",
     tagline: ""
   };
@@ -1474,11 +1736,20 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
     <nav id="site-nav-menu" class="site-navigation kb-navigation" aria-label="Site navigation">
       <ul class="menu kb-nav-menu">
         {% for item in navItems %}
-          <li class="menu-item kb-nav-item{% if item.megamenu %} kb-nav-mega-menu-item{% elif item.children and item.children.length %} menu-item-has-children{% endif %}">
-            <a class="kb-nav-link" href="{{ item.url }}"{% if item.target %} target="{{ item.target }}"{% endif %}>{{ item.title }}</a>
+          {% set hasChildren = (item.megamenu and item.megamenuColumns and item.megamenuColumns.length) or (item.children and item.children.length) %}
+          {% set topMenuId = "site-nav-submenu-" ~ loop.index %}
+          <li class="menu-item kb-nav-item{% if item.megamenu %} kb-nav-mega-menu-item{% endif %}{% if hasChildren %} menu-item-has-children has-child{% endif %}">
+            <div class="kb-nav-link-row">
+              <a class="kb-nav-link" href="{{ item.url }}"{% if item.target %} target="{{ item.target }}"{% endif %}>{{ item.title }}</a>
+              {% if hasChildren %}
+                <button class="kb-nav-item-toggle" type="button" aria-expanded="false" aria-controls="{{ topMenuId }}" aria-label="Open {{ item.title }} submenu">
+                  <span aria-hidden="true">&#9660;</span>
+                </button>
+              {% endif %}
+            </div>
             {# ── Megamenu ─────────────────────────────────────────── #}
             {% if item.megamenu and item.megamenuColumns and item.megamenuColumns.length %}
-              <div class="kb-mega-menu" role="region" aria-label="{{ item.title }} megamenu">
+              <div id="{{ topMenuId }}" class="kb-mega-menu" role="region" aria-label="{{ item.title }} megamenu">
                 <ul class="kb-mega-menu-cols">
                   {% for col in item.megamenuColumns %}
                     <li class="kb-mega-menu-col">
@@ -1497,12 +1768,21 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
               </div>
             {# ── Normal dropdown ──────────────────────────────────── #}
             {% elif item.children and item.children.length %}
-              <ul class="sub-menu kb-nav-sub-menu">
+              <ul id="{{ topMenuId }}" class="sub-menu kb-nav-sub-menu">
                 {% for child in item.children %}
-                  <li class="menu-item kb-nav-item{% if child.children and child.children.length %} menu-item-has-children{% endif %}">
-                    <a class="kb-nav-link" href="{{ child.url }}">{{ child.title }}</a>
-                    {% if child.children and child.children.length %}
-                      <ul class="sub-menu kb-nav-sub-menu kb-nav-sub-menu--level2">
+                  {% set childHasChildren = child.children and child.children.length %}
+                  {% set childMenuId = topMenuId ~ "-" ~ loop.index %}
+                  <li class="menu-item kb-nav-item{% if childHasChildren %} menu-item-has-children has-child{% endif %}">
+                    <div class="kb-nav-link-row">
+                      <a class="kb-nav-link" href="{{ child.url }}">{{ child.title }}</a>
+                      {% if childHasChildren %}
+                        <button class="kb-nav-item-toggle" type="button" aria-expanded="false" aria-controls="{{ childMenuId }}" aria-label="Open {{ child.title }} submenu">
+                          <span aria-hidden="true">&#9660;</span>
+                        </button>
+                      {% endif %}
+                    </div>
+                    {% if childHasChildren %}
+                      <ul id="{{ childMenuId }}" class="sub-menu kb-nav-sub-menu kb-nav-sub-menu--level2">
                         {% for grandchild in child.children %}
                           <li class="menu-item"><a class="kb-nav-link" href="{{ grandchild.url }}">{{ grandchild.title }}</a></li>
                         {% endfor %}
@@ -1519,38 +1799,6 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
     {% endif %}
   </div>
 </header>
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const header = document.querySelector(".site-shell-header");
-
-    // Transparent header: toggle is-stuck / is-transparent on scroll
-    if (header && header.classList.contains("is-transparent")) {
-      const onScroll = () => {
-        header.classList.toggle("is-stuck", window.scrollY > 10);
-        header.classList.toggle("is-transparent", window.scrollY <= 10);
-      };
-      window.addEventListener("scroll", onScroll, { passive: true });
-    }
-
-    // Mobile nav toggle
-    const toggle = document.querySelector(".kb-nav-toggle");
-    const menu = document.getElementById("site-nav-menu");
-    if (toggle && menu) {
-      toggle.addEventListener("click", () => {
-        const expanded = toggle.getAttribute("aria-expanded") === "true";
-        toggle.setAttribute("aria-expanded", String(!expanded));
-        menu.classList.toggle("is-open", !expanded);
-      });
-    }
-
-    // Dropdown/megamenu toggle on mobile
-    document.querySelectorAll(".kb-nav-mega-menu-item > .kb-nav-link, .menu-item-has-children > .kb-nav-link").forEach((link) => {
-      link.addEventListener("click", (e) => {
-        if (window.innerWidth <= 1024) { e.preventDefault(); link.parentElement.classList.toggle("is-open"); }
-      });
-    });
-  });
-</script>
 `
   ]);
 
@@ -1658,7 +1906,7 @@ async function writeReplacementScaffolding(root, config, report, progress = () =
     enabled: [...enabled],
     created
   };
-  progress("ok", `Eleventy-vastineiden scaffoldit: ${created.length} tiedostoa`);
+  progress("ok", `Eleventy replacement scaffolds: ${created.length} files`);
 }
 
 function slugifyCollectionName(name) {
@@ -1673,7 +1921,7 @@ function slugifyCollectionName(name) {
 async function bootstrapEleventyProject(root, config, report, progress = () => {}, categoryNames = []) {
   if (config.siteMode === "existing") {
     report.bootstrap = { skipped: true, reason: "existing-site-mode" };
-    progress("info", "Eleventy-bootstrap ohitettu: päivitetään olemassa olevaa projektia");
+    progress("info", "Eleventy bootstrap skipped: updating existing project");
     return;
   }
 
@@ -1763,7 +2011,7 @@ async function bootstrapEleventyProject(root, config, report, progress = () => {
 
   if (config.dryRun) {
     report.bootstrap = { ...bootstrap, note: "Bootstrap files will be created on non-dry-run" };
-    progress("ok", `Eleventy-bootstrap suunniteltu: ${bootstrap.dependencies.join(", ")}`);
+    progress("ok", `Eleventy bootstrap planned: ${bootstrap.dependencies.join(", ")}`);
     return;
   }
 
@@ -1774,7 +2022,7 @@ async function bootstrapEleventyProject(root, config, report, progress = () => {
   if (await writeIfMissing(notesPath, notes)) bootstrap.created.push(notesPath);
 
   report.bootstrap = bootstrap;
-  progress("ok", `Eleventy-bootstrap valmis: ${bootstrap.created.length} tiedostoa`);
+  progress("ok", `Eleventy bootstrap complete: ${bootstrap.created.length} files`);
 }
 
 async function installProjectDependencies(root, config, report, progress = () => {}) {
@@ -1782,24 +2030,24 @@ async function installProjectDependencies(root, config, report, progress = () =>
   const shouldInstall = config.siteMode === "new";
   if (!shouldInstall) {
     report.install = { skipped: true, reason: "existing-site-mode" };
-    progress("info", "Riippuvuuksien asennus ohitettu: päivitetään olemassa olevaa projektia");
+    progress("info", "Dependency install skipped: updating existing project");
     return;
   }
 
   if (!(await fileExists(packageJsonPath))) {
     report.install = { skipped: true, reason: "missing-package-json" };
-    progress("warn", "Riippuvuuksia ei voitu asentaa: package.json puuttuu");
+    progress("warn", "Dependencies could not be installed: package.json is missing");
     return;
   }
 
   if (config.dryRun) {
     report.install = { planned: true, command: "npm install" };
-    progress("ok", "Riippuvuuksien asennus suunniteltu: npm install (dry run)");
+    progress("ok", "Dependency install planned: npm install (dry run)");
     return;
   }
 
   try {
-    progress("info", "Asennetaan Eleventy-riippuvuudet…");
+    progress("info", "Installing Eleventy dependencies…");
     await new Promise((resolve, reject) => {
       const child = spawn("npm", ["install", "--no-fund", "--no-audit"], {
         cwd: root,
@@ -1813,7 +2061,7 @@ async function installProjectDependencies(root, config, report, progress = () =>
       const captured = [];
       const heartbeat = setInterval(() => {
         if (Date.now() - lastOutputAt > 8000) {
-          progress("info", "npm install yhä käynnissä… odotetaan paketinhallinnan vastausta");
+          progress("info", "npm install still running… waiting for package manager response");
           lastOutputAt = Date.now();
         }
       }, 4000);
@@ -1859,12 +2107,12 @@ async function installProjectDependencies(root, config, report, progress = () =>
       });
     });
     report.install = { ran: true, command: "npm install" };
-    progress("ok", "Riippuvuudet asennettu: npm install");
+    progress("ok", "Dependencies installed: npm install");
   } catch (err) {
     const detail = String(err?.detail || err?.stderr || err?.stdout || err?.message || err);
     report.install = { ran: true, failed: true, command: "npm install", detail };
     report.warnings.push(`npm install failed: ${detail}`);
-    progress("warn", "Riippuvuuksien asennus epäonnistui, tarkista loki");
+    progress("warn", "Dependency install failed, check the log");
   }
 }
 
@@ -1886,24 +2134,24 @@ async function verifyProjectOutput(root, config, report, progress = () => {}) {
   if (config.siteMode === "new") {
     if (!missing.length) {
       report.outputVerification.ok = true;
-      progress("ok", "Output-verifiointi: Eleventy-projektin perusrunko löytyi");
+      progress("ok", "Output verification: Eleventy project scaffold found");
       return;
     }
     report.outputVerification.ok = false;
     for (const filePath of missing) {
-      progress("warn", `Output-verifiointi: puuttuu ${path.basename(filePath)}`);
+      progress("warn", `Output verification: missing ${path.basename(filePath)}`);
     }
-    throw new Error(`Migraation output on vajaa: ${missing.map((filePath) => path.basename(filePath)).join(", ")} puuttuu kohdeprojektista`);
+    throw new Error(`Migration output is incomplete: ${missing.map((filePath) => path.basename(filePath)).join(", ")} missing from target project`);
   }
 
   if (missing.length) {
     report.outputVerification.ok = false;
-    progress("warn", "Olemassa olevan projektin juuresta puuttuu package.json tai eleventy.config.js. Jos tämä ei ollut tarkoitus, käytä tilaa 'Luo uusi sivusto'.");
+    progress("warn", "Existing project root is missing package.json or eleventy.config.js. If this was not intended, use the 'Create new site' mode.");
     return;
   }
 
   report.outputVerification.ok = true;
-  progress("ok", "Output-verifiointi: olemassa olevan projektin Eleventy-runko löytyi");
+  progress("ok", "Output verification: existing project Eleventy scaffold found");
 }
 
 // Common words that look like shortcodes but aren't — Finnish, English, JS artifacts
@@ -1913,7 +2161,7 @@ const SHORTCODE_BLOCKLIST = new Set([
   "a","b","i","p","s","u","br","hr","li","ul","ol","tr","td","th",
   "if","else","for","do","in","is","as","at","or","of","to","by","an",
   "the","and","not","but","was","are","has","had","its","via",
-  "luovat","luova","hyvä","hyvät","uusi","uudet","uutta",
+
 ]);
 
 const NAMESPACE_TO_PLUGIN = {
@@ -1937,31 +2185,29 @@ const NAMESPACE_TO_PLUGIN = {
   "mc4wp/v1":              { name: "Mailchimp for WP",       slug: "mailchimp-for-wp",         effort: "medium" },
   "bbp/v1":                { name: "bbPress",                slug: "bbpress",                  effort: "high" },
   "buddypress/v1":         { name: "BuddyPress",             slug: "buddypress",               effort: "high" },
-  "loftocean/v1":          { name: "Loftocean (custom)",     slug: "loftocean",                effort: "high" },
   "betterdocs/v1":         { name: "BetterDocs",             slug: "betterdocs",               effort: "high" },
 };
 
 const PLUGIN_REPLACEMENTS = {
-  "kadence-pro":            "Kadence-lohkot muutetaan Nunjucks-partiaaleiksi (preset: kadence-pro).",
-  "kadence-blocks":         "Kadence-lohkot muutetaan Nunjucks-partiaaleiksi (preset: kadence).",
-  "kadence":                "Kadence-teema → Eleventy-pohja. Tyylit migratoidaan best-effort-mallilla.",
-  "woocommerce":            "WooCommerce → erillinen staattinen catalog (esim. Snipcart/Stripe Checkout) tai erillinen backend.",
-  "contact-form-7":         "CF7-lomakkeet → staattinen HTML-lomake + Netlify Forms / Formspree / Web3Forms.",
-  "wordpress-seo":          "Yoast SEO → Eleventy SEO -plugin tai meta-tiedot front matterissa.",
-  "seo-by-rank-math":       "Rank Math SEO → Eleventy SEO -plugin tai meta-tiedot front matterissa.",
-  "elementor":              "Elementor-rakenteet täytyy rakentaa uudelleen Eleventy-pohjina (korkea työmäärä).",
-  "advanced-custom-fields": "ACF-kentät tallennetaan front matteriin migraation aikana jos ne löytyvät REST API:sta.",
+  "kadence-pro":            "Kadence blocks are converted to Nunjucks partials (preset: kadence-pro).",
+  "kadence-blocks":         "Kadence blocks are converted to Nunjucks partials (preset: kadence).",
+  "kadence":                "Kadence theme → Eleventy layout. Styles are migrated on a best-effort basis.",
+  "woocommerce":            "WooCommerce → separate static catalogue (e.g. Snipcart/Stripe Checkout) or separate backend.",
+  "contact-form-7":         "CF7 forms → static HTML form + Netlify Forms / Formspree / Web3Forms.",
+  "wordpress-seo":          "Yoast SEO → Eleventy SEO plugin or meta fields in front matter.",
+  "seo-by-rank-math":       "Rank Math SEO → Eleventy SEO plugin or meta fields in front matter.",
+  "elementor":              "Elementor structures must be rebuilt as Eleventy layouts (high effort).",
+  "advanced-custom-fields": "ACF fields are stored in front matter during migration if found in the REST API.",
   "pods":                   "Pods custom types → Eleventy data files + custom collections.",
-  "sitepress-multilingual-cms": "WPML → Eleventy i18n (korkea työmäärä, vaatii erikseen suunnittelun).",
-  "polylang":               "Polylang → Eleventy i18n (korkea työmäärä).",
-  "wp-job-manager":         "WP Job Manager → staattinen JSON data + Eleventy template.",
+  "sitepress-multilingual-cms": "WPML → Eleventy i18n (high effort, requires separate planning).",
+  "polylang":               "Polylang → Eleventy i18n (high effort).",
+  "wp-job-manager":         "WP Job Manager → static JSON data + Eleventy template.",
   "gravityforms":           "Gravity Forms → Formspree / Netlify Forms / Web3Forms.",
   "ninja-forms":            "Ninja Forms → Formspree / Netlify Forms / Web3Forms.",
-  "mailchimp-for-wp":       "Mailchimp subscribe-widget → uppotettu Mailchimp-lomake tai API-kutsu.",
-  "bbpress":                "bbPress-keskustelut eivät sovi staattiselle sivustolle — harkitse Discourse/Disqus.",
-  "buddypress":             "BuddyPress-yhteisöominaisuudet eivät sovi staattiselle sivustolle.",
-  "betterdocs":             "BetterDocs-dokumentaatio → erillinen Eleventy-collection tai erillinen dokumentaatiosivusto.",
-  "loftocean":              "Loftocean-custom → analysoi rakenne erikseen, luo vastaava Eleventy-komponentti.",
+  "mailchimp-for-wp":       "Mailchimp subscribe widget → embedded Mailchimp form or API call.",
+  "bbpress":                "bbPress discussions are not suited for a static site — consider Discourse/Disqus.",
+  "buddypress":             "BuddyPress community features are not suited for a static site.",
+  "betterdocs":             "BetterDocs documentation → separate Eleventy collection or separate documentation site.",
 };
 
 function detectShortcodes(content) {
@@ -2064,8 +2310,16 @@ async function migrateStyles(config, root, report, headers) {
   const mediaPathPrefix = `/${config.mediaDir || "media"}`;
   let wpOrigin;
   try { wpOrigin = new URL(config.wpBaseUrl).origin; } catch { wpOrigin = config.wpBaseUrl; }
+  const fontPreloadUrls = [];
 
   const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
+  // Detect Kadence navigation JS URLs for reporting
+  const KADENCE_JS_PATTERN = /kb-header|kb-navigation|kb-off-canvas|kadence.*\.min\.js/i;
+  const allScriptUrls = extractScriptUrls(homepageHtml, config.wpBaseUrl);
+  const kadenceJsUrls = allScriptUrls.filter((url) => {
+    try { return new URL(url).origin === wpOrigin && KADENCE_JS_PATTERN.test(url); }
+    catch { return false; }
+  });
   // Extract megamenu structure from rendered homepage HTML (fallback)
   const parsedNavs = extractNavFromHtml(homepageHtml, config.wpBaseUrl);
   const seedUrls = extractStylesheetUrls(homepageHtml, config.wpBaseUrl);
@@ -2177,6 +2431,10 @@ async function migrateStyles(config, root, report, headers) {
           const relPath = mUrlObj.pathname.replace(/^\/+/, "");
           const outMediaPath = path.join(mediaRoot, ...relPath.split("/").map(sanitizeFileSegment));
           if (!(await fileExists(outMediaPath))) await downloadFile(mediaUrl, outMediaPath, headers);
+          if (isFontFile) {
+            const relPath = mUrlObj.pathname.replace(/^\/+/, "");
+            fontPreloadUrls.push(`/${mediaPathPrefix}/${relPath}`);
+          }
         } catch (err) {
           report.warnings.push(`CSS media download failed for ${mediaUrl}: ${String(err.message || err)}`);
         }
@@ -2222,7 +2480,9 @@ async function migrateStyles(config, root, report, headers) {
     manifestPath,
     tokensPath,
     legacyStylesInclude: legacyStylesIncludePath,
-    stylesheetUrls: [...cssCache.keys()].filter((u) => u !== "__inline__")
+    stylesheetUrls: [...cssCache.keys()].filter((u) => u !== "__inline__"),
+    fontPreloadUrls: [...new Set(fontPreloadUrls)],
+    kadenceJsUrls,
   };
 
   if (parsedNavs.length) {
@@ -2256,12 +2516,15 @@ function themeCssIncludeLine(config) {
 }
 
 function buildTargetPermalink(type, slug, config, sourceUrl = "") {
+  if (slug === "home") return "/";
   if (sourceUrl) {
     try {
       const pathname = new URL(sourceUrl).pathname || "/";
-      if (pathname === "/" || slug === "home") return "/";
-      const normalized = normalizePathnameToPermalink(pathname);
-      if (normalized !== "/") return normalized;
+      // Only use source path when it's a real path (not just "/" from query-only URLs like ?betterdocs_faq=...)
+      if (pathname !== "/") {
+        const normalized = normalizePathnameToPermalink(pathname);
+        if (normalized !== "/") return normalized;
+      }
     } catch {
       // fall back to generated permalink
     }
@@ -2291,7 +2554,7 @@ async function generateLayouts(config, root) {
     : "";
 
   const base = `<!doctype html>
-<html lang="{{ site.defaultLocale if site and site.defaultLocale else '${config.locale || "fi"}' }}">
+<html lang="{{ site.defaultLocale if site and site.defaultLocale else '${config.locale || config.lang || "en"}' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -2313,14 +2576,37 @@ ${stylesLine}</head>
   {% include "partials/site-header.njk" %}
   {{ content | safe }}
   {% include "partials/site-footer.njk" %}
-${newsletterLine}${cookieLine}</body>
+${newsletterLine}${cookieLine}  <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4/dist/js/splide.min.js"></script>
+  <script src="/scripts/nav.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.kadence-splide-init').forEach(function(el) {
+        var opts = {};
+        try { opts = JSON.parse(el.dataset.splide || '{}'); } catch(e) {}
+        new Splide(el, opts).mount();
+        el.classList.add('is-active');
+      });
+    });
+  </script>
+</body>
 </html>
 `;
 
   const page = `---
 layout: ${baseLayoutName}
 ---
+{% if pageHero or featuredImage %}
+<div class="entry-hero page-hero-section">
+  <div class="entry-hero-container-inner">
+    <div class="hero-section-overlay"></div>
+    <header class="entry-header">
+      {% if title and not kadenceBlocks %}<h1 class="page-title entry-title">{{ title }}</h1>{% endif %}
+    </header>
+  </div>
+</div>
+{% endif %}
 <main class="page">
+  {% if title and not kadenceBlocks and not pageHero and not featuredImage %}<h1 class="page-title">{{ title }}</h1>{% endif %}
   <div class="page-content">{{ content | safe }}</div>
 </main>
 `;
@@ -2341,10 +2627,12 @@ layout: ${baseLayoutName}
 </main>
 `;
 
+  const navJsPath = path.join(root, "scripts", "nav.js");
   const writes = [
     [baseLayoutPath, base],
     [pageLayoutPath, page],
-    [postLayoutPath, post]
+    [postLayoutPath, post],
+    [navJsPath, NAV_JS_TEMPLATE]
   ];
 
   if (config.defaultLayout && config.defaultLayout !== config.pageLayout && config.defaultLayout !== config.postLayout) {
@@ -2361,6 +2649,41 @@ layout: ${baseLayoutName}
     }
   }
   return generated;
+}
+
+async function patchBaseLayoutWithAssets(config, root, report) {
+  if (!report.styles?.fontPreloadUrls?.length && !report.styles?.kadenceJsUrls?.length) return;
+
+  const layoutDir = path.dirname(config.pageLayout || "layouts/page.njk");
+  const baseLayoutPath = path.join(root, "_includes", `${layoutDir}/base.njk`);
+  let content;
+  try {
+    content = await fs.readFile(baseLayoutPath, "utf8");
+  } catch {
+    return; // base.njk doesn't exist yet
+  }
+
+  // Insert font preload tags right before the first <link rel="stylesheet"> or {% include "legacy-styles.njk" %}
+  const preloadUrls = report.styles.fontPreloadUrls || [];
+  if (preloadUrls.length) {
+    const preloadTags = preloadUrls
+      .map((url) => {
+        const ext = url.split(".").pop().split("?")[0].toLowerCase();
+        const mimeMap = { woff2: "font/woff2", woff: "font/woff", ttf: "font/ttf", otf: "font/otf" };
+        const type = mimeMap[ext] || "font/woff2";
+        return `  <link rel="preload" as="font" type="${type}" href="${url}" crossorigin>`;
+      })
+      .join("\n");
+
+    // Insert before the first stylesheet link or legacy-styles include
+    const insertBefore = /\s*(?:<link rel="stylesheet"|{%[-\s]*include "legacy-styles\.njk")/;
+    const match = insertBefore.exec(content);
+    if (match) {
+      content = content.slice(0, match.index) + "\n" + preloadTags + "\n" + content.slice(match.index);
+    }
+  }
+
+  await fs.writeFile(baseLayoutPath, content, "utf8");
 }
 
 function safeJsonForNunjucks(value) {
@@ -2689,6 +3012,13 @@ function renderBlockTree(nodes, config, warnings, state) {
         attrs
       });
       const saveVar = `_kb_save_${state._kbSaveCounter++}`;
+      // Compute the Nunjucks-relative include path from kadenceBlocksDir.
+      // kadenceBlocksDir is relative to the output root, e.g. "_includes/blocks/kadence".
+      // Nunjucks includes are relative to _includes/, so strip the leading "_includes/" prefix.
+      const rawBlocksDir = String(config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR).replace(/\\/g, "/").replace(/\/+$/, "");
+      const includeBase = rawBlocksDir.startsWith("_includes/")
+        ? rawBlocksDir.slice("_includes/".length)
+        : rawBlocksDir;
       return [
         `{% set kadenceBlock = ${blockData} %}`,
         `{% set ${saveVar} = kadenceBlock %}`,
@@ -2696,7 +3026,7 @@ function renderBlockTree(nodes, config, warnings, state) {
         innerHtml,
         "{% endset %}",
         `{% set kadenceBlock = ${saveVar} %}`,
-        `{% include "blocks/kadence/${shortName}.njk" %}`
+        `{% include "${includeBase}/${shortName}.njk" %}`
       ].join("\n");
     }
 
@@ -2707,10 +3037,10 @@ function renderBlockTree(nodes, config, warnings, state) {
       }
       const strategy = String(config.unknownKadenceBlockStrategy || config.siteProfile?.configure?.unknownKadenceBlockStrategy || "fallback-html");
       if (strategy === "comment-only") {
-        return `<!-- TODO: kadence/${shortName} ei tuettu — alkuperäinen sisältö säilytettävä käsin -->`;
+        return `<!-- TODO: kadence/${shortName} not supported — original content must be restored manually -->`;
       }
       return [
-        `<!-- TODO: kadence/${shortName} ei tuettu — alkuperäinen sisältö säilytetty -->`,
+        `<!-- TODO: kadence/${shortName} not supported — original content preserved as fallback -->`,
         `<div class="block-fallback block-fallback--${slugify(shortName)}" data-original-block="${sanitizeHtmlFragment(node.name)}">`,
         renderedChildren || sanitizeHtmlFragment(String(node.children || "")),
         "</div>"
@@ -2770,12 +3100,12 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% else %}
     {% set fsRaw = b.fontSize %}
   {% endif %}
-  {% if fsRaw == "sm" %}{% set fsCss = "0.875rem" %}
-  {% elif fsRaw == "md" %}{% set fsCss = "1rem" %}
-  {% elif fsRaw == "lg" %}{% set fsCss = "1.25rem" %}
-  {% elif fsRaw == "xl" %}{% set fsCss = "1.75rem" %}
-  {% elif fsRaw == "xxl" %}{% set fsCss = "2.25rem" %}
-  {% elif fsRaw == "3xl" %}{% set fsCss = "3rem" %}
+  {% if fsRaw == "sm" %}{% set fsCss = "var(--global-kb-font-size-sm, 0.875rem)" %}
+  {% elif fsRaw == "md" %}{% set fsCss = "var(--global-kb-font-size-md, 1.25rem)" %}
+  {% elif fsRaw == "lg" %}{% set fsCss = "var(--global-kb-font-size-lg, 1.5rem)" %}
+  {% elif fsRaw == "xl" %}{% set fsCss = "var(--global-kb-font-size-xl, 1.75rem)" %}
+  {% elif fsRaw == "xxl" %}{% set fsCss = "var(--global-kb-font-size-xxl, 2.25rem)" %}
+  {% elif fsRaw == "3xl" %}{% set fsCss = "var(--global-kb-font-size-3xl, 3rem)" %}
   {% elif fsRaw %}{% set fsCss = fsRaw ~ (b.fontSizeType if b.fontSizeType else "") %}
   {% endif %}
 {% endif %}
@@ -2896,7 +3226,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {% if b.uniqueID %}id="kb-slider-{{ b.uniqueID }}"{% endif %}
   data-slider-mode="css-snap"
 >
-  <div class="splide__track">
+  <div class="splide__track" style="overflow:hidden;position:relative;">
     <ul class="splide__list" style="display:flex;gap:0;overflow-x:auto;scroll-snap-type:x mandatory;list-style:none;padding:0;margin:0;">
       {{ kadenceInnerHtml | safe }}
     </ul>
@@ -3165,7 +3495,7 @@ const KADENCE_PARTIAL_TEMPLATES = {
             {% endif %}
             <h3 class="kb-query-item__title"><a href="{{ post.url }}">{{ post.data.title }}</a></h3>
             {% if post.data.date %}
-              <time class="kb-query-item__date" datetime="{{ post.data.date }}">{{ post.data.date | date("d.m.Y") }}</time>
+              <time class="kb-query-item__date" datetime="{{ post.data.date }}">{{ post.data.date | date("Y-m-d") }}</time>
             {% endif %}
             {% if post.data.excerpt and post.data.excerpt != "[object Object]" %}
               <p class="kb-query-item__excerpt">{{ post.data.excerpt | truncate(160) }}</p>
@@ -3576,6 +3906,41 @@ const KADENCE_PARTIAL_TEMPLATES = {
   {# TODO: replace with Eleventy portfolio collection loop #}
   {{ kadenceInnerHtml | safe }}
 </section>
+`,
+
+  advancedgallery: `{# kadence/advancedgallery (PRO) — Advanced gallery with optional lightbox and layout types #}
+{% set b = kadenceBlock.attrs %}
+{% set galleryType = b.type if b.type else "grid" %}
+{% set columns = b.columns if b.columns else 3 %}
+<figure
+  class="wp-block-kadence-advancedgallery kb-gallery-wrap kadence-block kadence-advancedgallery kb-gallery-type-{{ galleryType }}{% if b.uniqueID %} kb-gallery-id_{{ b.uniqueID }}{% endif %}{% if b.className %} {{ b.className }}{% endif %}"
+>
+  {% if b.images and b.images | length %}
+    <ul class="kadence-gallery-grid kadence-gallery-columns-{{ columns }}">
+      {% for img in b.images %}
+        <li class="kadence-gallery-item">
+          <figure>
+            {% if b.lightbox %}
+              <a href="{{ img.url }}" class="kb-gallery-lightbox-link" data-lightbox="kb-gallery-{{ b.uniqueID }}">
+            {% elif img.link %}
+              <a href="{{ img.link }}"{% if img.linkTarget %} target="{{ img.linkTarget }}"{% endif %}>
+            {% endif %}
+            <img
+              src="{{ img.url }}"
+              alt="{{ img.alt if img.alt else "" }}"
+              {% if img.width %}width="{{ img.width }}"{% endif %}
+              {% if img.height %}height="{{ img.height }}"{% endif %}
+            >
+            {% if b.lightbox or img.link %}</a>{% endif %}
+            {% if img.caption %}<figcaption>{{ img.caption }}</figcaption>{% endif %}
+          </figure>
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif kadenceInnerHtml | trim %}
+    {{ kadenceInnerHtml | safe }}
+  {% endif %}
+</figure>
 `
 };
 
@@ -3666,6 +4031,7 @@ function resolveLayoutForType(type, config) {
   if (!config.useNunjucksLayouts) return "";
   if (type === "pages") return String(config.pageLayout || "").trim();
   if (type === "posts") return String(config.postLayout || "").trim();
+  if (type === "docs") return String(config.docLayout || config.postLayout || "").trim();
   return String(config.defaultLayout || "").trim();
 }
 
@@ -3736,6 +4102,8 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   if (featuredImageUrl) frontMatter.featuredImage = featuredImageUrl;
   if (item?.sticky === true) frontMatter.sticky = true;
   if (item?.format && item.format !== "standard") frontMatter.format = item.format;
+  if (item?.parent) frontMatter.parent = item.parent;
+  if (item?.menu_order) frontMatter.menuOrder = item.menu_order;
   for (const [key, val] of Object.entries(customTaxonomies)) frontMatter[key] = val;
   if (layout) frontMatter.layout = layout;
   if (convertedKadenceBlocks) frontMatter.kadenceBlocks = kadenceBlocks;
@@ -3786,8 +4154,8 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     return report;
   }
 
-  progress("info", `Migraatio käynnistetty → ${config.wpBaseUrl}`);
-  progress("info", `Tulostehakemisto: ${config.outputRoot}${config.dryRun ? " (dry run)" : ""}`);
+  progress("info", `Migration started → ${config.wpBaseUrl}`);
+  progress("info", `Output directory: ${config.outputRoot}${config.dryRun ? " (dry run)" : ""}`);
 
   const root = path.resolve(process.cwd(), config.outputRoot);
   const contentRoot = config.langPrefix
@@ -3825,7 +4193,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     };
     if (!config.dryRun) {
       await writeKadencePartials(root, config.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR, config.preset);
-      progress("ok", `Kirjoitettu ${allKadenceBlocks.length} Kadence-blokkipartiaalia`);
+      progress("ok", `Written ${allKadenceBlocks.length} Kadence block partials`);
     }
   }
 
@@ -3836,13 +4204,13 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   if (config.useNunjucksLayouts) {
     if (!config.dryRun) {
       try {
-        progress("info", "Generoidaan Nunjucks-layoutit…");
+        progress("info", "Generating Nunjucks layouts…");
         const generatedLayouts = await generateLayouts(config, root);
         report.layouts = { generated: generatedLayouts };
-        progress("ok", `Layoutit: ${generatedLayouts.map((p) => path.basename(p)).join(", ")}`);
+        progress("ok", `Layouts: ${generatedLayouts.map((p) => path.basename(p)).join(", ")}`);
       } catch (err) {
         report.warnings.push(`Layout generation failed: ${String(err.message || err)}`);
-        progress("warn", `Layouttien generointi epäonnistui: ${err.message}`);
+        progress("warn", `Layout generation failed: ${err.message}`);
       }
     } else {
       report.layouts = { generated: [], note: "Layout files will be generated on non-dry-run" };
@@ -3853,17 +4221,17 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   if (config.authMode === "app-password" && config.wpUser && config.wpAppPassword) {
     const token = Buffer.from(`${config.wpUser}:${config.wpAppPassword}`).toString("base64");
     headers.Authorization = `Basic ${token}`;
-    progress("ok", "Autentikointi: app-password");
+    progress("ok", "Authentication: app-password");
   } else if (config.authMode === "bearer" && config.wpBearerToken) {
     headers.Authorization = `Bearer ${config.wpBearerToken}`;
-    progress("ok", "Autentikointi: bearer token");
+    progress("ok", "Authentication: bearer token");
   }
 
   const baseApi = joinUrl(config.wpBaseUrl, config.restNamespace || DEFAULT_NAMESPACE);
   const langParam = config.lang ? `?lang=${encodeURIComponent(config.lang)}` : "";
   const langSep = config.lang ? `?lang=${encodeURIComponent(config.lang)}&` : "?";
 
-  progress("info", "Haetaan taksonomiat (kategoriat, tagit)…");
+  progress("info", "Fetching taxonomies (categories, tags)…");
   printStep("fetch", `Taxonomies from ${baseApi}`);
   const [cats, tags] = await Promise.all([
     fetchAllPages(`${baseApi}/categories${langParam}`, headers).catch(() => []),
@@ -3871,26 +4239,35 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   ]);
   const categoryMap = new Map(cats.map((c) => [c.id, c.name]));
   const tagMap = new Map(tags.map((t) => [t.id, t.name]));
-  progress("ok", `Taksonomiat: ${cats.length} kategoriaa, ${tags.length} tagia`);
+  progress("ok", `Taxonomies: ${cats.length} categories, ${tags.length} tags`);
 
   const categoryNames = cats.map((c) => c.name).filter(Boolean);
   await bootstrapEleventyProject(root, config, report, progress, categoryNames);
   await installProjectDependencies(root, config, report, progress);
 
   if (config.migrateStyles) {
-    progress("info", "Haetaan tyylitiedostot ja design tokens…");
+    progress("info", "Fetching stylesheets and design tokens…");
     printStep("fetch", "Stylesheets and design tokens");
     try {
       await migrateStyles(config, root, report, headers);
-      progress("ok", `Tyylit siirretty${report.styles?.downloaded ? ` (${report.styles.downloaded} tiedostoa)` : ""}`);
+      progress("ok", `Styles migrated${report.styles?.downloaded ? ` (${report.styles.downloaded} files)` : ""}`);
     } catch (err) {
       report.warnings.push(`Style migration failed: ${String(err.message || err)}`);
-      progress("warn", `Tyylien siirto epäonnistui: ${err.message}`);
+      progress("warn", `Style migration failed: ${err.message}`);
+    }
+  }
+
+  // Patch base layout with font preload tags if styles were migrated
+  if (config.useNunjucksLayouts && config.migrateStyles && !config.dryRun) {
+    try {
+      await patchBaseLayoutWithAssets(config, root, report);
+    } catch (err) {
+      report.warnings.push(`Base layout asset patching failed: ${String(err.message || err)}`);
     }
   }
 
   if (config.importMenus) {
-    progress("info", "Haetaan valikot…");
+    progress("info", "Fetching menus…");
     printStep("fetch", "Menus (best effort)");
     const menuResult = await fetchMenus(config.wpBaseUrl, headers, report.warnings);
     report.menus = {
@@ -3902,7 +4279,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
 
     if (!finalMenus.length) {
       // Fallback: parse nav structure from rendered homepage HTML
-      progress("warn", "REST API ei palauttanut valikoita — yritetään parsia renderöidystä HTML:stä…");
+      progress("warn", "REST API returned no menus — trying to parse from rendered HTML…");
       try {
         const homepageHtml = await fetchText(ensureTrailingSlash(config.wpBaseUrl), headers);
         const parsedNavs = extractNavFromHtml(homepageHtml, config.wpBaseUrl);
@@ -3916,21 +4293,21 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
           }));
           report.menus.source = "html-fallback";
           report.menus.imported = finalMenus.length;
-          progress("ok", `Valikot parsittu HTML:stä: ${finalMenus.length} kpl`);
+          progress("ok", `Menus parsed from HTML: ${finalMenus.length}`);
         } else {
           report.warnings.push("No menu structure was imported. WordPress menus often need a dedicated menu REST endpoint or plugin.");
-          progress("warn", "Valikkoja ei löydetty REST API:sta eikä HTML:stä");
+          progress("warn", "No menus found via REST API or HTML");
         }
       } catch (err) {
         report.warnings.push(`Menu HTML fallback failed: ${String(err.message || err)}`);
-        progress("warn", `Valikkojen parsinta epäonnistui: ${err.message}`);
+        progress("warn", `Menu parsing failed: ${err.message}`);
       }
     }
 
     // Augment with Kadence Pro megamenu data from kadence_navigation post type
     if (config.authMode !== "none") {
       try {
-        progress("info", "Haetaan Kadence-navigaatiot (megamenu)…");
+        progress("info", "Fetching Kadence navigations (megamenu)…");
         const kadenceHeaders = await fetchKadenceHeaders(config, headers);
         const kadenceNavs = await fetchKadenceNavigations(config, headers);
         if (kadenceNavs.length) {
@@ -3948,7 +4325,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
             finalMenus = mergeKadenceMegamenuIntoNav(finalMenus, kadenceNavItems);
             const megamenuCount = kadenceNavItems.filter((i) => i.isMegaMenu).length;
             if (megamenuCount) {
-              progress("ok", `Kadence megamenu: ${megamenuCount} kohde(tta) lisätty`);
+              progress("ok", `Kadence megamenu: ${megamenuCount} item(s) merged`);
             }
           }
         }
@@ -3963,7 +4340,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       report.menus.imported = finalMenus.length;
       if (!config.dryRun) await fs.writeFile(navigationPath, `${JSON.stringify(finalMenus, null, 2)}\n`, "utf8");
       if (menuResult.menus.length) {
-        progress("ok", `Valikot: ${finalMenus.length} kpl (lähde: ${menuResult.source})`);
+        progress("ok", `Menus: ${finalMenus.length} (source: ${menuResult.source})`);
       }
     }
   }
@@ -3977,7 +4354,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     const endpoint = config.authMode !== "none"
       ? `${endpointBase}${langSep}context=edit&_embed=1`
       : baseWithEmbed;
-    progress("info", `Haetaan ${type}…`);
+    progress("info", `Fetching ${type}…`);
     printStep("fetch", `${type} -> ${endpoint}`);
     let items;
     try {
@@ -3985,34 +4362,58 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     } catch (err) {
       if (endpoint !== baseWithEmbed) {
         report.warnings.push(`Falling back to rendered content for ${type}: ${String(err.message || err)}`);
-        progress("warn", `Fallback renderöityyn sisältöön (${type})`);
+        progress("warn", `Falling back to rendered content (${type})`);
         items = await fetchAllPages(baseWithEmbed, headers);
       } else {
         throw err;
       }
     }
     if (!config.includeDrafts) items = items.filter((i) => i?.status === "publish");
-    progress("ok", `${type}: ${items.length} julkaistua kohdetta haettu`);
+    progress("ok", `${type}: ${items.length} published items fetched`);
 
     const outTypeDir = path.join(contentRoot, typeSlug);
     await fs.mkdir(outTypeDir, { recursive: true });
 
-    // Write Eleventy directory data file so collections.posts works out of the box.
+    // Write Eleventy directory data file so collections work out of the box.
     if (typeSlug === "posts" && !config.dryRun) {
       const layout = resolveLayoutForType("posts", config);
       const postTag = config.langPrefix ? `posts-${config.langPrefix}` : "posts";
       const dirData = { tags: ["posts", postTag], ...(config.lang ? { lang: config.lang } : {}), ...(layout ? { layout } : {}) };
       await writeIfMissing(path.join(outTypeDir, "posts.json"), `${JSON.stringify(dirData, null, 2)}\n`);
     }
+    if (typeSlug === "docs" && !config.dryRun) {
+      const layout = resolveLayoutForType("docs", config);
+      const dirData = { tags: ["docs"], sourceType: "docs", ...(config.lang ? { lang: config.lang } : {}), ...(layout ? { layout } : {}) };
+      await writeIfMissing(path.join(outTypeDir, "docs.json"), `${JSON.stringify(dirData, null, 2)}\n`);
+    }
 
     let written = 0;
+    let externalMediaCount = 0;
     for (const item of items) {
       const doc = itemToDoc(item, typeSlug, config, categoryMap, tagMap, report.warnings);
       const datePart = typeSlug === "posts" ? `${toIsoDay(item?.date)}-` : "";
       const fileName = `${datePart}${doc.slug}.${doc.fileExtension}`;
       const filePath = path.join(outTypeDir, fileName);
-      const frontMatter = toFrontMatter(doc.frontMatter);
-      const content = `${frontMatter}\n${doc.body}\n`;
+      let body = doc.body;
+
+      // Extract media URLs from both rendered HTML and converted body (Kadence JSON attrs)
+      const allMediaUrls = extractMediaUrls(
+        (item?.content?.rendered || "") + "\n" + body,
+        ensureTrailingSlash(config.wpBaseUrl)
+      );
+      if (doc.frontMatter.featuredImage) allMediaUrls.push(doc.frontMatter.featuredImage);
+
+      if (config.downloadMedia) {
+        // Rewrite WP-origin /wp-content/ URLs to local /media/ paths
+        body = rewriteWpMediaUrls(body, config.wpBaseUrl, config.mediaDir);
+        if (doc.frontMatter.featuredImage) {
+          doc.frontMatter.featuredImage = rewriteWpMediaUrls(doc.frontMatter.featuredImage, config.wpBaseUrl, config.mediaDir);
+        }
+      } else {
+        externalMediaCount += allMediaUrls.length;
+      }
+
+      const content = `${toFrontMatter(doc.frontMatter)}\n${body}\n`;
       if (!config.dryRun) await fs.writeFile(filePath, content, "utf8");
       written += 1;
       progress("item", `${typeSlug}/${fileName}`);
@@ -4023,8 +4424,8 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
           sourceUrl: item?.link || "",
           blocks: doc.unknownKadenceBlocks,
           suggestion: doc.unknownKadenceBlocks.some((name) => name === "slider" || name === "slide")
-            ? "Tarkista slider-rakenne ja harkitse Splide JS -integraatiota, jos CSS-scroll-snap ei riita."
-            : "Luo puuttuva Nunjucks-partial tai pidä fallback-HTML valiaikaisena ratkaisuna."
+            ? "Review the slider structure and consider adding Splide JS integration if CSS scroll-snap is insufficient."
+            : "Create the missing Nunjucks partial or keep the fallback HTML as a temporary solution."
         });
       }
       if (doc.shortcodes?.length) {
@@ -4038,8 +4439,6 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       if (config.createRedirects && item?.link) report.redirects.push({ from: item.link, to: doc.permalink });
 
       if (config.downloadMedia && !config.dryRun) {
-        const allMediaUrls = extractMediaUrls(item?.content?.rendered || "", ensureTrailingSlash(config.wpBaseUrl));
-        if (doc.frontMatter.featuredImage) allMediaUrls.push(doc.frontMatter.featuredImage);
         for (const mediaUrl of allMediaUrls) {
           try {
             const urlObj = new URL(mediaUrl);
@@ -4056,7 +4455,16 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       }
     }
     report.totals[typeSlug] = written;
-    progress("ok", `${type} valmis: kirjoitettu ${written} tiedostoa`);
+
+    if (!config.downloadMedia && externalMediaCount > 0) {
+      report.actionItems.suggestions.push({
+        type: "external-media",
+        contentType: typeSlug,
+        count: externalMediaCount,
+        suggestion: `${typeSlug}: ${externalMediaCount} external media files reference the WP server directly (${config.wpBaseUrl}). Enable "downloadMedia": true to download them locally — URLs will be rewritten to /media/ paths automatically.`
+      });
+    }
+    progress("ok", `${type} done: ${written} files written`);
   }
 
   if (config.createRedirects) {
@@ -4064,17 +4472,24 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     const csv = ["source,destination,status", ...report.redirects.map((r) => `${JSON.stringify(r.from)},${JSON.stringify(r.to)},301`)].join("\n");
     if (!config.dryRun) await fs.writeFile(redirectsPath, `${csv}\n`, "utf8");
     report.redirectsPath = redirectsPath;
-    progress("ok", `Uudelleenohjaukset: ${report.redirects.length} kpl → redirects.csv`);
+    progress("ok", `Redirects: ${report.redirects.length} → redirects.csv`);
   }
 
+  if (report.styles?.kadenceJsUrls?.length) {
+    report.actionItems.suggestions.push(
+      `Kadence navigation JS detected on the source site (${report.styles.kadenceJsUrls.length} file(s)): ${report.styles.kadenceJsUrls.join(", ")}. ` +
+      `The generated site-header.njk includes a lightweight navigation fallback. ` +
+      `For full navigation fidelity (ARIA, off-canvas, scroll-state), review the original scripts and adapt as needed.`
+    );
+  }
   if (report.actionItems.unsupportedBlocks.some((entry) => entry.blocks.includes("slider") || entry.blocks.includes("slide"))) {
-    report.actionItems.suggestions.push("Kadence slider/slide on muutettu CSS scroll-snap -versioksi. Jos alkuperainen Splide-kayttaytyminen tarvitaan, lisaa Splide JS base-layoutiin.");
+    report.actionItems.suggestions.push("Kadence slider/slide has been converted to a CSS scroll-snap version. If the original Splide behaviour is needed, add Splide JS to the base layout.");
   }
   if (report.actionItems.unsupportedBlocks.length) {
-    report.actionItems.suggestions.push("Tarkista report.actionItems.unsupportedBlocks ja toteuta puuttuvat blokkipartiaalit ensiksi eniten kaytettyihin lohkoihin.");
+    report.actionItems.suggestions.push("Review report.actionItems.unsupportedBlocks and implement missing block partials, starting with the most-used blocks.");
   }
   if (report.actionItems.shortcodes.length) {
-    report.actionItems.suggestions.push("Shortcode-viittaukset vaativat manuaalista korvausta Eleventy-komponenteilla tai staattisella HTML:lla.");
+    report.actionItems.suggestions.push("Shortcode references require manual replacement with Eleventy components or static HTML.");
   }
 
   await verifyProjectOutput(root, config, report, progress);
@@ -4084,7 +4499,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   report.reportPath = path.join(root, "migration-report.json");
   if (!config.dryRun) await fs.writeFile(report.reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   const totalItems = Object.values(report.totals).reduce((s, n) => s + n, 0);
-  progress("ok", `✓ Migraatio valmis — ${totalItems} kohdetta siirretty${config.dryRun ? " (dry run)" : ""}`);
+  progress("ok", `✓ Migration complete — ${totalItems} items migrated${config.dryRun ? " (dry run)" : ""}`);
   return report;
 }
 
@@ -4139,6 +4554,7 @@ async function createConfigFromInput(raw = {}) {
     useNunjucksLayouts: Boolean(raw.useNunjucksLayouts ?? presetDefaults.useNunjucksLayouts),
     pageLayout: String(raw.pageLayout || presetDefaults.pageLayout || "layouts/page.njk").trim() || "layouts/page.njk",
     postLayout: String(raw.postLayout || presetDefaults.postLayout || "layouts/post.njk").trim() || "layouts/post.njk",
+    docLayout: String(raw.docLayout || "").trim(),
     defaultLayout: String(raw.defaultLayout || "").trim(),
     convertKadenceBlocks: Boolean(raw.convertKadenceBlocks ?? presetDefaults.convertKadenceBlocks),
     kadenceBlocksDir: String(raw.kadenceBlocksDir || presetDefaults.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR).trim() || DEFAULT_KADENCE_BLOCKS_DIR,
@@ -4193,7 +4609,7 @@ async function pickFolderPath(initialPath = "") {
     const defaultLocation = hasInitial
       ? ` default location POSIX file ${JSON.stringify(normalizedInitialPath)}`
       : "";
-    const script = `POSIX path of (choose folder with prompt "Valitse projektikansio"${defaultLocation})`;
+    const script = `POSIX path of (choose folder with prompt "Select project folder"${defaultLocation})`;
     const folder = await new Promise((resolve, reject) => {
       execFile("osascript", ["-e", script], { encoding: "utf8" }, (error, stdout, stderr) => {
         if (error) {
@@ -4290,7 +4706,7 @@ function extractDeploymentPlan(body) {
 
 async function analyzeWordPressSite(raw) {
   const wpBaseUrl = String(raw.wpBaseUrl || "").trim().replace(/\/+$/, "");
-  if (!wpBaseUrl) throw new Error("wpBaseUrl puuttuu");
+  if (!wpBaseUrl) throw new Error("wpBaseUrl is required");
 
   const authMode = String(raw.authMode || "none");
   const headers = {};
@@ -4307,7 +4723,7 @@ async function analyzeWordPressSite(raw) {
   try {
     root = await fetchJson(`${wpBaseUrl}/wp-json`, headers);
   } catch (err) {
-    throw new Error(`WP REST API ei vastaa: ${err.message}`);
+    throw new Error(`WP REST API did not respond: ${err.message}`);
   }
 
   const namespaces = root.namespaces || [];
@@ -4325,7 +4741,7 @@ async function analyzeWordPressSite(raw) {
   try {
     typesData = await fetchJson(`${wpBaseUrl}/wp-json/wp/v2/types`, headers);
   } catch {
-    warnings.push("Sisältötyyppien haku epäonnistui — käytetään oletuksia (posts, pages).");
+    warnings.push("Content types fetch failed — using defaults (posts, pages).");
   }
 
   const contentInventory = {};
@@ -4362,7 +4778,7 @@ async function analyzeWordPressSite(raw) {
       name: info.name,
       detectedFrom: `REST namespace: ${ns}`,
       effort: info.effort || "medium",
-      replacement: PLUGIN_REPLACEMENTS[info.slug] || "Ei automaattista korvausehdotusta — arvioi erikseen.",
+      replacement: PLUGIN_REPLACEMENTS[info.slug] || "No automatic replacement suggestion — evaluate separately.",
     });
   }
 
@@ -4412,32 +4828,32 @@ async function analyzeWordPressSite(raw) {
   const totalItems = Object.values(contentInventory).reduce((s, t) => s + t.count, 0);
   const contentLines = Object.entries(contentInventory)
     .filter(([, t]) => t.count > 0)
-    .map(([, t]) => `  • ${t.label}: ${t.count} kpl`);
+    .map(([, t]) => `  • ${t.label}: ${t.count}`);
   const pluginLines = detectedPlugins.length
-    ? detectedPlugins.map((p) => `  • ${p.name} (${p.effort === "high" ? "korkea" : p.effort === "medium" ? "kohtalainen" : "matala"} työmäärä)`)
-    : ["  • Ei tunnistettuja lisäosia REST API:n perusteella"];
+    ? detectedPlugins.map((p) => `  • ${p.name} (${p.effort === "high" ? "high" : p.effort === "medium" ? "medium" : "low"} effort)`)
+    : ["  • No plugins identified via REST API"];
 
   const report = [
-    `Sivusto: ${siteInfo.title} (${siteInfo.url})`,
-    siteInfo.description ? `Kuvaus: ${siteInfo.description}` : null,
+    `Site: ${siteInfo.title} (${siteInfo.url})`,
+    siteInfo.description ? `Description: ${siteInfo.description}` : null,
     "",
-    `Sisältö (${totalItems} kohdetta yhteensä):`,
+    `Content (${totalItems} items total):`,
     ...contentLines,
-    contentLines.length === 0 ? "  • Julkaistua sisältöä ei löydy tai REST API vaatii kirjautumisen." : null,
+    contentLines.length === 0 ? "  • No published content found or REST API requires authentication." : null,
     "",
-    `Havaittu teema/preset: ${detectedPreset === "none" ? "Ei tunnistettu (käytetään oletuksia)" : detectedPreset}`,
-    `Valikot: ${menuCount > 0 ? `${menuCount} kpl löydetty` : "Ei löydetty REST API:sta (tuodaan HTML-fallbackilla)"}`,
-    `Taksonomiit: ${taxonomies.join(", ") || "ei havaittu"}`,
+    `Detected theme/preset: ${detectedPreset === "none" ? "Not identified (using defaults)" : detectedPreset}`,
+    `Menus: ${menuCount > 0 ? `${menuCount} found` : "Not found via REST API (will be imported via HTML fallback)"}`,
+    `Taxonomies: ${taxonomies.join(", ") || "none detected"}`,
     "",
-    `Havaitut lisäosat (${detectedPlugins.length} kpl):`,
+    `Detected plugins (${detectedPlugins.length}):`,
     ...pluginLines,
     "",
-    warnings.length ? `Huomiot:\n${warnings.map((w) => `  ! ${w}`).join("\n")}` : null,
+    warnings.length ? `Notes:\n${warnings.map((w) => `  ! ${w}`).join("\n")}` : null,
     "",
-    "Ehdotettu seuraava askel:",
-    "  1. Tarkista ehdotettu konfiguraatio alla.",
-    "  2. Käytä 'Täytä lomake analyysin perusteella' -painiketta.",
-    "  3. Aja ensin dry-run.",
+    "Suggested next steps:",
+    "  1. Review the suggested configuration below.",
+    "  2. Use the 'Fill form from analysis' button.",
+    "  3. Run a dry-run first.",
   ].filter((l) => l !== null).join("\n");
 
   return {
@@ -4601,7 +5017,7 @@ async function serveUi(port = 4173) {
           }).catch((artifactErr) => {
             log.push({
               level: "warn",
-              msg: `DISCOVER: profiilin tallennus epäonnistui: ${String(artifactErr?.message || artifactErr)}`,
+              msg: `DISCOVER: profile save failed: ${String(artifactErr?.message || artifactErr)}`,
               t: new Date().toISOString()
             });
             jobs.set(jobId, { status: "done", kind: "analysis", report, log });
@@ -4643,13 +5059,57 @@ async function serveUi(port = 4173) {
   output.write(`GUI available at http://127.0.0.1:${port}\n`);
 }
 
+async function detectLanguages(wpBaseUrl, headers = {}) {
+  const base = wpBaseUrl.replace(/\/+$/, "");
+
+  // Try WPML first
+  try {
+    const langs = await fetchJson(`${base}/wp-json/wpml/v1/languages`, headers);
+    if (Array.isArray(langs) && langs.length > 1) {
+      return langs.map(l => ({
+        code: String(l.code || l.language_code || "").toLowerCase(),
+        name: String(l.native_name || l.translated_name || l.english_name || l.code || "")
+      })).filter(l => l.code);
+    }
+  } catch {}
+
+  // Fall back to Polylang
+  try {
+    const langs = await fetchJson(`${base}/wp-json/pll/v1/languages`, headers);
+    if (Array.isArray(langs) && langs.length > 1) {
+      return langs.map(l => ({
+        code: String(l.slug || l.locale || "").toLowerCase(),
+        name: String(l.name || l.slug || "")
+      })).filter(l => l.code);
+    }
+  } catch {}
+
+  return [];
+}
+
+async function runMultilingualPasses(baseConfig, extraLangs, rl) {
+  const reports = [];
+  for (const lang of extraLangs) {
+    const doIt = rl
+      ? await askYesNo(rl, `Migrate language '${lang.code}' (${lang.name})`, true)
+      : true;
+    if (!doIt) continue;
+    output.write(`\nMigrating language: ${lang.code} (${lang.name})…\n`);
+    const langConfig = { ...baseConfig, lang: lang.code, langPrefix: lang.code, importMenus: false, migrateStyles: false, dryRun: baseConfig.dryRun };
+    const report = await runMigration(null, langConfig);
+    output.write(`  ${lang.code}: ${report.totals?.posts || 0} posts, ${report.totals?.pages || 0} pages\n`);
+    reports.push({ lang: lang.code, report });
+  }
+  return reports;
+}
+
 async function runWizard() {
   const rl = readline.createInterface({ input, output });
   try {
     output.write("\nWordPress -> Eleventy Migration Wizard\n");
     output.write("This wizard asks required migration choices and can run migration immediately.\n");
 
-    const sourceType = (await ask(rl, "Source type (rest/xml/json)", "rest")).toLowerCase();
+    const sourceType = (await ask(rl, "Source type (only 'rest' is currently supported)", "rest")).toLowerCase();
     const preset = (await ask(rl, "Preset (none/kadence/kadence-pro)", "none")).toLowerCase();
     const wpBaseUrl = await ask(rl, "WordPress base URL (e.g. https://example.com)", "");
     const restNamespace = await ask(rl, "REST namespace path", DEFAULT_NAMESPACE);
@@ -4670,6 +5130,22 @@ async function runWizard() {
       wpAppPassword = await ask(rl, "WP application password", "");
     } else if (authMode === "bearer") {
       wpBearerToken = await ask(rl, "Bearer token", "");
+    }
+
+    // Detect multilingual setup
+    let detectedLangs = [];
+    if (wpBaseUrl && sourceType === "rest") {
+      const authHeaders = {};
+      if (authMode === "app-password" && wpUser && wpAppPassword) {
+        authHeaders.Authorization = `Basic ${Buffer.from(`${wpUser}:${wpAppPassword}`).toString("base64")}`;
+      } else if (authMode === "bearer" && wpBearerToken) {
+        authHeaders.Authorization = `Bearer ${wpBearerToken}`;
+      }
+      detectedLangs = await detectLanguages(wpBaseUrl, authHeaders);
+      if (detectedLangs.length > 1) {
+        output.write(`\nDetected ${detectedLangs.length} languages: ${detectedLangs.map(l => `${l.code} (${l.name})`).join(", ")}\n`);
+        output.write("The main language will be migrated normally. Other languages will be offered afterwards.\n");
+      }
     }
 
     const dryRun = await askYesNo(rl, "Dry run (no files written)", true);
@@ -4738,6 +5214,14 @@ async function runWizard() {
     const report = await runMigration(path.resolve(process.cwd(), configPath), config);
     output.write("\nMigration finished.\n");
     output.write(`${JSON.stringify(report, null, 2)}\n`);
+
+    // Offer additional language passes
+    if (detectedLangs.length > 1 && !config.lang) {
+      const mainLang = detectedLangs[0].code;
+      const extraLangs = detectedLangs.filter(l => l.code !== mainLang);
+      output.write("\nAdditional languages detected. You can migrate them now.\n");
+      await runMultilingualPasses(config, extraLangs, rl);
+    }
   } finally {
     rl.close();
   }
@@ -4745,8 +5229,30 @@ async function runWizard() {
 
 async function runFromConfig(configPath) {
   const absolute = path.resolve(process.cwd(), configPath);
+  const rawConfig = JSON.parse(await fs.readFile(absolute, "utf8"));
+  const config = createConfigFromInput(rawConfig);
+
+  // Run main migration
   const report = await runMigration(absolute);
   output.write(`${JSON.stringify(report, null, 2)}\n`);
+
+  // Skip language detection if this config is already a per-language run or has no wpBaseUrl
+  if (config.lang || !config.wpBaseUrl) return;
+
+  const authHeaders = buildAuthHeaders(config);
+  const detectedLangs = await detectLanguages(config.wpBaseUrl, authHeaders);
+  if (detectedLangs.length <= 1) return;
+
+  const mainLang = detectedLangs[0].code;
+  const extraLangs = detectedLangs.filter(l => l.code !== mainLang);
+  output.write(`\nDetected ${detectedLangs.length} languages: ${detectedLangs.map(l => `${l.code} (${l.name})`).join(", ")}\n`);
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    await runMultilingualPasses(config, extraLangs, rl);
+  } finally {
+    rl.close();
+  }
 }
 
 async function main() {

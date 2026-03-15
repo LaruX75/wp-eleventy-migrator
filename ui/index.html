@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fi">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1982,7 +1982,8 @@
       const pluginPageStatus = document.getElementById("plugin-page-status");
 
       let lastSuggestedConfigPath = "";
-      let currentLang = "fi";
+      let currentLang = navigator.language && navigator.language.startsWith("fi") ? "fi" : "en";
+      languageSelect.value = currentLang;
       let currentTheme = "light";
       let currentTab = "workflow-tab";
       let commonPluginPage = 1;
