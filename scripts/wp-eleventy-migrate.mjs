@@ -5003,14 +5003,30 @@ async function runMultilingualPasses(baseConfig, extraLangs, rl) {
   return reports;
 }
 
-// Public exports consumed by src/cli/ and src/main.mjs.
+// Public exports consumed by src/cli/, src/main.mjs, and src/app/.
+// The additions below (fetchAllPages…buildTargetPermalink plus the two
+// SUPPORTED_KADENCE constant arrays) are the read-only primitives that
+// src/app/analyze.mjs orchestrates for its preflight report and write
+// plan. Analyze must not re-implement any of these — it composes them.
 export {
   runMigration,
   serveUi,
   saveConfig,
   buildAuthHeaders,
   detectLanguages,
-  runMultilingualPasses
+  runMultilingualPasses,
+  fetchAllPages,
+  fetchJson,
+  joinUrl,
+  ensureTrailingSlash,
+  parseWpBlocks,
+  collectBlockProfile,
+  summarizeKnownVsUnknownBlocks,
+  extractMediaUrls,
+  slugify,
+  buildTargetPermalink,
+  SUPPORTED_KADENCE_BLOCKS,
+  SUPPORTED_KADENCE_PRO_BLOCKS
 };
 
 // Compatibility shim: forward direct-node invocation to src/main.mjs so

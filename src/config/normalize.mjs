@@ -114,6 +114,12 @@ export async function createConfigFromInput(raw = {}) {
     mediaDir: String(raw.mediaDir || "media").trim() || "media",
     dataDir: String(raw.dataDir || DEFAULT_DATA_DIR).trim() || DEFAULT_DATA_DIR,
     lang: String(raw.lang || "").trim().toLowerCase(),
-    langPrefix: String(raw.langPrefix || raw.lang || "").trim().toLowerCase()
+    langPrefix: String(raw.langPrefix || raw.lang || "").trim().toLowerCase(),
+    // Analyze-only preflight fields. xmlBackupPath points to a locally
+    // stored WordPress WXR export; analysisOutputDir is where the analyze
+    // command writes migration-report.json and write-plan.json.
+    // Migration itself does not consume these fields.
+    xmlBackupPath: String(raw.xmlBackupPath || "").trim(),
+    analysisOutputDir: String(raw.analysisOutputDir || "").trim()
   };
 }

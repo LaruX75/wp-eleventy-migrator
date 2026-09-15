@@ -7,6 +7,7 @@
   "scripts": {
     "migrate:wp": "node src/main.mjs wizard",
     "migrate:wp:run": "node src/main.mjs run",
+    "migrate:wp:analyze": "node src/main.mjs analyze",
     "migrate:wp:gui": "node src/main.mjs serve",
     "audit:visual": "node scripts/visual-audit.mjs",
     "audit:site": "node scripts/visual-audit.mjs --site",

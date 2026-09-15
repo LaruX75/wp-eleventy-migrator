@@ -43,6 +43,25 @@ export async function main(argv = process.argv.slice(2)) {
     await runFromConfig(arg);
     return;
   }
+  if (cmd === "analyze") {
+    // First non-flag positional argument after "analyze" is the config path.
+    // "--skip-xml-backup" is the only recognised flag; it may appear before
+    // or after the config path.
+    const positional = argv.slice(1).filter((a) => !a.startsWith("--"));
+    const configPath = positional[0];
+    if (!configPath) {
+      output.write("Usage: node src/main.mjs analyze <config.json> [--skip-xml-backup]\n");
+      process.exitCode = 1;
+      return;
+    }
+    const skipXmlBackup = argv.includes("--skip-xml-backup");
+    const { runAnalyze } = await import("./app/analyze.mjs");
+    const { reportPath, writePlanPath, outputDir } = await runAnalyze(configPath, { skipXmlBackup });
+    output.write(`Analyze complete. Output: ${outputDir}\n`);
+    output.write(`  ${reportPath}\n`);
+    output.write(`  ${writePlanPath}\n`);
+    return;
+  }
   if (cmd === "serve") {
     const port = arg ? Number.parseInt(arg, 10) : 4173;
     const engine = await loadEngine();
@@ -52,6 +71,7 @@ export async function main(argv = process.argv.slice(2)) {
   output.write("Usage:\n");
   output.write("  node src/main.mjs wizard\n");
   output.write("  node src/main.mjs run <config.json>\n");
+  output.write("  node src/main.mjs analyze <config.json> [--skip-xml-backup]\n");
   output.write("  node src/main.mjs serve [port]\n");
 }
 
