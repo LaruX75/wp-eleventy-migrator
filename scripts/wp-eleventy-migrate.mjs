@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 
+// Legacy engine module for wp-eleventy-migrator.
+//
+// The CLI, config normalisation, and application entry are now in
+// src/main.mjs + src/cli/ + src/config/. This file keeps the migration
+// pipeline (runMigration and dependencies) and the HTTP-served UI
+// (serveUi). Direct invocation forwards to src/main.mjs so existing
+// commands (`node scripts/wp-eleventy-migrate.mjs wizard|run|serve`)
+// keep working.
+
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -7,15 +16,24 @@ import http from "node:http";
 import readline from "node:readline/promises";
 import { execFile, spawn } from "node:child_process";
 import { stdin as input, stdout as output } from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const DEFAULT_TYPES = ["posts", "pages"];
-const DEFAULT_NAMESPACE = "/wp-json/wp/v2";
-const DEFAULT_DATA_DIR = "_data";
-const DEFAULT_KADENCE_BLOCKS_DIR = "_includes/blocks/kadence";
-const DEFAULT_STYLES_DIR = "styles/legacy";
-const DEFAULT_KADENCE_STYLES_DIR = "styles/kadence-legacy";
-const DEFAULT_KADENCE_PRO_STYLES_DIR = "styles/kadence-pro-legacy";
+import {
+  DEFAULT_TYPES,
+  DEFAULT_NAMESPACE,
+  DEFAULT_DATA_DIR,
+  DEFAULT_KADENCE_BLOCKS_DIR,
+  DEFAULT_STYLES_DIR,
+  DEFAULT_KADENCE_STYLES_DIR,
+  DEFAULT_KADENCE_PRO_STYLES_DIR
+} from "../src/config/defaults.mjs";
+import {
+  nowStamp,
+  parseCsvList,
+  normalizeEleventyReplacements,
+  resolveOutputRoot,
+  createConfigFromInput
+} from "../src/config/normalize.mjs";
 const PROFILE_FILE_NAME = "site-profile.json";
 const PROFILE_SUMMARY_FILE_NAME = "site-profile-summary.json";
 const CONFIGURE_THEME_FILE = "styles/theme.css";
@@ -335,12 +353,6 @@ const SEPARATOR_SVG_TEMPLATES = {
   threelevels:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 160" preserveAspectRatio="none"><polygon fill="currentColor" points="0,160 0,96 480,96 480,64 960,64 960,32 1440,32 1440,160"/></svg>`
 };
 
-function nowStamp() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
-}
-
 function decodeHtml(str) {
   if (!str) return "";
   const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
@@ -434,27 +446,6 @@ function ensureTrailingSlash(url) {
 
 function joinUrl(base, p) {
   return `${base.replace(/\/+$/, "")}/${p.replace(/^\/+/, "")}`;
-}
-
-function parseCsvList(v) {
-  return String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
-}
-
-async function ask(rl, question, fallback = "") {
-  const suffix = fallback ? ` [${fallback}]` : "";
-  const answer = (await rl.question(`${question}${suffix}: `)).trim();
-  return answer || fallback;
-}
-
-async function askYesNo(rl, question, fallback = true) {
-  const hint = fallback ? "Y/n" : "y/N";
-  const raw = (await rl.question(`${question} (${hint}): `)).trim().toLowerCase();
-  if (!raw) return fallback;
-  return raw === "y" || raw === "yes";
-}
-
-function printStep(step, text) {
-  output.write(`\n[${step}] ${text}\n`);
 }
 
 async function fileExists(filePath) {
@@ -1597,17 +1588,6 @@ async function analyzeSite(config, progress = () => {}) {
   report.finishedAt = new Date().toISOString();
   progress("ok", "DISCOVER: site profile complete");
   return report;
-}
-
-function normalizeEleventyReplacements(input) {
-  if (!Array.isArray(input)) return [];
-  return input.map((item) => ({
-    slug: String(item?.slug || "").trim(),
-    wordpressPlugin: String(item?.wordpressPlugin || "").trim(),
-    eleventySolution: String(item?.eleventySolution || "").trim(),
-    packageName: String(item?.packageName || "").trim(),
-    enabled: Boolean(item?.enabled ?? true)
-  })).filter((item) => item.slug && item.wordpressPlugin && item.eleventySolution);
 }
 
 async function writeEleventyPluginPlan(root, config, report, progress = () => {}) {
@@ -4503,80 +4483,6 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   return report;
 }
 
-async function createConfigFromInput(raw = {}) {
-  const stamp = nowStamp();
-  const preset = ["none", "kadence", "kadence-pro"].includes(String(raw.preset || "none")) ? String(raw.preset || "none") : "none";
-  const authMode = ["none", "app-password", "bearer"].includes(String(raw.authMode || "none"))
-    ? String(raw.authMode || "none")
-    : "none";
-  const htmlMode = String(raw.htmlMode || "keep-html") === "basic-markdown" ? "basic-markdown" : "keep-html";
-  const localProjectFolder = String(raw.localProjectFolder || "").trim();
-  const outputRoot = resolveOutputRoot(raw.outputRoot, localProjectFolder, stamp);
-  const contentTypes = parseCsvList(raw.contentTypes || DEFAULT_TYPES.join(","));
-  const presetDefaults = preset === "kadence" ? {
-    useNunjucksLayouts: true,
-    convertKadenceBlocks: true,
-    migrateStyles: true,
-    pageLayout: "layouts/page.njk",
-    postLayout: "layouts/post.njk",
-    kadenceBlocksDir: DEFAULT_KADENCE_BLOCKS_DIR,
-    stylesDir: DEFAULT_KADENCE_STYLES_DIR,
-    htmlMode: "keep-html"
-  } : preset === "kadence-pro" ? {
-    useNunjucksLayouts: true,
-    convertKadenceBlocks: true,
-    migrateStyles: true,
-    pageLayout: "layouts/page.njk",
-    postLayout: "layouts/post.njk",
-    kadenceBlocksDir: DEFAULT_KADENCE_BLOCKS_DIR,
-    stylesDir: DEFAULT_KADENCE_PRO_STYLES_DIR,
-    htmlMode: "keep-html"
-  } : {};
-
-  return {
-    preset,
-    siteMode: ["new", "existing"].includes(String(raw.siteMode || "new")) ? String(raw.siteMode || "new") : "new",
-    sourceType: String(raw.sourceType || "rest").toLowerCase(),
-    wpBaseUrl: String(raw.wpBaseUrl || "").trim().replace(/\/+$/, ""),
-    restNamespace: String(raw.restNamespace || DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE,
-    contentTypes: contentTypes.length ? contentTypes : [...DEFAULT_TYPES],
-    includeDrafts: Boolean(raw.includeDrafts),
-    downloadMedia: Boolean(raw.downloadMedia),
-    createRedirects: Boolean(raw.createRedirects ?? true),
-    importMenus: Boolean(raw.importMenus ?? true),
-    htmlMode: presetDefaults.htmlMode || htmlMode,
-    targetPermalinkPattern: String(raw.targetPermalinkPattern || "/{type}/{slug}/").trim() || "/{type}/{slug}/",
-    authMode,
-    wpUser: String(raw.wpUser || ""),
-    wpAppPassword: String(raw.wpAppPassword || ""),
-    wpBearerToken: String(raw.wpBearerToken || ""),
-    dryRun: Boolean(raw.dryRun ?? true),
-    useNunjucksLayouts: Boolean(raw.useNunjucksLayouts ?? presetDefaults.useNunjucksLayouts),
-    pageLayout: String(raw.pageLayout || presetDefaults.pageLayout || "layouts/page.njk").trim() || "layouts/page.njk",
-    postLayout: String(raw.postLayout || presetDefaults.postLayout || "layouts/post.njk").trim() || "layouts/post.njk",
-    docLayout: String(raw.docLayout || "").trim(),
-    defaultLayout: String(raw.defaultLayout || "").trim(),
-    convertKadenceBlocks: Boolean(raw.convertKadenceBlocks ?? presetDefaults.convertKadenceBlocks),
-    kadenceBlocksDir: String(raw.kadenceBlocksDir || presetDefaults.kadenceBlocksDir || DEFAULT_KADENCE_BLOCKS_DIR).trim() || DEFAULT_KADENCE_BLOCKS_DIR,
-    migrateStyles: Boolean(raw.migrateStyles ?? presetDefaults.migrateStyles),
-    stylesDir: String(raw.stylesDir || presetDefaults.stylesDir || DEFAULT_STYLES_DIR).trim() || DEFAULT_STYLES_DIR,
-    eleventyReplacements: normalizeEleventyReplacements(raw.eleventyReplacements),
-    siteProfile: raw.siteProfile && typeof raw.siteProfile === "object" ? raw.siteProfile : null,
-    unknownKadenceBlockStrategy: String(
-      raw.unknownKadenceBlockStrategy
-      || raw.siteProfile?.configure?.unknownKadenceBlockStrategy
-      || "fallback-html"
-    ),
-    localProjectFolder,
-    outputRoot,
-    contentDir: String(raw.contentDir || "content").trim() || "content",
-    mediaDir: String(raw.mediaDir || "media").trim() || "media",
-    dataDir: String(raw.dataDir || DEFAULT_DATA_DIR).trim() || DEFAULT_DATA_DIR,
-    lang: String(raw.lang || "").trim().toLowerCase(),
-    langPrefix: String(raw.langPrefix || raw.lang || "").trim().toLowerCase()
-  };
-}
-
 async function saveConfig(config, configPath) {
   const absolute = path.resolve(process.cwd(), configPath);
   await fs.mkdir(path.dirname(absolute), { recursive: true });
@@ -4586,19 +4492,6 @@ async function saveConfig(config, configPath) {
 
 function defaultConfigPathFor(outputRoot) {
   return path.join(outputRoot, "migration-config.json");
-}
-
-function resolveOutputRoot(rawOutputRoot, localProjectFolder, stamp = nowStamp()) {
-  const fallback = `./migrations/wp-to-eleventy-${stamp}`;
-  const localRoot = String(localProjectFolder || "").trim();
-  const rawRoot = String(rawOutputRoot || "").trim();
-  if (!rawRoot) return localRoot || fallback;
-  if (path.isAbsolute(rawRoot)) return rawRoot;
-  if (localRoot && path.isAbsolute(localRoot)) {
-    if (rawRoot === path.basename(localRoot)) return localRoot;
-    if (rawRoot === "." || rawRoot === "./") return localRoot;
-  }
-  return rawRoot;
 }
 
 async function pickFolderPath(initialPath = "") {
@@ -5103,185 +4996,37 @@ async function runMultilingualPasses(baseConfig, extraLangs, rl) {
   return reports;
 }
 
-async function runWizard() {
-  const rl = readline.createInterface({ input, output });
-  try {
-    output.write("\nWordPress -> Eleventy Migration Wizard\n");
-    output.write("This wizard asks required migration choices and can run migration immediately.\n");
+// Public exports consumed by src/cli/ and src/main.mjs.
+export {
+  runMigration,
+  serveUi,
+  saveConfig,
+  buildAuthHeaders,
+  detectLanguages,
+  runMultilingualPasses
+};
 
-    const sourceType = (await ask(rl, "Source type (only 'rest' is currently supported)", "rest")).toLowerCase();
-    const preset = (await ask(rl, "Preset (none/kadence/kadence-pro)", "none")).toLowerCase();
-    const wpBaseUrl = await ask(rl, "WordPress base URL (e.g. https://example.com)", "");
-    const restNamespace = await ask(rl, "REST namespace path", DEFAULT_NAMESPACE);
-    const contentTypes = parseCsvList(await ask(rl, "Content types (comma-separated)", DEFAULT_TYPES.join(",")));
-    const includeDrafts = await askYesNo(rl, "Include drafts and private posts", false);
-    const downloadMedia = await askYesNo(rl, "Download media files locally", false);
-    const createRedirects = await askYesNo(rl, "Generate redirects CSV", true);
-    const importMenus = await askYesNo(rl, "Attempt WordPress menu import", true);
-    const htmlMode = (await ask(rl, "Content conversion mode (keep-html/basic-markdown)", "keep-html")).toLowerCase();
-    const targetPermalinkPattern = await ask(rl, "Target permalink pattern for non-pages", "/{type}/{slug}/");
-    const authMode = (await ask(rl, "Auth mode (none/app-password/bearer)", "none")).toLowerCase();
+// Compatibility shim: forward direct-node invocation to src/main.mjs so
+// existing user commands (node scripts/wp-eleventy-migrate.mjs wizard|run|serve)
+// keep working without changes.
+//
+// This module MUST NOT use top-level `await` for the forwarding — that would
+// leave the engine in an "evaluating" state while main() runs, and any
+// downstream dynamic import(engine) call (e.g. inside cli/run.mjs) would
+// deadlock on the still-evaluating module. queueMicrotask lets this
+// module's top-level evaluation complete first; the module cache then serves
+// engine re-imports synchronously from src/cli/*.
+const _invokedDirectly = Boolean(process.argv[1])
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
 
-    let wpUser = "";
-    let wpAppPassword = "";
-    let wpBearerToken = "";
-    if (authMode === "app-password") {
-      wpUser = await ask(rl, "WP username", "");
-      wpAppPassword = await ask(rl, "WP application password", "");
-    } else if (authMode === "bearer") {
-      wpBearerToken = await ask(rl, "Bearer token", "");
-    }
-
-    // Detect multilingual setup
-    let detectedLangs = [];
-    if (wpBaseUrl && sourceType === "rest") {
-      const authHeaders = {};
-      if (authMode === "app-password" && wpUser && wpAppPassword) {
-        authHeaders.Authorization = `Basic ${Buffer.from(`${wpUser}:${wpAppPassword}`).toString("base64")}`;
-      } else if (authMode === "bearer" && wpBearerToken) {
-        authHeaders.Authorization = `Bearer ${wpBearerToken}`;
-      }
-      detectedLangs = await detectLanguages(wpBaseUrl, authHeaders);
-      if (detectedLangs.length > 1) {
-        output.write(`\nDetected ${detectedLangs.length} languages: ${detectedLangs.map(l => `${l.code} (${l.name})`).join(", ")}\n`);
-        output.write("The main language will be migrated normally. Other languages will be offered afterwards.\n");
-      }
-    }
-
-    const dryRun = await askYesNo(rl, "Dry run (no files written)", true);
-    const isKadencePreset = preset === "kadence" || preset === "kadence-pro";
-    if (isKadencePreset) {
-      output.write(`  Preset '${preset}': enables Nunjucks layouts, Kadence block conversion, and style migration.\n`);
-    }
-    const useNunjucksLayouts = isKadencePreset ? true : await askYesNo(rl, "Add Nunjucks layout fields to front matter", false);
-    const convertKadenceBlocks = isKadencePreset ? true : await askYesNo(rl, "Convert supported Kadence blocks into Nunjucks includes", false);
-    const migrateStyles = isKadencePreset ? true : await askYesNo(rl, "Download site stylesheets and extract CSS design tokens", false);
-    const pageLayout = await ask(rl, "Page layout path", "layouts/page.njk");
-    const postLayout = await ask(rl, "Post layout path", "layouts/post.njk");
-    const defaultLayout = await ask(rl, "Default layout path for other content types (optional)", "");
-    const kadenceBlocksDir = await ask(rl, "Kadence partial output directory", DEFAULT_KADENCE_BLOCKS_DIR);
-    const defaultStylesDir = preset === "kadence-pro" ? DEFAULT_KADENCE_PRO_STYLES_DIR : isKadencePreset ? DEFAULT_KADENCE_STYLES_DIR : DEFAULT_STYLES_DIR;
-    const stylesDir = await ask(rl, "Styles output directory", defaultStylesDir);
-    const stamp = nowStamp();
-    const outputRoot = await ask(rl, "Output root", `./migrations/wp-to-eleventy-${stamp}`);
-    const contentDir = await ask(rl, "Content subdirectory", "content");
-    const mediaDir = await ask(rl, "Media subdirectory", "media");
-    const dataDir = await ask(rl, "Data subdirectory for navigation/menu JSON", DEFAULT_DATA_DIR);
-    const configPath = await ask(rl, "Config file path", path.join(outputRoot, "migration-config.json"));
-
-    const config = await createConfigFromInput({
-      sourceType,
-      preset,
-      wpBaseUrl,
-      restNamespace,
-      contentTypes: contentTypes.join(","),
-      includeDrafts,
-      downloadMedia,
-      createRedirects,
-      importMenus,
-      htmlMode,
-      targetPermalinkPattern,
-      authMode,
-      wpUser,
-      wpAppPassword,
-      wpBearerToken,
-      dryRun,
-      useNunjucksLayouts,
-      convertKadenceBlocks,
-      migrateStyles,
-      pageLayout,
-      postLayout,
-      defaultLayout,
-      kadenceBlocksDir,
-      stylesDir,
-      outputRoot,
-      contentDir,
-      mediaDir,
-      dataDir
-    });
-
-    await saveConfig(config, configPath);
-    output.write(`\nConfig saved: ${configPath}\n`);
-
-    output.write("\nRecommended flow:\n");
-    output.write("1. Run dry-run first and inspect migration-report.json.\n");
-    output.write("2. Validate permalink mapping and redirects.csv.\n");
-    output.write("3. Re-run with dryRun=false and review generated content.\n");
-
-    const runNow = await askYesNo(rl, "Run migration now", true);
-    if (!runNow) return;
-
-    const report = await runMigration(path.resolve(process.cwd(), configPath), config);
-    output.write("\nMigration finished.\n");
-    output.write(`${JSON.stringify(report, null, 2)}\n`);
-
-    // Offer additional language passes
-    if (detectedLangs.length > 1 && !config.lang) {
-      const mainLang = detectedLangs[0].code;
-      const extraLangs = detectedLangs.filter(l => l.code !== mainLang);
-      output.write("\nAdditional languages detected. You can migrate them now.\n");
-      await runMultilingualPasses(config, extraLangs, rl);
-    }
-  } finally {
-    rl.close();
-  }
-}
-
-async function runFromConfig(configPath) {
-  const absolute = path.resolve(process.cwd(), configPath);
-  const rawConfig = JSON.parse(await fs.readFile(absolute, "utf8"));
-  const config = createConfigFromInput(rawConfig);
-
-  // Run main migration
-  const report = await runMigration(absolute);
-  output.write(`${JSON.stringify(report, null, 2)}\n`);
-
-  // Skip language detection if this config is already a per-language run or has no wpBaseUrl
-  if (config.lang || !config.wpBaseUrl) return;
-
-  const authHeaders = buildAuthHeaders(config);
-  const detectedLangs = await detectLanguages(config.wpBaseUrl, authHeaders);
-  if (detectedLangs.length <= 1) return;
-
-  const mainLang = detectedLangs[0].code;
-  const extraLangs = detectedLangs.filter(l => l.code !== mainLang);
-  output.write(`\nDetected ${detectedLangs.length} languages: ${detectedLangs.map(l => `${l.code} (${l.name})`).join(", ")}\n`);
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
-  try {
-    await runMultilingualPasses(config, extraLangs, rl);
-  } finally {
-    rl.close();
-  }
-}
-
-async function main() {
-  const [cmd, arg] = process.argv.slice(2);
-  if (!cmd || cmd === "wizard") {
-    await runWizard();
-    return;
-  }
-  if (cmd === "run") {
-    if (!arg) {
-      output.write("Usage: node scripts/wp-eleventy-migrate.mjs run <config.json>\n");
+if (_invokedDirectly) {
+  queueMicrotask(async () => {
+    try {
+      const { main } = await import("../src/main.mjs");
+      await main();
+    } catch (err) {
+      console.error(err?.stack || err);
       process.exitCode = 1;
-      return;
     }
-    await runFromConfig(arg);
-    return;
-  }
-  if (cmd === "serve") {
-    const port = arg ? Number.parseInt(arg, 10) : 4173;
-    await serveUi(Number.isFinite(port) ? port : 4173);
-    return;
-  }
-  output.write("Usage:\n");
-  output.write("  node scripts/wp-eleventy-migrate.mjs wizard\n");
-  output.write("  node scripts/wp-eleventy-migrate.mjs run <config.json>\n");
-  output.write("  node scripts/wp-eleventy-migrate.mjs serve [port]\n");
+  });
 }
-
-main().catch((err) => {
-  console.error(err?.stack || err);
-  process.exitCode = 1;
-});
