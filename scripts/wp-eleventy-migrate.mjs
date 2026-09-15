@@ -457,6 +457,13 @@ async function fileExists(filePath) {
   }
 }
 
+// Local progress-log primitive used by runMigration and its helpers.
+// Kept as an engine-private helper on purpose: CLI-side prompts live in
+// src/cli/prompt.mjs, and the engine must not depend on the CLI layer.
+function printStep(step, text) {
+  output.write(`\n[${step}] ${text}\n`);
+}
+
 async function fetchAllPages(url, headers = {}) {
   const all = [];
   let page = 1;
