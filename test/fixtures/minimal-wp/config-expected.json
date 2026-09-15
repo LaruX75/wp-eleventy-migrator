@@ -34,5 +34,7 @@
   "mediaDir": "media",
   "dataDir": "_data",
   "lang": "",
-  "langPrefix": ""
+  "langPrefix": "",
+  "xmlBackupPath": "",
+  "analysisOutputDir": ""
 }
