@@ -36,10 +36,30 @@ const KNOWN_BLOCKING = new Set([
 
 const KNOWN_INFORMATIONAL = new Set([
   // Decorative or spacing-only shortcodes; the target-side impact is
-  // cosmetic and safely preserved as raw content.
-  "vc_empty_space",
+  // cosmetic and safely preserved as raw content. Note: WPBakery
+  // leaf shortcodes (`vc_empty_space`, `vc_custom_heading`,
+  // `vc_single_image`, `vc_video`) are deliberately NOT in this set.
+  // They surface authoritative content (headings, media, video) whose
+  // migration decision requires a human review, not a decorative pass.
   "nbsp",
   "br"
+]);
+
+// Shortcodes that WordPress parses as implicitly self-closing — they
+// carry a single opening tag without a matching `[/name]`. Without
+// this hint the generic shortcode parser (arch-v2-02 §1) would
+// classify them as `malformed-shortcode`, which is the wrong
+// diagnosis: the source is syntactically valid, not broken.
+//
+// The list is deliberately small and only names the WPBakery leaves
+// observed in real WordPress content. Transformer PRs (arch-v2-02
+// §9 vaihe 2 onwards) will move handling of these names out of the
+// fallback tables and into the WPBakery page-builder transformer.
+const IMPLICIT_SELF_CLOSING = new Set([
+  "vc_empty_space",
+  "vc_custom_heading",
+  "vc_single_image",
+  "vc_video"
 ]);
 
 function classifyCriticality(unitName) {
@@ -475,7 +495,9 @@ export async function runAnalyze(configPath, opts = {}) {
       const doc = planDocument(engine, item, type, config);
       const rawContent = item?.content?.raw || item?.content?.rendered || "";
       analyzeBlocks(engine, rawContent, blocksUsed);
-      const shortcodeNodes = parseShortcodes(rawContent);
+      const shortcodeNodes = parseShortcodes(rawContent, {
+        selfClosingNames: IMPLICIT_SELF_CLOSING
+      });
       doc.shortcodes = summariseShortcodes(shortcodeNodes);
       doc.transformerPlan = buildTransformerPlan(shortcodeNodes);
       documents.push(doc);
