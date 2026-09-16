@@ -5,6 +5,70 @@ import process from "node:process";
 
 import { createConfigFromInput, nowStamp } from "../config/normalize.mjs";
 import { redactConfig } from "../config/redact.mjs";
+import {
+  parseShortcodes,
+  countShortcodes,
+  collectUnhandled
+} from "../blocks/shortcode-parser.mjs";
+
+// Engine fallback criticality tables (arch-v2-02 §3 + §5). No
+// transformer is registered yet, so every recognised shortcode/block
+// currently falls back to these classifications. Later transformer
+// PRs will move names from these lists into transformer-owned
+// handling.
+const KNOWN_BLOCKING = new Set([
+  // Runtime widgets and dynamic listings that will not render without
+  // a target-side replacement.
+  "rev_slider",
+  "revslider",
+  "contact-form-7",
+  "wpforms",
+  "gravityform",
+  "gravityforms",
+  "vcex_blog_grid",
+  "vcex_post_type_grid",
+  "latest-posts",
+  "recent-posts",
+  "instagram-feed",
+  "wdi_instagram_feed",
+  "pdf-embedder"
+]);
+
+const KNOWN_INFORMATIONAL = new Set([
+  // Decorative or spacing-only shortcodes; the target-side impact is
+  // cosmetic and safely preserved as raw content.
+  "vc_empty_space",
+  "nbsp",
+  "br"
+]);
+
+function classifyCriticality(unitName) {
+  if (KNOWN_BLOCKING.has(unitName)) return "blocking";
+  if (KNOWN_INFORMATIONAL.has(unitName)) return "informational";
+  return "manual-review";
+}
+
+// Reasons emitted alongside criticality so the report is
+// self-explaining without cross-referencing this module.
+function reasonForShortcode(unitName, criticality) {
+  if (criticality === "blocking") {
+    return "Runtime or dynamic shortcode; the target site cannot render it without an explicit replacement.";
+  }
+  if (criticality === "informational") {
+    return "Decorative shortcode; preserved verbatim in output. Cosmetic-only impact.";
+  }
+  return "Shortcode is not recognised by any configured transformer; source unit preserved for manual review.";
+}
+
+function reasonForParserUnhandled(kind) {
+  if (kind === "escaped-shortcode") {
+    return "Escaped shortcode syntax detected. WordPress renders it as literal text; preserved verbatim.";
+  }
+  if (kind === "malformed-shortcode") {
+    return "Malformed shortcode syntax detected (missing bracket or closer). Source unit preserved for manual review.";
+  }
+  return "Unhandled source unit; preserved verbatim.";
+}
 
 // Analyze-only preflight. This module is strictly an orchestrator: it
 // composes the read-only primitives already exposed by the legacy engine
@@ -164,6 +228,104 @@ function analyzeBlocks(engine, content, aggregate) {
   engine.collectBlockProfile(nodes, aggregate);
 }
 
+// Compute overallStatus per arch-v2-02 §4. Priority: blocking >
+// manual-review > partial > complete. `partial` covers documents
+// with only informational warnings or preserved source units.
+function computeOverallStatus(unhandledUnits, preservedSourceUnits) {
+  let hasBlocking = false;
+  let hasManualReview = false;
+  let hasInformational = false;
+  for (const u of unhandledUnits) {
+    if (u.criticality === "blocking") hasBlocking = true;
+    else if (u.criticality === "manual-review") hasManualReview = true;
+    else if (u.criticality === "informational") hasInformational = true;
+  }
+  if (hasBlocking) return "blocked";
+  if (hasManualReview) return "manual-review";
+  if (hasInformational || (preservedSourceUnits && preservedSourceUnits.length > 0)) {
+    return "partial";
+  }
+  return "complete";
+}
+
+// Build the per-document transformerPlan block (arch-v2-02 §4).
+// No transformer is registered in this PR, so `handledUnits` is
+// always empty and every recognised shortcode becomes an
+// unhandledUnit classified by the engine fallback tables.
+function buildTransformerPlan(shortcodeNodes) {
+  const shortcodeCounts = countShortcodes(shortcodeNodes);
+  const parserUnhandled = collectUnhandled(shortcodeNodes);
+
+  const unhandledMap = new Map(); // key = unit → aggregate
+  const push = (unit, criticality, reason) => {
+    const key = `${unit}::${criticality}`;
+    const existing = unhandledMap.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      unhandledMap.set(key, { unit, count: 1, criticality, reason });
+    }
+  };
+
+  for (const [name, count] of Object.entries(shortcodeCounts)) {
+    const crit = classifyCriticality(name);
+    const reason = reasonForShortcode(name, crit);
+    for (let i = 0; i < count; i += 1) push(name, crit, reason);
+  }
+  for (const u of parserUnhandled) {
+    push(u.kind, "manual-review", u.reason || reasonForParserUnhandled(u.kind));
+  }
+
+  const unhandledUnits = [...unhandledMap.values()].sort(
+    (a, b) => b.count - a.count || a.unit.localeCompare(b.unit)
+  );
+
+  // Preserved source units: any shortcode top-level structural unit
+  // whose original text remains verbatim in the doc body (no
+  // transformer touched it). In this PR that is *every* recognised
+  // shortcode, since no transformer is registered — we surface only
+  // aggregate counts + bytes, not the text itself.
+  const preservedSourceUnits = [];
+  const walkPreserved = (nodes) => {
+    for (const node of nodes || []) {
+      if (node.type === "shortcode") {
+        preservedSourceUnits.push({
+          unit: node.name,
+          bytes: node.end - node.start
+        });
+        if (node.children) walkPreserved(node.children);
+      }
+    }
+  };
+  walkPreserved(shortcodeNodes);
+  // Aggregate preserved into {unit, count, bytes}.
+  const preservedAgg = new Map();
+  for (const p of preservedSourceUnits) {
+    const cur = preservedAgg.get(p.unit) || { unit: p.unit, count: 0, bytes: 0 };
+    cur.count += 1;
+    cur.bytes += p.bytes;
+    preservedAgg.set(p.unit, cur);
+  }
+  const preserved = [...preservedAgg.values()].sort(
+    (a, b) => b.count - a.count || a.unit.localeCompare(b.unit)
+  );
+
+  return {
+    handledUnits: [],
+    unhandledUnits,
+    preservedSourceUnits: preserved,
+    overallStatus: computeOverallStatus(unhandledUnits, preserved)
+  };
+}
+
+// Per-document shortcode name→count for `documents[].shortcodes` (§1).
+function summariseShortcodes(shortcodeNodes) {
+  const counts = countShortcodes(shortcodeNodes);
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
 function classifyBlocks(engine, blocksUsed) {
   const gutenberg = [];
   const kadence = [];
@@ -310,9 +472,13 @@ export async function runAnalyze(configPath, opts = {}) {
     if (res.context === "edit") contextEditGranted = true;
 
     for (const item of res.items) {
-      documents.push(planDocument(engine, item, type, config));
+      const doc = planDocument(engine, item, type, config);
       const rawContent = item?.content?.raw || item?.content?.rendered || "";
       analyzeBlocks(engine, rawContent, blocksUsed);
+      const shortcodeNodes = parseShortcodes(rawContent);
+      doc.shortcodes = summariseShortcodes(shortcodeNodes);
+      doc.transformerPlan = buildTransformerPlan(shortcodeNodes);
+      documents.push(doc);
       const urls = engine.extractMediaUrls(rawContent, engine.ensureTrailingSlash(config.wpBaseUrl));
       for (const url of urls) mediaUrls.add(url);
     }
@@ -366,6 +532,12 @@ export async function runAnalyze(configPath, opts = {}) {
       blocksGutenberg: blockClassification.gutenberg.length,
       blocksKadence: blockClassification.kadence.length,
       blocksKadenceUnknown: blockClassification.kadenceUnknown.length,
+      shortcodes: documents.reduce((sum, d) => sum + (d.shortcodes || []).reduce((s, x) => s + x.count, 0), 0),
+      documentsByStatus: documents.reduce((acc, d) => {
+        const s = d.transformerPlan?.overallStatus || "complete";
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      }, {}),
       warnings: warnings.length
     },
     warnings,
