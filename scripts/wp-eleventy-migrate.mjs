@@ -29,6 +29,7 @@ import {
 } from "../src/config/defaults.mjs";
 import { transformWpBakery, collectWpBakeryMediaIds } from "../src/blocks/page-builders/wpbakery.mjs";
 import { createAttachmentResolver } from "../src/media/attachment-resolver.mjs";
+import { localiseContentImages, transformOutsideContentImages, contentImageUrl } from "../src/media/content-images.mjs";
 
 // Roll up a per-document transformer plan into an arch-v2-02 §4
 // overallStatus. Migration-report side uses the same status
@@ -4075,11 +4076,8 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings, transforme
   const wpbakeryInput = String(renderedHtml).trim();
   const wpbakeryResult = transformWpBakery(wpbakeryInput, transformerContext);
 
-  let body = config.htmlMode === "basic-markdown"
-    // Keep resolved attachment figures semantic, including escaped metadata.
-    ? wpbakeryResult.output.split(/(<figure class="wp-attachment-image"[\s\S]*?<\/figure>)/g)
-      .map((part) => part.startsWith('<figure class="wp-attachment-image"') ? part : basicHtmlToMarkdown(part))
-      .filter(Boolean).join("\n\n")
+  let body = config.htmlMode === "basic-markdown" && !transformerContext.deferMarkdown
+    ? transformOutsideContentImages(wpbakeryResult.output, basicHtmlToMarkdown, "\n\n")
     : wpbakeryResult.output;
   let fileExtension = "md";
   let kadenceBlocks = [];
@@ -4185,7 +4183,8 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     actionItems: {
       unsupportedBlocks: [],
       shortcodes: [],
-      suggestions: []
+      suggestions: [],
+      contentMedia: []
     },
     // Per-document coverage from opt-in content transformers (currently
     // only the WPBakery generic pass). Populated by itemToDoc → doc.
@@ -4280,6 +4279,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     wpBaseUrl: config.wpBaseUrl, mediaRoot, mediaDir: config.mediaDir,
     downloadMedia: config.downloadMedia, dryRun: config.dryRun,
     lookupMedia: (id) => fetchJson(`${baseApi}/media/${id}`, headers),
+    listMedia: () => fetchAllPages(`${baseApi}/media`, headers),
     downloadFile: (url, outPath, mime) => downloadFile(
       url, outPath, new URL(url).origin === new URL(config.wpBaseUrl).origin ? headers : {}, mime
     ),
@@ -4453,24 +4453,41 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     let written = 0;
     let externalMediaCount = 0;
     for (const item of items) {
-      const doc = itemToDoc(item, typeSlug, config, categoryMap, tagMap, report.warnings, attachmentResolver);
+      const doc = itemToDoc(item, typeSlug, config, categoryMap, tagMap, report.warnings, { ...attachmentResolver, deferMarkdown: true });
       const datePart = typeSlug === "posts" ? `${toIsoDay(item?.date)}-` : "";
       const fileName = `${datePart}${doc.slug}.${doc.fileExtension}`;
       const filePath = path.join(outTypeDir, fileName);
-      let body = doc.body;
+      const localised = await localiseContentImages(doc.body, {
+        resolver: attachmentResolver, baseUrl: item?.link || ensureTrailingSlash(config.wpBaseUrl)
+      });
+      let body = config.htmlMode === "basic-markdown" && !doc.convertedKadenceBlocks
+        ? transformOutsideContentImages(localised.output, basicHtmlToMarkdown, "\n\n")
+        : localised.output;
+      if (localised.diagnostics.length) report.actionItems.contentMedia.push({
+        document: `${typeSlug}/${fileName}`,
+        sourceId: item?.id ?? null,
+        references: localised.diagnostics
+      });
 
-      // Extract media URLs from both rendered HTML and converted body (Kadence JSON attrs)
+      // Images and their links are owned by the verified pass above. Keep the
+      // existing non-image media handling without retrying unverified images.
       const allMediaUrls = extractMediaUrls(
-        (item?.content?.rendered || "") + "\n" + body,
+        transformOutsideContentImages((item?.content?.rendered || "") + "\n" + body, (part) => part, "", () => ""),
         ensureTrailingSlash(config.wpBaseUrl)
       );
-      if (doc.frontMatter.featuredImage) allMediaUrls.push(doc.frontMatter.featuredImage);
+      const featuredUrl = doc.frontMatter.featuredImage && contentImageUrl(doc.frontMatter.featuredImage, config.wpBaseUrl);
+      const featuredInContent = featuredUrl && localised.references.some((ref) =>
+        !ref.reason && contentImageUrl(ref.value, item?.link || ensureTrailingSlash(config.wpBaseUrl)) === featuredUrl
+      );
+      if (doc.frontMatter.featuredImage && !featuredInContent) allMediaUrls.push(doc.frontMatter.featuredImage);
 
       if (config.downloadMedia) {
         // Rewrite WP-origin /wp-content/ URLs to local /media/ paths
-        body = rewriteWpMediaUrls(body, config.wpBaseUrl, config.mediaDir);
+        body = transformOutsideContentImages(body, (part) => rewriteWpMediaUrls(part, config.wpBaseUrl, config.mediaDir));
         if (doc.frontMatter.featuredImage) {
-          doc.frontMatter.featuredImage = rewriteWpMediaUrls(doc.frontMatter.featuredImage, config.wpBaseUrl, config.mediaDir);
+          doc.frontMatter.featuredImage = featuredInContent
+            ? attachmentResolver.resolveMediaUrl(featuredUrl) || doc.frontMatter.featuredImage
+            : rewriteWpMediaUrls(doc.frontMatter.featuredImage, config.wpBaseUrl, config.mediaDir);
         }
       } else {
         externalMediaCount += allMediaUrls.length;
