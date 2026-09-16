@@ -1,69 +1,59 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file guides Claude Code and other coding agents working in this repository.
+
+## Product contract
+
+`wp-eleventy-migrator` is a **generic, one-shot WordPress → Eleventy migrator**. It is for cases where the WordPress installation is retired after acceptance of the generated site. Its primary target is native Eleventy content: Markdown documents with YAML front matter, preserved HTML where appropriate, and Nunjucks only where an explicitly selected transformer emits it.
+
+It is not a WordPress theme converter, an always-on synchronizer, or a site-specific jarilaru.fi tool.
+
+Baseline: `d68ddf789cb9f61a484596e9c6cd0887de620725`. The current engine is `scripts/wp-eleventy-migrate.mjs` (239,595 bytes; roughly 5,287 lines). The UI is `ui/index.html` (231,412 bytes). Treat both as legacy monoliths to be decomposed; do not add new cross-cutting features to them.
+
+Architecture decisions and the modularisation roadmap are in `docs/architecture-v2-01-2026-09-14.md`. The source and gap audits belong in `docs/`; they are required reading before implementing a P0/P1 item.
 
 ## Commands
 
 ```bash
-npm run migrate:wp                       # Interactive terminal wizard
-npm run migrate:wp:run -- config.json    # Run from a saved JSON config file
-npm run migrate:wp:gui                   # Start web UI server (port 4173)
+npm run migrate:wp                       # interactive terminal wizard
+npm run migrate:wp:run -- config.json    # run a saved JSON config
+npm run migrate:wp:gui                   # serve the web UI (default port 4173)
+npm run audit:visual -- <args>            # visual audit utility
+npm run audit:site -- <args>              # site-level visual audit
+npm run translate:missing -- <args>       # legacy translation utility
 ```
 
-No build step, test suite, or linter is configured. The project is a single ESM module with zero external dependencies.
+There is currently no test suite, build step, or linter. Any implementation work must add focused automated tests before changing a P0 path.
 
-## Architecture
+## Non-negotiable migration rules
 
-This is a CLI/web tool that migrates WordPress sites to Eleventy via the WordPress REST API. All logic lives in `scripts/wp-eleventy-migrate.mjs` (~1,100 lines). The `ui/index.html` is a self-contained single-page web app served by the script's built-in HTTP server.
+- Use REST API with a WordPress Application Password as the normal authenticated source. Public REST is only a capability sniff-test, never the assumed data source.
+- Require an XML export backup before the write phase. Do not store credentials in generated config, reports, or logs.
+- The default content output is `content/<type>/<slug>.md`: YAML front matter plus body. `_data/*.json` is reserved for truly site-wide data such as navigation.
+- Preserve source HTML block-by-block in the generic core. Never perform lossy regex “normalisation” by default.
+- Nunjucks shortcodes, macros, includes, and theme/block conversions are opt-in transformers. They must declare their input signature, output contract, diagnostic behaviour, and tests.
+- Retain a source identity and original URL for every migrated item so redirects, deduplication, and post-migration verification remain possible.
+- A migration writes to a fresh output directory; it must not silently merge into an existing generated site.
+- `migrations/` contains historical runs. Do not edit or use it as an implementation fixture. Keep it out of commits unless a deliberate fixture policy is introduced.
 
-### Three entry points, one engine
+## Current legacy behavior
 
-- **Wizard** (`runWizard()`) — 13-step interactive terminal prompts via `readline`
-- **Config file** (`runFromConfig(configPath)`) — reads a JSON config directly
-- **Web UI** (`serveUi(port)`) — HTTP server that serves `ui/index.html` and accepts form submissions
+All entry points normalize input through `createConfigFromInput(raw)` and invoke `runMigration()`.
 
-All three normalize input through `createConfigFromInput(raw)` before calling `runMigration()`.
+The legacy pipeline currently fetches REST taxonomies, posts/pages, menus, and stylesheets; turns each item into a document; optionally applies regex-based Markdown conversion or Kadence conversion; optionally downloads media, stylesheets, menus, and redirects; then writes a report. Its Kadence parser reads Gutenberg comment syntax and writes generated partials. Presets currently include `none`, `kadence`, and `kadence-pro`.
 
-### Migration pipeline
+This behavior is useful baseline evidence, not the v2 design. In particular, Kadence support (currently 32 recognised blocks) is a plugin transformer, not the generic output model.
 
-`runMigration()` is the core engine:
+## Implementation conventions
 
-1. Fetch WordPress REST API — taxonomies, posts/pages, menus, stylesheets
-2. For each content item, `itemToDoc()` builds YAML front matter + body
-3. Body is either kept as HTML or converted via `basicHtmlToMarkdown()` (regex-based)
-4. If `convertKadenceBlocks` is enabled, `convertKadenceBlocksToNunjucks()` parses Gutenberg `<!-- wp:block -->` comment syntax into a tree and renders Nunjucks `{% include %}` calls
-5. Optionally download media, migrate stylesheets, export menus as JSON, build redirect CSV
-6. Write all files (skip when `dryRun: true`), then write `migration-report.json`
+- Node ESM; keep external dependencies minimal and justified.
+- Keep fetching, normalization, rendering, filesystem writing, diagnostics, CLI, and UI separate.
+- Make the core deterministic: the same saved source snapshot plus config must produce the same files and manifest.
+- Write a machine-readable manifest/report with source IDs, output paths, warnings, skipped items, asset results, redirects, and transformer versions.
+- Prefer explicit warnings and safe preserved output over guessed semantic conversion.
+- Config must be schema-validated, versioned, and capable of selecting only supported source/content/transformer features.
+- UI and CLI must call the same public application service; neither may contain migration business logic.
 
-### Kadence block conversion
+## Change discipline
 
-`parseWpBlocks(content)` tokenizes Gutenberg block comments into an AST. `renderBlockTree(nodes, config)` traverses it and emits Nunjucks includes pointing to partials under `_includes/blocks/kadence/`. `writeKadencePartials()` generates the 18 default partial templates.
-
-### Preset system
-
-Three presets (`none`, `kadence`, `kadence-pro`) auto-configure `stylesDir`, `kadenceBlocksDir`, `convertKadenceBlocks`, `migrateStyles`, and `useNunjucksLayouts`. Preset logic is applied inside `createConfigFromInput()`.
-
-### Menu import
-
-`fetchMenus()` tries three different WordPress menu API endpoints in sequence (WP REST menus v1, REST Menus v2, Menus API plugin) and falls back gracefully. `buildMenuTree()` normalizes the result into a hierarchical JSON structure written to `_data/navigation.json`.
-
-### Output structure
-
-```
-<outputRoot>/
-├── content/posts/*.md (or .njk for Kadence)
-├── content/pages/*.md
-├── media/                  # optional
-├── _data/navigation.json   # optional
-├── _includes/blocks/kadence/*.njk  # optional
-├── styles/*/               # optional
-├── redirects.csv           # optional
-├── migration-config.json
-└── migration-report.json
-```
-
-The `outputRoot` defaults to a timestamped directory under `./migrations/`.
-
-### Config shape
-
-Key fields: `wpBaseUrl`, `contentTypes`, `htmlMode` (`keep-html` | `basic-markdown`), `preset`, `convertKadenceBlocks`, `useNunjucksLayouts`, `migrateStyles`, `downloadMedia`, `authMode`, `dryRun`. See `configs/generation-ai-stn.fi.json` for a real-world example.
+Before coding, identify the audit item, its acceptance criteria, source fixture, and output invariant. Preserve unrelated working-tree changes. Do not change historical migrations. Update the architecture document if a proposed change modifies one of its locked decisions.
