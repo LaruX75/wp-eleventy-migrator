@@ -4,8 +4,8 @@
 // narrow: it removes structural `[vc_row]`/`[vc_column]` wrappers,
 // preserves inner content recursively, and converts a small set of
 // leaf shortcodes into readable semantic HTML. It does not attempt to
-// reproduce WPBakery's full visual layout, does not resolve
-// attachment IDs into media URLs, and does not fetch anything.
+// reproduce WPBakery's full visual layout and does not fetch anything.
+// Attachment images use only the engine-provided, prepared media resolver.
 //
 // Everything else is passed through as a safely-preserved HTML
 // comment plus an unhandled-unit diagnostic — the invariant is
@@ -13,6 +13,7 @@
 // into the migrated Markdown/HTML output.
 
 import { parseShortcodes } from "../shortcode-parser.mjs";
+import { attachmentId } from "../../media/attachment-resolver.mjs";
 
 // Shortcodes whose only role is structural (grid, container, or a
 // text-only wrapper). Handling strategy: drop the wrapper and
@@ -43,6 +44,9 @@ const TRANSFORMER_NAME = "wpbakery";
  * unresolved, and which source spans were preserved verbatim.
  *
  * @param {string} content
+ * @param {{resolveMediaById?: Function, unresolvedMediaReason?: Function}} [context]
+ *   Synchronous resolver returns {url, alt, caption, mime} only for local media
+ *   confirmed available by the engine; null means unresolved. No I/O here.
  * @returns {{
  *   output: string,
  *   plan: {
@@ -52,13 +56,14 @@ const TRANSFORMER_NAME = "wpbakery";
  *   }
  * }}
  */
-export function transformWpBakery(content) {
+export function transformWpBakery(content, context = {}) {
   const raw = typeof content === "string" ? content : "";
   if (raw.length === 0) {
     return { output: "", plan: emptyPlan() };
   }
   const nodes = parseShortcodes(raw, { selfClosingNames: SELF_CLOSING });
   const ctx = {
+    ...context,
     handled: new Map(),      // unit → count
     unhandled: new Map(),    // key(unit+criticality) → { unit, count, criticality, reason }
     preserved: new Map()     // unit → { count, bytes }
@@ -92,6 +97,33 @@ export function handlesUnit(unitName) {
   if (STRUCTURAL_WRAPPERS.has(unitName)) return true;
   if (SELF_CLOSING.has(unitName)) return true;
   return false;
+}
+
+// Discover only valid vc_single_image IDs using the same AST as rendering.
+export function collectWpBakeryMediaIds(content) {
+  const ids = new Set();
+  function visit(nodes) {
+    for (const node of nodes) {
+      if (node.type !== "shortcode") continue;
+      if (node.name === "vc_single_image") {
+        const id = attachmentId(node.attrs?.image);
+        if (id) ids.add(id);
+      }
+      visit(node.children || []);
+    }
+  }
+  visit(parseShortcodes(content, { selfClosingNames: SELF_CLOSING }));
+  return [...ids];
+}
+
+function metadataText(value) {
+  const text = String(value || "")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ").trim();
+  // Invalid entities in remote metadata must not abort the migration.
+  try { return decodeHtmlEntities(text); } catch { return text; }
 }
 
 // ---------- rendering ------------------------------------------------------
@@ -188,21 +220,27 @@ function renderVideo(node, ctx) {
 
 function renderSingleImage(node, ctx) {
   const imageId = String(node.attrs?.image || "").trim();
-  // Deliberately no URL invention from attachment IDs. Media resolution
-  // is a separate later phase (arch-v2-02 §9 vaihe 3).
-  trackUnhandled(
-    ctx,
-    "vc_single_image",
-    "manual-review",
-    imageId
-      ? `WPBakery vc_single_image references attachment #${imageId}; awaits the media-resolution phase.`
-      : "WPBakery vc_single_image with no attachment reference; awaits the media-resolution phase."
-  );
+  const id = attachmentId(imageId);
+  const media = id ? ctx.resolveMediaById?.(id) : null;
   trackPreserved(ctx, "vc_single_image", node.end - node.start);
+  if (media?.url?.startsWith("/") && !media.url.startsWith("//")) {
+    trackHandled(ctx, "vc_single_image");
+    const caption = metadataText(media.caption);
+    return `<figure class="wp-attachment-image" data-attachment-id="${id}">` +
+      `<img src="${escapeHtml(media.url)}" alt="${escapeHtml(metadataText(media.alt))}" loading="lazy">` +
+      (caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : "") +
+      `</figure>`;
+  }
+  const reason = id ? (ctx.unresolvedMediaReason?.(id) || "media-id-unresolved") : "missing-or-invalid-attachment-id";
+  trackUnhandled(
+    ctx, "vc_single_image", "manual-review",
+    `WPBakery vc_single_image${id ? ` attachment #${id}` : ""}: ${reason}.`,
+    id
+  );
   const idAttr = imageId ? ` data-media-unresolved-id="${escapeAttr(imageId)}"` : "";
   return (
     `<figure class="wp-media-unresolved"${idAttr}>` +
-    `<!-- vc_single_image awaiting media-resolution phase -->` +
+    `<!-- vc_single_image unresolved: ${escapeComment(reason)} -->` +
     `</figure>`
   );
 }
@@ -213,14 +251,15 @@ function trackHandled(ctx, unit) {
   ctx.handled.set(unit, (ctx.handled.get(unit) || 0) + 1);
 }
 
-function trackUnhandled(ctx, unit, criticality, reason) {
-  const key = `${unit}::${criticality}`;
+function trackUnhandled(ctx, unit, criticality, reason, attachmentId = null) {
+  const key = `${unit}::${criticality}::${attachmentId ?? ""}`;
   const existing = ctx.unhandled.get(key);
   if (existing) {
     existing.count += 1;
   } else {
     ctx.unhandled.set(key, {
       transformer: TRANSFORMER_NAME,
+      ...(attachmentId !== null ? { attachmentId } : {}),
       unit,
       count: 1,
       criticality,
