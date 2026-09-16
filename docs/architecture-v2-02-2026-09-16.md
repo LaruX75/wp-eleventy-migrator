@@ -1,10 +1,11 @@
 # WP-ELEVENTY-MIGRATOR-ARCHITECTURE-V2-02 — shortcode-aware preflight
 
-Status: **§1–§8 LOCKED (2026-09-16)** — kahdeksan täsmennyspäätöstä
-hyväksytty katselmuksessa 2026-09-16. §9:n toteutusjärjestys ja §11:n
-seuraavan implementointi-PR:n scope + testivaatimukset on hyväksytty
-**suunnitteluperustaksi**, eivät toteutetuiksi ominaisuuksiksi. Ensimmäisen
-implementointi-PR:n scope pysyy rajattuna (§11): shortcode-parseri,
+Status: **PROPOSAL / AWAITING REVIEW** — kahdeksan täsmennyspäätöstä
+(§1–§8) ovat ehdotustilassa katselmuksen odottavana. §9:n
+toteutusjärjestys ja §11:n seuraavan implementointi-PR:n scope +
+testivaatimukset ovat **sovittu ehdotettu implementaatiosuunnitelma**,
+eivät toteutettuja ominaisuuksia. Ensimmäisen implementointi-PR:n
+scope pysyy tarkasti rajattuna (§11): shortcode-parseri,
 analyze/write-planin criticality-raportointi ja transformer-plan-lohko.
 Se ei toteuta WPBakery-transformeria, media-/attachment-resoluutioita
 eikä `--accept-broken-content`-ohitusta.
@@ -47,7 +48,7 @@ arkkitehtuuri ei ole jaali-kohtainen.
 
 ## 1. Päätös — Shortcode-tunnistus preflightin pakollisena osana
 
-**Lukittu 2026-09-16.** Gutenberg-lohkojen parseri ei riitä preflight-tunnistukseen.
+**Ehdotus.** Gutenberg-lohkojen parseri ei riitä preflight-tunnistukseen.
 Preflight tunnistaa ja jäsentää sisäkkäiset WordPress-shortcodet
 **puumaiseksi rakenteeksi**. Regex-litistys (globaali find-and-replace,
 ei tunnista sisäkkäisyyttä) ei ole sallittu tunnistus­kerroksena.
@@ -128,7 +129,7 @@ render-funktiollaan.
 
 ## 2. Päätös — Transformer-konteksti (API-muoto)
 
-**Lukittu 2026-09-16.** V2-01 §2.2 kuvaa transformerin `render`-funktiota mutta ei
+**Ehdotus.** V2-01 §2.2 kuvaa transformerin `render`-funktiota mutta ei
 lukitse sen argumentteja. Lukitaan tässä.
 
 Transformer saa **konteksti-objektin**, ei pelkkää content-stringiä:
@@ -179,7 +180,7 @@ transformer-listan render-funktioille sen mukaan mikä predikaatti osui.
 
 ## 3. Päätös — Unhandled-yksiköiden luokittelu
 
-**Lukittu 2026-09-16.** V2-01 §2.2:n locked-invariantti pysyy voimassa:
+**Ehdotus.** V2-01 §2.2:n locked-invariantti pysyy voimassa:
 käsittelemätöntä sisältöä **ei hävitetä** eikä muunneta osittain.
 Alkuperäinen lähdeyksikkö säilytetään ja `actionItems.unhandledUnits[]`
 saa merkinnän.
@@ -234,7 +235,7 @@ ennen kohde-sivuston julkaisua ja mitkä ovat kosmeettisia.
 
 ## 4. Päätös — Write plan -näkyvyys transformer-käsittelyyn
 
-**Lukittu 2026-09-16.** V2-01 §3.4 (koko frontmatter-serialisointi js-yamlilla) ja
+**Ehdotus.** V2-01 §3.4 (koko frontmatter-serialisointi js-yamlilla) ja
 §5:n P0-3 (coverage-metriikat migration-reportiin) tähtäävät
 migration-reportin laatuun. Sama laajennus tehdään **write plan** -
 sopimukselle.
@@ -292,7 +293,7 @@ shortcode-parserin ja criticality-luokittelun kanssa.
 
 ## 5. Päätös — Transformerien järjestys ja luokat
 
-**Lukittu 2026-09-16.** V2-01 §2.2 sanoo "Käynnistetään config-flägillä
+**Ehdotus.** V2-01 §2.2 sanoo "Käynnistetään config-flägillä
 `transformers: [...]`" mutta ei lukitse mitä tapahtuu jos useampi
 transformer voisi käsitellä saman yksikön. Lukitaan:
 
@@ -368,7 +369,7 @@ lähetetään tuotantoon.
 
 ## 6. Päätös — Presettien nimeäminen (§3.1:n täsmennys)
 
-**Lukittu 2026-09-16.** V2-01 §3.1:n locked-teksti kieltää "bespoke-nimet"
+**Ehdotus.** V2-01 §3.1:n locked-teksti kieltää "bespoke-nimet"
 preset-tasolla mutta ei erottele kohdesivuston nimeä theme- tai
 plugin-perheen nimestä. Tarkennus:
 
@@ -412,7 +413,7 @@ omaan nimeen.
 
 ## 7. Päätös — Blocking-portti write-vaiheeseen
 
-**Lukittu 2026-09-16.** Uusi turvallisuusgate rinnalla v2-01 §2.3:n XML/WXR-portin.
+**Ehdotus.** Uusi turvallisuusgate rinnalla v2-01 §2.3:n XML/WXR-portin.
 
 - **Jos analyze/write plan sisältää `blocking`-tason käsittelemättömiä
   yksiköitä (§3), write-vaihe estyy oletuksena.**
@@ -450,7 +451,7 @@ tason: ennen fetch:iä (XML backup) + ennen write:iä (content-gate).
 
 ## 8. Päätös — CSS ja kohdeprojektin autonomia (Vaihtoehto B)
 
-**Lukittu 2026-09-16.** Ensimmäiselle WPBakery-transformerille lukitaan **vaihtoehto B**:
+**Ehdotus.** Ensimmäiselle WPBakery-transformerille lukitaan **vaihtoehto B**:
 
 - **Transformer tuottaa semanttista HTML:ää ja rajatut, nimetyt luokat**
   (esim. `<section class="row"><div class="col col-1-2">…`). Luokat
@@ -484,14 +485,15 @@ tekee migraattorista **väitteitä-vapaan** kohteen tyylistrategiasta.
 
 ## 9. Toteutusjärjestys
 
-**Hyväksytty suunnitteluperustaksi 2026-09-16 — ei vielä toteutettu.**
-Alla oleva järjestys määrittää tulevien implementointi-PR:ien rajauksen ja
-sekvenssin. Kohdat 2–4 vaativat kukin oman PR:nsä; niiden koodia,
-transformereita, media-indeksiä eikä write-portin CLI-ohitusta ei
-tuoteta tässä doc-only-PR:ssä eikä myöskään §11:n rajaamassa
-ensimmäisessä implementointi-PR:ssä.
+**Ehdotettu implementaatiosuunnitelma — ei toteutettu tässä doc-PR:ssä
+eikä lukittu ennen katselmusta.** Alla oleva järjestys määrittää
+tulevien implementointi-PR:ien rajauksen ja sekvenssin. Kohdat 2–4
+vaativat kukin oman PR:nsä; niiden koodia, transformereita,
+media-indeksiä eikä write-portin CLI-ohitusta ei tuoteta tässä
+doc-only-PR:ssä eikä myöskään §11:n rajaamassa ensimmäisessä
+implementointi-PR:ssä.
 
-Järjestys kun §1–§8 on lukittu (2026-09-16):
+Ehdotettu järjestys §1–§8:n hyväksynnän jälkeen:
 
 1. **Shortcode-parser + analyze/write-planin shortcode- ja
    criticality-raportointi.**
@@ -586,12 +588,14 @@ säilyy koskemattomana. Uudet implementointi-PR:t viittaavat molempiin
 
 ## 11. Seuraavan implementointi-PR:n tarkka scope
 
-**Hyväksytty suunnitteluperustaksi 2026-09-16 — ei vielä toteutettu.**
-Alla oleva rajaus on ensimmäisen implementointi-PR:n hyväksymiskriteeri,
-ei tässä doc-PR:ssä tuotettu ominaisuus. Ensimmäinen implementointi-PR
-kirjoitetaan omaksi haarakseen sen jälkeen kun tämä v2-02 on mergattu.
+**Ehdotettu rajaus — ei toteutettu tässä doc-PR:ssä eikä lukittu ennen
+katselmusta.** Alla oleva scope on ensimmäisen implementointi-PR:n
+sovittu hyväksymiskriteeri sen jälkeen kun §1–§8 katselmoidaan ja
+lukitaan. Ensimmäinen implementointi-PR kirjoitetaan omaksi haarakseen
+myöhemmin; tässä doc-PR:ssä sen sisältöä ei aloiteta.
 
-**Implementointi-PR: `feat/shortcode-parser-and-preflight-criticality`**
+**Implementointi-PR (ehdotettu haaranimi):
+`feat/shortcode-parser-and-preflight-criticality`**
 
 Tavoite: v2-02 §1 + §3 + §4 (osittain) toteutus. **Ei transformer-
 implementaatiota, ei media-/attachment-resoluutiota eikä
