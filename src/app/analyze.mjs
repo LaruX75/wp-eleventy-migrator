@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import crypto from "node:crypto";
+import { verifyXmlBackup } from "../source/wxr.mjs";
+import { openSnapshot } from "../source/snapshot.mjs";
 import process from "node:process";
 
 import { createConfigFromInput, nowStamp } from "../config/normalize.mjs";
@@ -109,70 +110,6 @@ function reasonForParserUnhandled(kind) {
 
 const REPORT_FILE = "migration-report.json";
 const WRITE_PLAN_FILE = "write-plan.json";
-
-const WXR_HINTS = [
-  "<?xml",
-  "wp:wxr_version",
-  "xmlns:wp=",
-  "xmlns:content=",
-  "xmlns:excerpt="
-];
-
-async function verifyXmlBackup(configXmlPath, configDir) {
-  const absolute = path.isAbsolute(configXmlPath)
-    ? configXmlPath
-    : path.resolve(configDir, configXmlPath);
-
-  let stat;
-  try {
-    stat = await fs.stat(absolute);
-  } catch (err) {
-    if (err && err.code === "ENOENT") {
-      throw new Error(`XML backup not found: ${absolute}`);
-    }
-    throw new Error(`XML backup could not be read: ${absolute} (${err.message || err})`);
-  }
-  if (!stat.isFile()) {
-    throw new Error(`XML backup is not a regular file: ${absolute}`);
-  }
-  if (stat.size === 0) {
-    throw new Error(`XML backup is empty: ${absolute}`);
-  }
-
-  // Read a bounded prefix + hash the whole file. The prefix is enough to
-  // sanity-check the format; the hash captures the full content so the
-  // report is auditable.
-  const fh = await fs.open(absolute, "r");
-  let prefixText = "";
-  try {
-    const prefixLen = Math.min(stat.size, 4096);
-    const buf = Buffer.alloc(prefixLen);
-    await fh.read(buf, 0, prefixLen, 0);
-    prefixText = buf.toString("utf8");
-  } finally {
-    await fh.close();
-  }
-
-  const looksLikeWxr = WXR_HINTS.filter((needle) => prefixText.includes(needle)).length >= 2;
-  if (!looksLikeWxr) {
-    throw new Error(
-      `XML backup does not look like a WordPress WXR export: ${absolute}. ` +
-        `Expected markers such as "<?xml", "wp:wxr_version" or "xmlns:wp=".`
-    );
-  }
-
-  const hash = crypto.createHash("sha256");
-  const contents = await fs.readFile(absolute);
-  hash.update(contents);
-
-  return {
-    status: "verified",
-    filename: absolute,
-    sizeBytes: stat.size,
-    sha256: hash.digest("hex"),
-    verifiedAt: new Date().toISOString()
-  };
-}
 
 function skippedXmlBackup() {
   return {
@@ -432,13 +369,18 @@ export async function runAnalyze(configPath, opts = {}) {
   const rawConfig = JSON.parse(await fs.readFile(absoluteConfigPath, "utf8"));
   const config = await createConfigFromInput(rawConfig);
 
+  const snapshot = config.sourceType === "snapshot" ? await openSnapshot(config, configDir) : null;
+  if (snapshot) config.wpBaseUrl = snapshot.baseUrl;
   const startedAt = new Date().toISOString();
   const warnings = [];
 
   // 1. XML/WXR preflight gate. If neither a verified backup nor an
   //    explicit CLI skip is present, we refuse to touch the source.
   let xmlBackup;
-  if (skipXmlBackup) {
+  if (snapshot) {
+    xmlBackup = snapshot.xmlBackup;
+    if (snapshot.completeness.status !== "complete") warnings.push(`Snapshot completeness: ${snapshot.completeness.status}; see snapshot.reasons.`);
+  } else if (skipXmlBackup) {
     xmlBackup = skippedXmlBackup();
     warnings.push(xmlBackup.warning);
   } else {
@@ -454,20 +396,20 @@ export async function runAnalyze(configPath, opts = {}) {
 
   // 2. Auth + capability sniff (engine.buildAuthHeaders reused).
   const engine = await import("../../scripts/wp-eleventy-migrate.mjs");
-  const headers = engine.buildAuthHeaders(config);
+  const headers = snapshot ? {} : engine.buildAuthHeaders(config);
   const authSummary = {
-    mode: config.authMode,
-    hasCredentials:
+    mode: snapshot ? "offline" : config.authMode,
+    hasCredentials: !snapshot && (
       (config.authMode === "app-password" && Boolean(config.wpUser && config.wpAppPassword)) ||
-      (config.authMode === "bearer" && Boolean(config.wpBearerToken))
+      (config.authMode === "bearer" && Boolean(config.wpBearerToken)))
   };
 
   // 3. REST discovery.
   const baseApi = engine.joinUrl(config.wpBaseUrl, config.restNamespace);
 
   const [categories, tags] = await Promise.all([
-    fetchTaxonomy(engine, baseApi, "categories", headers, warnings),
-    fetchTaxonomy(engine, baseApi, "tags", headers, warnings)
+    snapshot ? snapshot.collection("categories") : fetchTaxonomy(engine, baseApi, "categories", headers, warnings),
+    snapshot ? snapshot.collection("tags") : fetchTaxonomy(engine, baseApi, "tags", headers, warnings)
   ]);
 
   const taxonomies = [
@@ -483,7 +425,8 @@ export async function runAnalyze(configPath, opts = {}) {
   let contextEditGranted = false;
 
   for (const type of config.contentTypes) {
-    const res = await fetchContentItems(engine, baseApi, type, headers, warnings, config.authMode);
+    const res = snapshot ? { items: snapshot.collection(type), context: snapshot.context(type) }
+      : await fetchContentItems(engine, baseApi, type, headers, warnings, config.authMode);
     contentTypes.push({
       type,
       count: res.items.length,
@@ -507,12 +450,14 @@ export async function runAnalyze(configPath, opts = {}) {
   }
 
   // 5. Translations relation.
-  const translations = await detectTranslations(engine, config.wpBaseUrl, headers, warnings);
+  const translations = snapshot ? { status: "not-captured", languages: [] }
+    : await detectTranslations(engine, config.wpBaseUrl, headers, warnings);
 
   // 6. Assemble outputs.
   const blockClassification = classifyBlocks(engine, blocksUsed.blocksUsed);
 
   const writePlan = {
+    ...(snapshot ? { snapshot: snapshot.completeness } : {}),
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     contentTypes,
@@ -531,6 +476,7 @@ export async function runAnalyze(configPath, opts = {}) {
   };
 
   const report = {
+    ...(snapshot ? { snapshot: snapshot.completeness } : {}),
     schemaVersion: 1,
     mode: "analyze-only",
     startedAt,

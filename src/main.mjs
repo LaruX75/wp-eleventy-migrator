@@ -43,6 +43,18 @@ export async function main(argv = process.argv.slice(2)) {
     await runFromConfig(arg);
     return;
   }
+  if (cmd === "snapshot") {
+    if (!arg || argv.length !== 2) {
+      output.write("Usage: node src/main.mjs snapshot <config.json>\n");
+      process.exitCode = 1;
+      return;
+    }
+    const { runSnapshot } = await import("./app/snapshot.mjs");
+    const result = await runSnapshot(arg);
+    output.write(`Snapshot ${result.manifest.completeness.status}: ${result.manifestPath}\n`);
+    if (result.manifest.completeness.status !== "complete") process.exitCode = 2;
+    return;
+  }
   if (cmd === "analyze") {
     // First non-flag positional argument after "analyze" is the config path.
     // "--skip-xml-backup" is the only recognised flag; it may appear before
@@ -72,6 +84,7 @@ export async function main(argv = process.argv.slice(2)) {
   output.write("  node src/main.mjs wizard\n");
   output.write("  node src/main.mjs run <config.json>\n");
   output.write("  node src/main.mjs analyze <config.json> [--skip-xml-backup]\n");
+  output.write("  node src/main.mjs snapshot <config.json>\n");
   output.write("  node src/main.mjs serve [port]\n");
 }
 

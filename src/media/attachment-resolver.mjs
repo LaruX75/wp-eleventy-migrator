@@ -13,6 +13,15 @@ export function attachmentId(value) {
   return /^\d+$/.test(text) && Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
+// Shared destination convention for confirmed attachment URLs.
+export function mediaDestination(sourceUrl, wpBaseUrl, mediaRoot, mediaDir, sanitizeFileSegment) {
+  const source = new URL(sourceUrl);
+  const segments = source.pathname.replace(/^\/+/, "").split("/").map(sanitizeFileSegment);
+  if (segments.some((segment) => !segment || segment === "." || segment === "..")) throw new Error("unsupported-media-path");
+  if (source.origin !== new URL(wpBaseUrl).origin) segments.unshift("_external", sanitizeFileSegment(source.host));
+  return { outPath: path.join(mediaRoot, ...segments), localUrl: `/${mediaDir}/${segments.join("/")}`.replace(/\/+/g, "/") };
+}
+
 // Engine-owned preparation performs I/O. The transformer receives only the
 // synchronous lookups below: a confirmed local { url, alt, caption, mime } or
 // null, plus a stable failure code. No source URL or request error is reported.
@@ -25,7 +34,6 @@ export function createAttachmentResolver({
   const failures = new Map();
   const downloaded = new Map();
   const destinations = new Map();
-  const origin = new URL(wpBaseUrl).origin;
 
   async function prepare(ids, embeddedRecords = []) {
     for (const record of embeddedRecords) {
@@ -65,14 +73,13 @@ export function createAttachmentResolver({
       }
       // Keep the existing URL-path/sanitized-segment convention. Authoritative
       // off-origin records get their own namespace, and never WP credentials.
-      const segments = source.pathname.replace(/^\/+/, "").split("/").map(sanitizeFileSegment);
-      if (segments.some((segment) => !segment || segment === "." || segment === "..")) {
+      let outPath, localUrl;
+      try {
+        ({ outPath, localUrl } = mediaDestination(source.href, wpBaseUrl, mediaRoot, mediaDir, sanitizeFileSegment));
+      } catch {
         failures.set(id, "unsupported-media-path");
         continue;
       }
-      if (source.origin !== origin) segments.unshift("_external", sanitizeFileSegment(source.host));
-      const outPath = path.join(mediaRoot, ...segments);
-      const localUrl = `/${mediaDir}/${segments.join("/")}`.replace(/\/+/g, "/");
       const owner = destinations.get(outPath);
       if (owner && owner !== source.href) {
         failures.set(id, "media-path-collision");
