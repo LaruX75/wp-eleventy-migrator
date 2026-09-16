@@ -24,7 +24,7 @@ export async function runFromConfig(configPath) {
   const report = await runMigration(absolute);
   output.write(`${JSON.stringify(report, null, 2)}\n`);
 
-  if (config.lang || !config.wpBaseUrl) return;
+  if (config.sourceType === "snapshot" || config.lang || !config.wpBaseUrl) return;
 
   const authHeaders = buildAuthHeaders(config);
   const detectedLangs = await detectLanguages(config.wpBaseUrl, authHeaders);

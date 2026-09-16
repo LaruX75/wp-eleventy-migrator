@@ -10,6 +10,8 @@
 // keep working.
 
 import fs from "node:fs/promises";
+import { fetchAllPages, fetchJson, downloadFile } from "../src/fetch/rest.mjs";
+import { openSnapshot } from "../src/source/snapshot.mjs";
 import path from "node:path";
 import process from "node:process";
 import http from "node:http";
@@ -486,36 +488,6 @@ function printStep(step, text) {
   output.write(`\n[${step}] ${text}\n`);
 }
 
-async function fetchAllPages(url, headers = {}) {
-  const all = [];
-  let page = 1;
-  while (true) {
-    const finalUrl = `${url}${url.includes("?") ? "&" : "?"}per_page=100&page=${page}`;
-    const res = await fetch(finalUrl, { headers });
-    if (!res.ok) {
-      if (res.status === 400 && page > 1) break;
-      const body = await res.text().catch(() => "");
-      throw new Error(`HTTP ${res.status} for ${finalUrl}\n${body.slice(0, 300)}`);
-    }
-    const part = await res.json();
-    if (!Array.isArray(part) || part.length === 0) break;
-    all.push(...part);
-    const totalPages = Number(res.headers.get("x-wp-totalpages") || "0");
-    if (totalPages > 0 && page >= totalPages) break;
-    page += 1;
-  }
-  return all;
-}
-
-async function fetchJson(url, headers = {}) {
-  const res = await fetch(url, { headers });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} for ${url}\n${body.slice(0, 300)}`);
-  }
-  return res.json();
-}
-
 function extractMediaUrls(html, wpBaseUrl) {
   const urls = new Set();
   const source = String(html || "");
@@ -907,18 +879,6 @@ async function fetchMenus(wpBaseUrl, headers = {}, warnings = []) {
     }
   }
   return { source: "", menus: [] };
-}
-
-async function downloadFile(url, outPath, headers = {}, expectedMime = "") {
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`Failed media download: ${res.status} ${url}`);
-  if (expectedMime && res.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== expectedMime) {
-    throw new Error("Unexpected attachment media content type");
-  }
-  const arr = new Uint8Array(await res.arrayBuffer());
-  if (expectedMime && !arr.byteLength) throw new Error("Empty attachment media response");
-  await fs.mkdir(path.dirname(outPath), { recursive: true });
-  await fs.writeFile(outPath, arr);
 }
 
 async function fetchText(url, headers = {}) {
@@ -4048,6 +4008,10 @@ function resolveLayoutForType(type, config) {
   return String(config.defaultLayout || "").trim();
 }
 
+function migrationContent(item) {
+  return item?.content?.rendered || item?.content?.raw || (typeof item?.content === "string" ? item.content : "");
+}
+
 function itemToDoc(item, type, config, categoryMap, tagMap, warnings, transformerContext = {}) {
   const title = decodeHtml(item?.title?.rendered || item?.title || `Untitled ${item?.id || ""}`.trim());
   const slug = slugify(item?.slug || title);
@@ -4062,7 +4026,7 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings, transforme
   const categories = Array.isArray(item?.categories) ? item.categories.map((id) => categoryMap.get(id)).filter(Boolean) : [];
   const tags = Array.isArray(item?.tags) ? item.tags.map((id) => tagMap.get(id)).filter(Boolean) : [];
   const rawBlockContent = item?.content?.raw || "";
-  const renderedHtml = item?.content?.rendered || item?.content || "";
+  const renderedHtml = migrationContent(item);
   const permalink = buildTargetPermalink(type, slug, config, item?.link || "");
   const layout = resolveLayoutForType(type, config);
 
@@ -4174,7 +4138,14 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings, transforme
 }
 
 async function runMigration(configPath, explicitConfig, progress = () => {}) {
-  const config = explicitConfig || JSON.parse(await fs.readFile(configPath, "utf8"));
+  let config = explicitConfig || JSON.parse(await fs.readFile(configPath, "utf8"));
+  let snapshot = null;
+  if (String(config.sourceType).toLowerCase() === "snapshot") {
+    config = await createConfigFromInput(config);
+    snapshot = await openSnapshot(config, configPath ? path.dirname(path.resolve(configPath)) : process.cwd());
+    for (const type of [...config.contentTypes, "categories", "tags"]) snapshot.collection(type);
+    config = { ...config, wpBaseUrl: snapshot.baseUrl, authMode: "none", wpUser: "", wpAppPassword: "", wpBearerToken: "" };
+  }
   const report = {
     startedAt: new Date().toISOString(),
     configPath,
@@ -4197,15 +4168,29 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     kadenceBlocks: { enabled: Boolean(config.convertKadenceBlocks) }
   };
 
-  if (config.sourceType !== "rest") {
+  if (config.sourceType !== "rest" && !snapshot) {
     report.warnings.push(`Source type '${config.sourceType}' is not implemented yet. Use 'rest'.`);
     return report;
+  }
+
+  if (snapshot) {
+    report.snapshot = snapshot.completeness;
+    report.xmlBackup = snapshot.xmlBackup;
+    report.warnings.push("Offline snapshot: menu/style fetching, language detection and dependency installation are skipped.");
+    if (snapshot.completeness.status !== "complete") report.warnings.push(`Snapshot completeness: ${snapshot.completeness.status}; see snapshot.reasons.`);
+    report.styles = { enabled: false, skipped: "offline-snapshot" };
+    report.menus = { imported: 0, skipped: "offline-snapshot" };
+    config = { ...config, importMenus: false, migrateStyles: false };
   }
 
   progress("info", `Migration started → ${config.wpBaseUrl}`);
   progress("info", `Output directory: ${config.outputRoot}${config.dryRun ? " (dry run)" : ""}`);
 
   const root = path.resolve(process.cwd(), config.outputRoot);
+  if (snapshot) {
+    await fs.mkdir(path.dirname(root), { recursive: true });
+    await fs.mkdir(root); // Offline writes also require a fresh target.
+  }
   const contentRoot = config.langPrefix
     ? path.join(root, config.contentDir, config.langPrefix)
     : path.join(root, config.contentDir);
@@ -4279,8 +4264,8 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   const attachmentResolver = createAttachmentResolver({
     wpBaseUrl: config.wpBaseUrl, mediaRoot, mediaDir: config.mediaDir,
     downloadMedia: config.downloadMedia, dryRun: config.dryRun,
-    lookupMedia: (id) => fetchJson(`${baseApi}/media/${id}`, headers),
-    downloadFile: (url, outPath, mime) => downloadFile(
+    lookupMedia: snapshot ? snapshot.lookupMedia : (id) => fetchJson(`${baseApi}/media/${id}`, headers),
+    downloadFile: snapshot ? snapshot.copyMedia : (url, outPath, mime) => downloadFile(
       url, outPath, new URL(url).origin === new URL(config.wpBaseUrl).origin ? headers : {}, mime
     ),
     sanitizeFileSegment
@@ -4289,10 +4274,10 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   const langSep = config.lang ? `?lang=${encodeURIComponent(config.lang)}&` : "?";
 
   progress("info", "Fetching taxonomies (categories, tags)…");
-  printStep("fetch", `Taxonomies from ${baseApi}`);
+  printStep(snapshot ? "read" : "fetch", snapshot ? "Taxonomies from local snapshot" : `Taxonomies from ${baseApi}`);
   const [cats, tags] = await Promise.all([
-    fetchAllPages(`${baseApi}/categories${langParam}`, headers).catch(() => []),
-    fetchAllPages(`${baseApi}/tags${langParam}`, headers).catch(() => [])
+    snapshot ? snapshot.collection("categories") : fetchAllPages(`${baseApi}/categories${langParam}`, headers).catch(() => []),
+    snapshot ? snapshot.collection("tags") : fetchAllPages(`${baseApi}/tags${langParam}`, headers).catch(() => [])
   ]);
   const categoryMap = new Map(cats.map((c) => [c.id, c.name]));
   const tagMap = new Map(tags.map((t) => [t.id, t.name]));
@@ -4300,7 +4285,8 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
 
   const categoryNames = cats.map((c) => c.name).filter(Boolean);
   await bootstrapEleventyProject(root, config, report, progress, categoryNames);
-  await installProjectDependencies(root, config, report, progress);
+  if (snapshot) report.install = { skipped: true, reason: "offline-snapshot" };
+  else await installProjectDependencies(root, config, report, progress);
 
   if (config.migrateStyles) {
     progress("info", "Fetching stylesheets and design tokens…");
@@ -4404,6 +4390,14 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
 
   await writeEleventyPluginPlan(root, config, report, progress);
 
+  const localMedia = snapshot && config.downloadMedia && !config.dryRun
+    ? await snapshot.prepareMedia(mediaRoot, config.mediaDir, sanitizeFileSegment) : null;
+  if (localMedia?.failures.length) {
+    report.snapshot = { ...report.snapshot, status: "incomplete", reasons: [...report.snapshot.reasons, ...localMedia.failures],
+      counts: { ...report.snapshot.counts, localMediaCopyFailures: localMedia.failures.length } };
+    report.warnings.push("Some snapshot media could not be copied; source references are preserved.");
+  }
+
   for (const type of config.contentTypes) {
     const typeSlug = slugify(type);
     const endpointBase = `${baseApi}/${type}`;
@@ -4412,12 +4406,12 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       ? `${endpointBase}${langSep}context=edit&_embed=1`
       : baseWithEmbed;
     progress("info", `Fetching ${type}…`);
-    printStep("fetch", `${type} -> ${endpoint}`);
+    printStep(snapshot ? "read" : "fetch", snapshot ? `${type} from local snapshot` : `${type} -> ${endpoint}`);
     let items;
     try {
-      items = await fetchAllPages(endpoint, headers);
+      items = snapshot ? snapshot.collection(type) : await fetchAllPages(endpoint, headers);
     } catch (err) {
-      if (endpoint !== baseWithEmbed) {
+      if (!snapshot && endpoint !== baseWithEmbed) {
         report.warnings.push(`Falling back to rendered content for ${type}: ${String(err.message || err)}`);
         progress("warn", `Falling back to rendered content (${type})`);
         items = await fetchAllPages(baseWithEmbed, headers);
@@ -4430,7 +4424,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
 
     // Prepare authoritative attachment records and local files before rendering.
     await attachmentResolver.prepare(
-      items.flatMap((item) => collectWpBakeryMediaIds(String(item?.content?.rendered || item?.content || ""))),
+      items.flatMap((item) => collectWpBakeryMediaIds(String(migrationContent(item)))),
       items.flatMap((item) => item?._embedded?.["wp:featuredmedia"] || [])
     );
 
@@ -4466,7 +4460,12 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       );
       if (doc.frontMatter.featuredImage) allMediaUrls.push(doc.frontMatter.featuredImage);
 
-      if (config.downloadMedia) {
+      if (snapshot) {
+        if (localMedia) {
+          body = localMedia.rewrite(body);
+          if (doc.frontMatter.featuredImage) doc.frontMatter.featuredImage = localMedia.rewrite(doc.frontMatter.featuredImage);
+        }
+      } else if (config.downloadMedia) {
         // Rewrite WP-origin /wp-content/ URLs to local /media/ paths
         body = rewriteWpMediaUrls(body, config.wpBaseUrl, config.mediaDir);
         if (doc.frontMatter.featuredImage) {
@@ -4518,7 +4517,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
 
       if (config.createRedirects && item?.link) report.redirects.push({ from: item.link, to: doc.permalink });
 
-      if (config.downloadMedia && !config.dryRun) {
+      if (!snapshot && config.downloadMedia && !config.dryRun) {
         for (const mediaUrl of allMediaUrls) {
           try {
             const urlObj = new URL(mediaUrl);

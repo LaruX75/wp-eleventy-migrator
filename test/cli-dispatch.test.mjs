@@ -86,3 +86,14 @@ test("scripts/wp-eleventy-migrate.mjs run <bogus-path> (compat) → engine loade
   assert.match(res.stderr, /ENOENT/);
   assert.doesNotMatch(res.stderr, /unsettled top-level await/i);
 });
+
+for (const entry of ["src/main.mjs", "scripts/wp-eleventy-migrate.mjs"]) {
+  test(`${entry} snapshot requires config and rejects a backup bypass flag`, async () => {
+    for (const args of [["snapshot"], ["snapshot", "config.json", "--skip-xml-backup"]]) {
+      const res = await runNode([entry, ...args]);
+      assert.equal(res.code, 1);
+      assert.match(res.stdout, /snapshot <config.json>/);
+      assert.equal(res.stderr, "");
+    }
+  });
+}

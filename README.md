@@ -49,3 +49,10 @@ The tool writes (under outputRoot):
 - `_data/navigation.json` (best effort, if WordPress menu endpoints are available)
 - `redirects.csv` (optional)
 - `migration-report.json`
+
+## Portable REST snapshots
+
+Capture authenticated WordPress REST data and media once, then run `analyze`
+and `run` entirely offline with `sourceType: "snapshot"`. See the
+[snapshot contract and CLI usage](docs/rest-snapshot.md) for the mandatory WXR
+preflight, environment credentials, completeness states, and portable paths.

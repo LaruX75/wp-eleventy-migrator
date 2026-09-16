@@ -78,6 +78,8 @@ export async function createConfigFromInput(raw = {}) {
     preset,
     siteMode: ["new", "existing"].includes(String(raw.siteMode || "new")) ? String(raw.siteMode || "new") : "new",
     sourceType: String(raw.sourceType || "rest").toLowerCase(),
+    ...(raw.snapshotPath ? { snapshotPath: String(raw.snapshotPath).trim() } : {}),
+    ...(raw.snapshotOutputDir ? { snapshotOutputDir: String(raw.snapshotOutputDir).trim() } : {}),
     wpBaseUrl: String(raw.wpBaseUrl || "").trim().replace(/\/+$/, ""),
     restNamespace: String(raw.restNamespace || DEFAULT_NAMESPACE).trim() || DEFAULT_NAMESPACE,
     contentTypes: contentTypes.length ? contentTypes : [...DEFAULT_TYPES],
@@ -118,7 +120,7 @@ export async function createConfigFromInput(raw = {}) {
     // Analyze-only preflight fields. xmlBackupPath points to a locally
     // stored WordPress WXR export; analysisOutputDir is where the analyze
     // command writes migration-report.json and write-plan.json.
-    // Migration itself does not consume these fields.
+    // Snapshot capture also requires this backup and packages a verified copy.
     xmlBackupPath: String(raw.xmlBackupPath || "").trim(),
     analysisOutputDir: String(raw.analysisOutputDir || "").trim()
   };
