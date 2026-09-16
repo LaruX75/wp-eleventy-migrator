@@ -27,7 +27,8 @@ import {
   DEFAULT_KADENCE_STYLES_DIR,
   DEFAULT_KADENCE_PRO_STYLES_DIR
 } from "../src/config/defaults.mjs";
-import { transformWpBakery } from "../src/blocks/page-builders/wpbakery.mjs";
+import { transformWpBakery, collectWpBakeryMediaIds } from "../src/blocks/page-builders/wpbakery.mjs";
+import { createAttachmentResolver } from "../src/media/attachment-resolver.mjs";
 
 // Roll up a per-document transformer plan into an arch-v2-02 §4
 // overallStatus. Migration-report side uses the same status
@@ -908,10 +909,14 @@ async function fetchMenus(wpBaseUrl, headers = {}, warnings = []) {
   return { source: "", menus: [] };
 }
 
-async function downloadFile(url, outPath, headers = {}) {
+async function downloadFile(url, outPath, headers = {}, expectedMime = "") {
   const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`Failed media download: ${res.status} ${url}`);
+  if (expectedMime && res.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== expectedMime) {
+    throw new Error("Unexpected attachment media content type");
+  }
   const arr = new Uint8Array(await res.arrayBuffer());
+  if (expectedMime && !arr.byteLength) throw new Error("Empty attachment media response");
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   await fs.writeFile(outPath, arr);
 }
@@ -4043,7 +4048,7 @@ function resolveLayoutForType(type, config) {
   return String(config.defaultLayout || "").trim();
 }
 
-function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
+function itemToDoc(item, type, config, categoryMap, tagMap, warnings, transformerContext = {}) {
   const title = decodeHtml(item?.title?.rendered || item?.title || `Untitled ${item?.id || ""}`.trim());
   const slug = slugify(item?.slug || title);
   const rawExcerpt = item?.excerpt?.rendered || (typeof item?.excerpt === "string" ? item.excerpt : "") || "";
@@ -4068,10 +4073,13 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   // the input. Its transformerPlan is later collected by
   // runMigration into the report's transformerCoverage block.
   const wpbakeryInput = String(renderedHtml).trim();
-  const wpbakeryResult = transformWpBakery(wpbakeryInput);
+  const wpbakeryResult = transformWpBakery(wpbakeryInput, transformerContext);
 
   let body = config.htmlMode === "basic-markdown"
-    ? basicHtmlToMarkdown(wpbakeryResult.output)
+    // Keep resolved attachment figures semantic, including escaped metadata.
+    ? wpbakeryResult.output.split(/(<figure class="wp-attachment-image"[\s\S]*?<\/figure>)/g)
+      .map((part) => part.startsWith('<figure class="wp-attachment-image"') ? part : basicHtmlToMarkdown(part))
+      .filter(Boolean).join("\n\n")
     : wpbakeryResult.output;
   let fileExtension = "md";
   let kadenceBlocks = [];
@@ -4268,6 +4276,15 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
   }
 
   const baseApi = joinUrl(config.wpBaseUrl, config.restNamespace || DEFAULT_NAMESPACE);
+  const attachmentResolver = createAttachmentResolver({
+    wpBaseUrl: config.wpBaseUrl, mediaRoot, mediaDir: config.mediaDir,
+    downloadMedia: config.downloadMedia, dryRun: config.dryRun,
+    lookupMedia: (id) => fetchJson(`${baseApi}/media/${id}`, headers),
+    downloadFile: (url, outPath, mime) => downloadFile(
+      url, outPath, new URL(url).origin === new URL(config.wpBaseUrl).origin ? headers : {}, mime
+    ),
+    sanitizeFileSegment
+  });
   const langParam = config.lang ? `?lang=${encodeURIComponent(config.lang)}` : "";
   const langSep = config.lang ? `?lang=${encodeURIComponent(config.lang)}&` : "?";
 
@@ -4411,6 +4428,12 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     if (!config.includeDrafts) items = items.filter((i) => i?.status === "publish");
     progress("ok", `${type}: ${items.length} published items fetched`);
 
+    // Prepare authoritative attachment records and local files before rendering.
+    await attachmentResolver.prepare(
+      items.flatMap((item) => collectWpBakeryMediaIds(String(item?.content?.rendered || item?.content || ""))),
+      items.flatMap((item) => item?._embedded?.["wp:featuredmedia"] || [])
+    );
+
     const outTypeDir = path.join(contentRoot, typeSlug);
     await fs.mkdir(outTypeDir, { recursive: true });
 
@@ -4430,7 +4453,7 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
     let written = 0;
     let externalMediaCount = 0;
     for (const item of items) {
-      const doc = itemToDoc(item, typeSlug, config, categoryMap, tagMap, report.warnings);
+      const doc = itemToDoc(item, typeSlug, config, categoryMap, tagMap, report.warnings, attachmentResolver);
       const datePart = typeSlug === "posts" ? `${toIsoDay(item?.date)}-` : "";
       const fileName = `${datePart}${doc.slug}.${doc.fileExtension}`;
       const filePath = path.join(outTypeDir, fileName);
