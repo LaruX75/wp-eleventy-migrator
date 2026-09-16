@@ -4046,7 +4046,14 @@ function resolveLayoutForType(type, config) {
 function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   const title = decodeHtml(item?.title?.rendered || item?.title || `Untitled ${item?.id || ""}`.trim());
   const slug = slugify(item?.slug || title);
-  const excerpt = stripHtml(item?.excerpt?.rendered || (typeof item?.excerpt === "string" ? item.excerpt : "") || "");
+  const rawExcerpt = item?.excerpt?.rendered || (typeof item?.excerpt === "string" ? item.excerpt : "") || "";
+  // Auto-generated excerpts can retain WPBakery wrappers, even when truncated.
+  // Reuse the body transformer, then discard diagnostic comments and HTML.
+  // Leave non-WPBakery excerpts on the existing plain-text path.
+  const excerptHtml = /\[\/?(?:vc_|vcex_)/.test(rawExcerpt)
+    ? transformWpBakery(rawExcerpt).output.replace(/<!--[\s\S]*?-->/g, " ")
+    : rawExcerpt;
+  const excerpt = stripHtml(excerptHtml);
   const categories = Array.isArray(item?.categories) ? item.categories.map((id) => categoryMap.get(id)).filter(Boolean) : [];
   const tags = Array.isArray(item?.tags) ? item.tags.map((id) => tagMap.get(id)).filter(Boolean) : [];
   const rawBlockContent = item?.content?.raw || "";
@@ -5088,6 +5095,7 @@ export {
   extractMediaUrls,
   slugify,
   buildTargetPermalink,
+  itemToDoc,
   SUPPORTED_KADENCE_BLOCKS,
   SUPPORTED_KADENCE_PRO_BLOCKS
 };

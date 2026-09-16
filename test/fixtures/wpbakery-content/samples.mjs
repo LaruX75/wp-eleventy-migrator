@@ -55,3 +55,11 @@ export const UNKNOWN_VCEX = `[vc_row][vc_column]
 
 // vc_single_image with attachment ID only — must NOT invent a URL.
 export const SINGLE_IMAGE_ID_ONLY = `[vc_single_image image="42" alignment="center"]`;
+
+// Auto-generated excerpt shape: video first, then text and unresolved media.
+export const JUHLAPAIVA_AUTO_EXCERPT =
+  `<p>[vc_row content_placement="middle"][vc_column][vc_video ` +
+  `link="https://youtu.be/dQw4w9WgXcQ"][/vc_column][/vc_row]` +
+  `[vc_row][vc_column][vc_column_text]Tervetuloa juhlaan lauantaina.` +
+  ` Ohjelmassa musiikkia, torikahvit ja lapsille pomppulinna.[/vc_column_text]` +
+  `[vc_single_image image="2658"][/vc_column][/vc_row]</p>\n`;
