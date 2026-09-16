@@ -27,6 +27,27 @@ import {
   DEFAULT_KADENCE_STYLES_DIR,
   DEFAULT_KADENCE_PRO_STYLES_DIR
 } from "../src/config/defaults.mjs";
+import { transformWpBakery } from "../src/blocks/page-builders/wpbakery.mjs";
+
+// Roll up a per-document transformer plan into an arch-v2-02 §4
+// overallStatus. Migration-report side uses the same status
+// vocabulary as the analyze-preflight write-plan.
+function deriveOverallStatus(plan) {
+  const unhandled = plan?.unhandledUnits || [];
+  const preserved = plan?.preservedSourceUnits || [];
+  let hasBlocking = false;
+  let hasManualReview = false;
+  let hasInformational = false;
+  for (const u of unhandled) {
+    if (u.criticality === "blocking") hasBlocking = true;
+    else if (u.criticality === "manual-review") hasManualReview = true;
+    else if (u.criticality === "informational") hasInformational = true;
+  }
+  if (hasBlocking) return "blocked";
+  if (hasManualReview) return "manual-review";
+  if (hasInformational || preserved.length > 0) return "partial";
+  return "complete";
+}
 import {
   nowStamp,
   parseCsvList,
@@ -4032,7 +4053,19 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   const renderedHtml = item?.content?.rendered || item?.content || "";
   const permalink = buildTargetPermalink(type, slug, config, item?.link || "");
   const layout = resolveLayoutForType(type, config);
-  let body = config.htmlMode === "basic-markdown" ? basicHtmlToMarkdown(renderedHtml) : String(renderedHtml).trim();
+
+  // WPBakery content-preserving transformer (generic). Always on: it
+  // is a source-agnostic rewrite that strips WPBakery structural
+  // wrappers and renders known leaves into semantic HTML. When the
+  // input contains no WPBakery shortcodes the output is identical to
+  // the input. Its transformerPlan is later collected by
+  // runMigration into the report's transformerCoverage block.
+  const wpbakeryInput = String(renderedHtml).trim();
+  const wpbakeryResult = transformWpBakery(wpbakeryInput);
+
+  let body = config.htmlMode === "basic-markdown"
+    ? basicHtmlToMarkdown(wpbakeryResult.output)
+    : wpbakeryResult.output;
   let fileExtension = "md";
   let kadenceBlocks = [];
   let unknownKadenceBlocks = [];
@@ -4104,6 +4137,13 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
   if (seoMeta.canonical) frontMatter.canonical = seoMeta.canonical;
   if (seoMeta.noindex) frontMatter.noindex = true;
 
+  // If Kadence conversion took over the body, its Nunjucks output
+  // supersedes the WPBakery pass — the plan is then empty because
+  // the WPBakery pass was effectively discarded.
+  const transformerPlan = convertedKadenceBlocks
+    ? { handledUnits: [], unhandledUnits: [], preservedSourceUnits: [] }
+    : wpbakeryResult.plan;
+
   return {
     title,
     slug,
@@ -4113,7 +4153,8 @@ function itemToDoc(item, type, config, categoryMap, tagMap, warnings) {
     fileExtension,
     convertedKadenceBlocks,
     unknownKadenceBlocks,
-    shortcodes
+    shortcodes,
+    transformerPlan
   };
 }
 
@@ -4130,6 +4171,11 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
       unsupportedBlocks: [],
       shortcodes: [],
       suggestions: []
+    },
+    // Per-document coverage from opt-in content transformers (currently
+    // only the WPBakery generic pass). Populated by itemToDoc → doc.
+    transformerCoverage: {
+      documents: []
     },
     workflow: ["discover", "configure", "migrate"],
     styles: { enabled: Boolean(config.migrateStyles) },
@@ -4420,6 +4466,23 @@ async function runMigration(configPath, explicitConfig, progress = () => {}) {
           document: `${typeSlug}/${fileName}`,
           sourceUrl: item?.link || "",
           shortcodes: doc.shortcodes
+        });
+      }
+
+      // Aggregate the WPBakery transformer plan per document. When the
+      // input had no WPBakery shortcodes both lists are empty; the
+      // entry is still recorded so the migration report has a full
+      // per-document coverage map.
+      if (doc.transformerPlan) {
+        report.transformerCoverage.documents.push({
+          document: `${typeSlug}/${fileName}`,
+          sourceId: item?.id ?? null,
+          sourceUrl: item?.link || "",
+          targetPath: `${config.contentDir}/${typeSlug}/${fileName}`,
+          handledUnits: doc.transformerPlan.handledUnits || [],
+          unhandledUnits: doc.transformerPlan.unhandledUnits || [],
+          preservedSourceUnits: doc.transformerPlan.preservedSourceUnits || [],
+          overallStatus: deriveOverallStatus(doc.transformerPlan)
         });
       }
 
